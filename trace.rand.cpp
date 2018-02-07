@@ -816,7 +816,7 @@ int main(int argc, char* argv[]){
 		cout << "Performing PCA on reference individuals (using rand)..." << endl;
 		foutLog << endl << asctime (timeinfo);
 		foutLog << "Performing PCA on reference individuals (using rand)..." << endl;
-		randSvd(RefD_raw, V_rand_flt, d_rand_flt, k = DIM_SUPER);
+		randSvd(RefD_raw, V_rand_flt, d_rand_flt, k = REF_SIZE);
 		// V.save("/home/david/research/ref_V", raw_ascii);
 		// V_rand_flt.save("/home/david/research/ref_V_rand", raw_ascii);
 		// printer(V.submat(0, 0, 4, 4));
@@ -2462,8 +2462,7 @@ int randSvd(const fmat &XX, fmat &U, fvec &d, unsigned k, unsigned nIter){
   // cout << "X" << accu(X) << endl << X.submat(0,0,3,3) << endl;
   standardize_rsvd(X);
   // cout << "X after standarization" << accu(X) << endl << X.submat(0,0,3,3) << endl;
-  unsigned l = k;
-  fmat R(p, k + l, fill::randn);
+  fmat R(p, k, fill::randn);
   // cout << "R" << accu(R) << endl << R.submat(0,0,3,3) << endl;
   // cout << "X before multiplication" << accu(X) << endl << X.submat(0,0,3,3) << endl;
   fmat Y = X * R;
