@@ -13,13 +13,14 @@ name=trace.${ver}
 DIM=4
 DIM_HIGH=20
 
-cd ../data/laser
-echo "Entered laser dir"
 
 # echo "Not compiling cpp"
 echo Compiling ${name}.cpp...
-rm ${name}
-# make
+export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH
+make
+cp ${name} ../data/laser/${name}
+
+
 
 # For running locally
 # g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} `pkg-config --libs gsl lapack` -larmadillo
@@ -32,13 +33,14 @@ rm ${name}
 
 
 # For running on FLUX
-export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH
-echo $LD_LIBRARY_PATH
-g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2  -I/home/daiweiz/gsl/include -L/home/daiweiz/gsl/lib -lblas -llapack -lgsl -lgslcblas -lm -larmadillo 
+# g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2  -I/home/daiweiz/gsl/include -L/home/daiweiz/gsl/lib -lblas -llapack -lgsl -lgslcblas -lm -larmadillo 
 
-echo Done!
+
+echo Finished compiling.
+
 
 cd ../data/laser
+echo "Entered laser dir"
 hostname > ../${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.${ver}.nodename
 
 echo "\
