@@ -10,4 +10,4 @@ k=$4
 s=$5
 mig=$6
 
-python run_ggs2trace.py ../data/${pref}/${pref} ${p} ${n} ${k} ${s} ${mig}
+python3 run_ggs2trace.py ../data/${pref}/${pref} ${p} ${n} ${k} ${s} ${mig}

@@ -35,20 +35,30 @@ cp ${name} ../data/laser/${name}
 # For running on FLUX
 # g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2  -I/home/daiweiz/gsl/include -L/home/daiweiz/gsl/lib -lblas -llapack -lgsl -lgslcblas -lm -larmadillo 
 
-
 echo Finished compiling.
 
 
-cd ../data/laser
-echo "Entered laser dir"
-hostname > ../${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.${ver}.nodename
+hostname > ../data/${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.${ver}.nodename
 
+# For running trace in ../data/laser
+# echo "\
+# STUDY_FILE	../${pref}/${pref}_${p}_${m}_${k}_${s}_${mig}_1.geno
+# GENO_FILE	../${pref}/${pref}_${p}_${n}_${k}_${s}_${mig}_0.geno
+# OUT_PREFIX	../${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.${ver}
+# DIM        	${DIM}
+# DIM_HIGH	${DIM_HIGH}
+# " > trace.conf
+
+# For running trace here
 echo "\
-STUDY_FILE	../${pref}/${pref}_${p}_${m}_${k}_${s}_${mig}_1.geno
-GENO_FILE	../${pref}/${pref}_${p}_${n}_${k}_${s}_${mig}_0.geno
-OUT_PREFIX	../${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.${ver}
+STUDY_FILE	../data/${pref}/${pref}_${p}_${m}_${k}_${s}_${mig}_1.geno
+GENO_FILE	../data/${pref}/${pref}_${p}_${n}_${k}_${s}_${mig}_0.geno
+OUT_PREFIX	../data/${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.${ver}
 DIM        	${DIM}
 DIM_HIGH	${DIM_HIGH}
 " > trace.conf
+
+# cd ../data/laser
+# echo "Entered laser dir"
 
 ./${name} -p trace.conf

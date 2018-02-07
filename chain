@@ -41,7 +41,7 @@ date
 pdf=../data/${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.pdf
 rm ${pdf}
 Rscript plot.R ${ver} ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
-evince ${pdf}
+# evince ${pdf}
 
 
 

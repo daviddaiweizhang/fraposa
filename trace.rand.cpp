@@ -46,6 +46,17 @@ void PRINTER(string name, int X) {cout << endl << name << endl << X << endl;}
 void PRINTER(string name, float X) {cout << endl << name << endl << X << endl;}
 void PRINTER(string name, double X) {cout << endl << name << endl << X << endl;}
 
+template<class Matrix>
+void pm(Matrix matrix) {
+  cout << endl << size(matrix) << endl;
+  Matrix submat = matrix.submat(0,0,4,4);
+  submat.print(std::cout);
+  cout << endl;
+}
+template void pm<arma::mat>(arma::mat matrix);
+template void pm<arma::fmat>(arma::fmat matrix);
+
+
 const string ARG_PARAM_FILE = "-p";
 const string ARG_STUDY_FILE = "-s";
 const string ARG_GENO_FILE = "-g";
@@ -805,7 +816,7 @@ int main(int argc, char* argv[]){
 		cout << "Performing PCA on reference individuals (using rand)..." << endl;
 		foutLog << endl << asctime (timeinfo);
 		foutLog << "Performing PCA on reference individuals (using rand)..." << endl;
-		randSvd(RefD_raw, V_rand_flt, d_rand_flt, k = DIM);
+		randSvd(RefD_raw, V_rand_flt, d_rand_flt, k = DIM_SUPER);
 		// V.save("/home/david/research/ref_V", raw_ascii);
 		// V_rand_flt.save("/home/david/research/ref_V_rand", raw_ascii);
 		// printer(V.submat(0, 0, 4, 4));
