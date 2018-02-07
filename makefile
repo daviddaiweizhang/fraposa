@@ -1,12 +1,10 @@
 FLAGS = -std=c++11 -g -O2 
--std=c++11 -g ../../research/${name}.cpp -o ${name} -O2 
-
-# Local
+# local
 LIBS = -lblas -llapack -lgsl -lgslcblas -lm -larmadillo
-# FLUX
-# LIBS = -I/home/daiweiz/gsl/include -L/home/daiweiz/gsl/lib -lblas -llapack -lgsl -lgslcblas -lm -larmadillo
-# CSG
+# csg
 # LIBS = -I/net/dumbo/home/daiweiz/usr/include/ -L/net/dumbo/home/daiweiz/usr/lib/x86_64-linux-gnu -lblas -llapack -lgsl -lgslcblas -lm -larmadillo -lhdf5 
+# flux
+# LIBS = -I/home/daiweiz/gsl/include -L/home/daiweiz/gsl/lib -lblas -llapack -lgsl -lgslcblas -lm -larmadillo
 
 
 build:
