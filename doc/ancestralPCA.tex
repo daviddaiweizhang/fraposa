@@ -1,0 +1,424 @@
+\documentclass{article}[12pt]
+
+\usepackage{epsfig} \usepackage[margin=1.5in]{geometry}
+\usepackage[semicolon,authoryear]{natbib} \bibliographystyle{natbib}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{cleveref}
+\usepackage{verbatim}
+
+\newcommand{\bO}{\mathcal{O}}
+
+
+\title{Computational Methods for Principle Component Analysis Applied to Ancestry Estimation}
+
+\author{David Zhang}
+
+\begin{document}
+
+\maketitle
+
+\section{Principle Component Analysis (PCA)}
+
+\subsection{What is PCA}
+
+Let there be $n$ individuals and $p$ features.
+Moreover, let these points be centered.
+Then we have $n$ points in a $p$-dimensional space,
+with the origin being the center of mass of these points.
+For any direction, we can project the points to it and find the variance of the projected points.
+We are interested in the direction of the greatest variance.
+This direction is the linear combination of the features that distinguishes the individuals the most,
+which we call the first principle component (PC1).
+We repeat the process in the quotient space induced by PC1 to find the second principle component (PC2) and so forth.
+By using the first $k$ PC's, we can reduce the $p$-dimensional data to $k$-dimensional at the least cost of losing information.
+
+\subsection{How to find the PCs}
+To find the PC's, we record the information of this group in a $p \times n$ matrix $X$ and conduct singular value decomposition (SVD) to it.
+SVD gives us the spectrum decomposition $X = UDV^T$, where $U$ is $p \times n$, $D$ and $V$ are $n \times n$.
+Here $U$ and $V$ are unitary matrices,
+and their columns are the eigenvectors of $XX^T$ and $X^T X$, respectively.
+And $D$ is a diagonal matrix,
+whose diagonal entries are the square roots of the nonzero eigenvalues of $X X^T$ and $X^T X$.
+In other words, $X X^T = U D^2 U^T$ and $X^T X = V D^2 V^T$.
+For PCA, the columns of $U$ are the first $n$ PC's,
+the diagonal entries of $D$ are the standard deviations of the $n$ points projected to the $n$ PC's,
+and the rows of $V$ are the $n$ points' standardized PC scores on the $n$ PC's,
+which can be seen as $n$ points' coordinates in the space spanned by the $n$ PC's.
+
+For more information on PCA, see \cite{jolliffe}.
+
+\section{Application of PCA to Genotyping Data}
+
+\subsection{The format of genotyping data}
+
+PCA can be applied to genotyping data.
+In particular, it is used to analyze single nucleotide polymorphisms (SNPs).
+A SNP is a variation in a single nucleotide.
+For example, most individuals may have an A base at a specific base position, but a minority of individuals may have a C base at this site.
+Here we say that there is a SNP at this base position,
+and A and C are said to be its major and minor alleles, respectively.
+Since chromosomes come in pairs,
+at each base position the minor allele may appear zero, one, or two times.
+Thus by looking at certain base positions,
+we receive a data of the form of a string of $0$, $1$, and $2$,
+of length as large as hundreds of thousands.
+
+\subsection{The usefulness of PCA on genotyping data}
+
+The format of genotyping data makes it suitable for PCA.
+A group of individuals is first selected as the reference group.
+A testing individual is combined with the reference individuals to find its PC scores.
+By using the first few PCs (often times four PCs are informative enough), 
+we are able to convert the data from the form $3^p$ with $p \approx 10^6$ to $\mathbb{R}^k$ with $k \approx 4$,
+which significantly reduces the complicatedness of the data and make it more intuitive to comprehend.
+For example, we can find how similar is the testing individual to any of the reference individuals simply by eyeballing their PC1 vs PC2 plot.
+
+\subsection{Ancestry estimation by PCA}
+
+By applying PCA to genotyping data, we can retrieve information about many different aspects of an individual.
+In this research project, we focus on using PCA to estimate an individual's ancestry history from his or her genotyping data.
+Ancestry history is often a confounder for the association between certain gene and the trait being studied, such as having typej-II diabetes.
+By estimating an individual's ancestry history,
+researchers can eliminate the bias in the association between the gene and the trait caused by ancestry differences.
+It has been found that individuals with the same ancestry history score similarly on the first four PCs of their genotyping data (see \cite{wang}).
+Thus PCA provides a way to convert a person's ancestry history into real numbers,
+which is useful for numerically estimating the previously mentioned confounding effect induced by ancestry history.
+
+\section{Computational Methods for PCA}
+
+There are at least two methods for finding the testing individual's PC scores.
+Here we call them the ``once-for-everyone'' method and the ``once-for-all'' method.
+
+\subsection{The ``once-for-everyone'' method}
+
+
+In this method, we append the testing individual's genotyping data to the reference group's genotype matrix and compute the PC scores of the amended matrix.
+This is the most standard and reliable computational method for PCA.
+However, this method is relatively slow in computation.
+Here all the reference individuals' PC scores must be recomputed when a new testing individual arrives.
+  
+\subsubsection{Standard implementation}
+
+One of such implementation is the TRACE program by Wang et al.
+An important addition in this program to the description above is Procrustes analysis.
+Given two sets of points that are of the same number but live in spaces of different dimensions,
+Procrustes analysis helps us to find a projection
+that transforms the higher-dimensional set to the lower-dimensional set
+such that the distance between the points after the transformation is the least.
+This transformation improves the accuracy of the estimated ancestry.
+
+The detailed algorithm of TRACE runs as follows.
+Let $X$ be the $p \times n$ reference genotyping data matrix where each column represents an individual.
+Moreover, let $y$ be the $p \times 1$ matrix containing the testing individual's genotyping data.
+\begin{enumerate}
+\item Compute $X^T X$.
+  (Computational complexity: $\bO[n^2p]$.)  
+\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$ (columns of $D$ and $V$ are sorted by PC variance with the first column corresponding to the greatest PC variance).
+  ($\bO[n^3]$.)
+\item Append $X^T y$ and its transpose to the last column and row of $X^T X$, respectively.
+  The entry of the bottom-right corner is $y^T y$.
+  This is exactly the same as computing $X'^T X'$,
+  where $X' = (X, y)$ is the reference group with the testing individual added.
+  ($\bO[np]$.)
+\item Apply eigendecomposition to $X'^T X'$ to get $X'^T X' = V' D'^2 V'^T$.
+  ($\bO[n^3]$.)
+\item Project the first $k_2$ columns of $V'$ to the first $k_1$ columns of $V$ by using Procrustes analysis to get the transformed PC scores of the testing individual (the last row of $V$),
+  where $k_1 < k_2 << n$.
+  (Computational complexity is ignorable if $k_2$ is not large compared to $n$.)
+  \item Go to step 3 for the next testing individual.
+\end{enumerate}
+
+This is a simplified version of the TRACE algorithm.
+Some minor adjustments in the program are not mentioned above.
+TRACE actually uses the unstandardized PC scores $VD$ rather than the standardized PC scores $V$.
+The two treatments of the PC scores have the same computational complexity and the results are equivalent.
+Moreover, TRACE has a slightly more sophisticated treatment of missing data.
+In this report, we assume that no missing data exists to simply the comparison of the three methods.
+
+By adding up the computational complexity of each step, we can see that the total computational complexity of TRACE is $\bO[n^2p + m(np + n^3)]$,
+where $m$ is the number of testing individuals.
+
+For more information about TRACE,
+see \cite{wang} and TRACE's manual.
+
+\subsubsection{Improvments}
+
+The algorithm above can be speeded up by using a different way to calculate the PC scores, that is, matrix $V'$.
+Notice that TRACE only uses the first $k_2$ columns of $V'$.
+Thus we take advantage of this and use a method called online SVD that gives a close approximation of only some of the columns of $V'$ and saves computational complexity.
+The detailed algorithm is:
+
+\begin{enumerate}
+\item Compute $X^T X$.
+  (Computational complexity: $\bO[n^2p]$.)  
+\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
+  ($\bO[n^3]$.)
+\item Calculate $U_3 = X V_3 D_3^{-1}$,
+  where $V_3$ is the first $k_3$ columns of $V$,
+  and $D_3$ is the diagonal matrix of the first $k_3$ diagonal entries of $D$.
+  ($\bO[k_3 n p]$.)
+\item Calculate 
+  \[
+    L = U_3^T y \quad \text{and} \quad K = y^T H,
+  \]
+  where $H$ is the normalized  $y - U_3L$
+  ($\bO[k_3 p]$.)
+\item Calculate $Q^T Q$, where
+  \[
+    Q = 
+    \begin{bmatrix}
+      D_3 & L \\
+      0 & K
+    \end{bmatrix}.
+  \]
+  ($\bO[k_3^3]$.)
+\item Apply eigendecomosition to $Q^T Q$ to get $Q^T Q = V''_3 D''^2_3 V''^T_3$.
+  ($\bO[k_3^3]$.)
+\item Calculate
+  \[
+    V'_3 =
+    \begin{bmatrix}
+      V_3 & 0 \\
+      0 & 1
+    \end{bmatrix}
+    V''_3.
+  \]
+  ($\bO[nk_3^2]$.)
+\item Project the first $k_2$ columns of $V'_3$ to the first $k_1$ columns of $V$ by using Procrustes analysis to get the transformed PC scores of the testing individual,
+  where $k_1 < k_2  < k_3 << n$.
+  (Computational complexity is ignorable if $k_2$ is not large compared to $n$.)
+  \item Go to step 4 for the next testing individual.
+\end{enumerate}
+
+The total computational complexity for $m$ testing individuals is $\bO[n^2p + n^3 + k_3np + m(k_3p + k_3^3 + nk_3^2])$, which is approximately $\bO[n^2p + m(k_3p + k_3^2n)]$ since $k_3 << n << p$.
+This is a big save on the runtime compared to the TRACE algorithm,
+if $k_3$ is small compared to $n$.
+
+For more details of the online SVD method, see \cite{brand}.
+
+\subsection{The ``once-for-all'' method}
+
+In the ``once-for-everyone'' method,
+we have to decompose the data matrix of both the reference group and the testing individual for every single testing individual.
+Alternatively, we can find the PCs of the reference group and project the testing individual's genotyping data to that direction.
+This way, eigendecomposition or SVD is done only once,
+which significantly reduces computational complexity.
+However, this method tends to underestimate the magnitude of the testing individual's PC scores when $n << p$,
+which is often the case for genotyping data,
+as discussed in \cite{dey}.
+This is called the ``shrinking bias''.
+This problem has been dealt with by the R package HDPCA by Dey.
+The algorithm runs as follows:
+
+\begin{enumerate}
+\item Compute $X^T X$.
+  (Computational complexity: $\bO[n^2p]$.)  
+\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
+  ($\bO[n^3]$.)
+\item Calculate $W = (Y^T X) V D^{-1}$, where $Y$ is the data matrix for all the testing individuals. ($\bO[mpn + mn^2]$.)
+  \item Input $D$ and $W$ to the pc\_adjust function in the HDPCA function to obtain the PC scores adjusted for the shrinking bias. ($\bO[p]$ for finding the number of distant spikes (function select.nspike), $\bO[n]$ for adjusting for the shrinking bias (function hdpc\_est))
+\end{enumerate}
+
+Then the total computational complexity is $\bO[n^2p + mn(p + n) + p + n]$,
+which is approximately equal to $\bO[n^2p + mn(p+n)]$,
+given that $m$ or $n$ is large.
+The comparison of computational complexity of the three methods is shown in \Cref{tbl:cplx}.
+
+\begin{table} 
+  \centering
+  \begin{tabular}{|l|l|}
+    \hline
+    Method & Computational Complexity \\ 
+    \hline
+    TRACE & $\bO[n^2 p + mn(p + n^2)]$ \\
+    \hline
+    TRACE + online SVD & $\bO[n^2 p + mk_3(p + k_3 n)]$ \\
+    \hline
+    HDPCA & $\bO[n^2p + mn(p+n)]$ \\
+    \hline
+  \end{tabular}
+  \caption{
+    Comparison of computational complexity for the three methods.
+    Here $p$ is the number of SNPs,
+    $n$ is the number of individuals in the reference group,
+    and $m$ is the number of individuals in the  testing group.
+    For Online TRACE, $k_3$ is the number of PCs calculated by online SVD, which is usually much less than $n$.}
+  \label{tbl:cplx}
+\end{table}
+
+\section{Runtime Comparison}
+
+We now do an empirical test to compare the efficiency of the three methods.
+
+\subsection{Dataset}
+
+We use the datasets from the Human Genome Diversity Project (HGDP) and the 1000 Genomes Project (1000GP).
+The HGDP dataset has genotyping data about 600k SNPs on 900 individuals with different ancestry history.
+The 1000GP dataset contains most of the SNPs in the HGDP dataset as well as many others.
+Its sample size is about 2300.
+
+For our test, we use the 1000GP dataset but only the SNPs that also appear in the HGDP dataset,
+which are as many as about 570k.
+Moreover, we remove the individuals who has at least one parent that is already in the dataset.
+
+
+
+\subsection{Data Format}
+
+We use TRACE's geno format.
+Each row contains the genotype of an individual.
+The first two columns are the individual's ID and ancestral group.
+Starting at the third column, each column represents a SNP and is either 0, 1, or 2, which is the number of mutations, or -9, which is the value for missing data.
+Each SNP's reading is centered and normalized before applying the PCA methods,
+with the missing data replaced by the mean.
+
+
+The vcf format is also acceptable, since TRACE provides the vcf2geno program that converts vcf files to geno files.
+
+
+
+\subsection{Setting}
+
+
+
+
+
+
+\section{Result}
+
+We use the 1000Genomes dataset for testing the performance of the three methods.
+Only the SNP's that have a minor allele frequency greater than 0.05 and appear in the HGDP dataset are selected.
+Individuals whose parents are in the dataset are removed.
+This filtering leaves us 570859 SNP's and 2481 individuals.
+For the testing group, we use the 100 individuals at the bottom of the dataset.
+For the reference group, we use the $n$ individuals at the top of the dataset,
+where $n$ is set to 500, 1000, 1500, 2000, and 2300 to compare the runtimes.
+
+
+
+\subsection{Estimations}
+
+The PC scores calculated by the three methods are almost identical,
+with the only exception of the PC3 and PC4 scores calculated by HDPCA for $n = 500$ being slightly different from those calculated by the other two methods.
+(See the pdf files in the Google Drive folder for the plots.)
+
+
+\subsection{Runtimes}
+
+The three methods' runtimes for the learning phase are not different from each other by much.
+However, for the analysis phase, Online PCA and HDPCA are significantly more efficient as $n$ increases.
+This empirical result is consistent with the theoretical computational complexity.
+In \Cref{tbl:runLearn} and \Cref{tbl:runAna},
+we show the runtimes for different reference sizes.
+We break the runtimes into two phases: learning and analysis.
+The learning phase is required for only once,
+and the analysis phase is required for every testing individual.
+
+
+\begin{table} 
+  \centering
+  \begin{tabular}{|l|l|l|l|l|l|}
+    \hline
+    nTrain & 500 & 1000 & 1500 & 2000 & 2300 \\ 
+    \hline
+    TRACE & 138 & 482 & 1022 & 62557 & 85913 \\
+    \hline
+    TRACE + online SVD & 152 & 505 & 1407 & 36824 & 79027 \\
+    \hline
+    HDPCA & 139 & 477 & 1368 & 35825 & 76700 \\
+    \hline
+  \end{tabular}
+  \caption{Empirical runtimes (sec) for the learning phase for different reference sizes}
+  \label{tbl:runLearn}
+\end{table}
+
+
+\begin{table} 
+  \centering
+  \begin{tabular}{|l|l|l|l|l|l|}
+    \hline
+    nTrain & 500 & 1000 & 1500 & 2000 & 2300 \\ 
+    \hline
+    TRACE & 59 & 247 & 729 & 8531 & 7851 \\
+    \hline
+    TRACE + online SVD & 135 & 131 & 132 & 138 & 140 \\
+    \hline
+    HDPCA & 79 & 119 & 194 & 390 & 463 \\
+    \hline
+  \end{tabular}
+  \caption{Empirical runtimes (sec) for the analysis phase for different reference sizes}
+  \label{tbl:runAna}
+\end{table}
+
+
+
+\section{Discussion}
+
+
+
+\begin{comment}
+
+\section{Old}
+
+
+Alternatively, we can find the PCs (directions of the greatest variances) of the reference group,
+and then project the testing individual's data to them to find the PC scores.
+The advantage of this method is that the PCs for the reference group only need to be calculated once for all testing individuals.
+This method, though fast, tends to underestimate the magnitude of the PC scores when compared to the results given by the first method.
+This ``shrinking bias'' is discussed in \cite{dey}.
+
+This research project studies how either method can be improved.
+The first method can be speeded up by alternating the SVD algorithm,
+so that the computational complexity can be reduced at little cost of the accuracy of the result.
+For the second method, the accuracy of the estimation can be improved by calculating and adjusting for the shrinking bias.
+In this report, we compare the accuracy and runtimes of different ways to improve the two methods.
+\subsection{TRACE}
+
+TRACE has the most conceptually simple algorithm among the three methods.
+Let $X$ be the $p \times n$ matrix ($n << p$) that contains the reference genotype,
+where each row corresponds to a SNP and each column corresponds to an individual.
+Moreover, let $y$ be the $p \times 1$ matrix of the genotype of the testing individual. The algorithm runs as follows:
+
+
+
+\subsection{Online PCA}
+
+The Online PCA method has the same algorithm except for calculating the testing individual's PC scores.
+Notice that in TRACE, only the first $k_2$ PC's (that is, the first $k_2$ columns of $V'$) are used for the testing individual.
+The Online PCA method can compute for the first $k$ PC scores of a data matrix and skip the rest.
+The result is an approximation, but the runtime is significantly reduced.
+
+More specifically, Online PCA takes the following steps:
+
+
+
+
+\subsection{HDPCA}
+
+A simple way to compute the PC scores for the testing individual is $w^T = y^T U$.
+However, the resulted PC scores tend to be smaller than the PC scores obtained from eigendecomposing $X'^T X$ where $X^T = (X, y)$.
+This shrinking bias can be adjusted by the HDPCA package in R.
+The algorithm is as follows:
+
+
+\end{comment}
+
+\newpage
+
+\begin{thebibliography}{}
+ 
+\bibitem[Brand(2002)]{brand} Brand, M. (2002). Incremental singular value decomposition of uncertain data with missing values. {\it Computer Vision--ECCV 2002}, 707-720.
+
+\bibitem[Dey \& Lee(2016)]{dey} Dey, R., \& Lee, S. (2016). Asymptotic properties of Principal Component Analysis and shrinkage-bias adjustment under the Generalized Spiked Population model. {\it arXiv preprint arXiv:1607.08647}.
+  
+\bibitem[Jolliffe(2002)]{jolliffe} Jolliffe, I. (2002). {\it Principal component analysis}. John Wiley \& Sons, Ltd.
+Chicago	
+
+
+ \bibitem[Wang et al.(2015)]{wang} Wang, C., Zhan, X., Liang, L., Abecasis, G. R., \& Lin, X. (2015). Improved ancestry estimation for both genotyping and sequencing data using projection procrustes analysis and genotype imputation. {\it The American Journal of Human Genetics, 96}(6), 926-937.
+
+\end{thebibliography}
+
+
+\end{document}

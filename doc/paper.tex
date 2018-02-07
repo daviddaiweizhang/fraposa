@@ -1,0 +1,366 @@
+\documentclass{article}[12pt]
+
+\usepackage{epsfig} \usepackage[margin=1.5in]{geometry}
+\usepackage[semicolon,authoryear]{natbib} \bibliographystyle{natbib}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{cleveref}
+\usepackage{verbatim}
+\usepackage{graphicx}
+
+\newcommand{\bO}{\mathcal{O}}
+\newcommand{\argmin}[1]{\underset{#1}{\operatorname{arg\;min}}\;}
+
+\title{Principle Component Analysis Computational Methods
+  for Estimating Ancestral Histroy from Genotype Data}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+\section{Method}
+
+\subsection{Model}
+
+\begin{enumerate}
+\item Data matrices:\\
+  The data matrix contains the genotypes for the individuals.
+  Each row represents a SNP, and each column represents an individual.
+  Each entry is $0$, $1$, or $2$.
+  The genotypes of the reference group are stored in the $p \times n$ matrix $X$,
+  and those of the study group are stored in the $p \times m$ matrix $Y$.
+  For most genetic data, $n \ll p$ and $m \ll p$.
+\item Principle component analysis \\
+  Given a multi-dimensional data, principle component analysis (PCA) looks for the directions, which are called the principle components (PC), in which the data has the greatest variance.
+  The PC's form an orthonormal basis for the sample space,
+  and we can ignore all but the first few PC's to reduce the dimension of the data.
+  In particular, let $X=UDV^T$ be the singular value decomposition (SVD) of $X$,
+  where $U$ is a $p \times n$ matrix whose columns are the PC's,
+  $D$ is an $n \times n$ diagonal matrix storing the standard deviations of the PC's,
+  and $V$ an $n \times n$ matrix such that each row contains the standardized PC scores of an individual.
+  (Alternatively, we can also use eigendecomposition to find the matrices since $X^T X = VD^2V^T$ and $X X^T = UD^2U^T$.)
+  We use $D$ to sort out the most influential $k$ PC's ($k \ll n$) and look at the coresponding columns of $V$ to find their PC scores.
+  For estimating ancestral histroy from genotypes, often the first $4$ PC's will be sufficient for providing the information we need.
+
+  PCA allows us to use the reference data to find the PC scores of the study data.
+  The standard method is to append a study individual's genotype to the reference matrix and then conduct a SVD of the augmented matrix.
+  The corresponding row in the matrix $V$ is the study individual's PC scores.
+\end{enumerate}
+
+\subsection{Computational Methods}
+
+The usefulness of PCA for genetic data largely depends on its computational cost.
+The computational complexity of SVD for a $p \times n+1$ matrix is $\min((n+1)^2p, (n+1)p^2) = n^2p $ for $1 \ll n \ll p$.
+Thus the total computational complexity for performing PCA on $m$ individuals by using the standard method is $mn^2p$.
+This value increases quadratically as we increase the reference sample size to increase the accuracy of the PC scores.
+Alternative computational methods have been developed to improve the efficiency of PCA.
+In this study, we compare four such methods: TRACE, projection, online TRACE, and HDPCA projection.
+
+\subsubsection{TRACE}
+
+TRACE implements the standard PCA method, with additional procedures for handling minor issues such as missing data.
+An important improvement in TRACE on the standard method is the inclusion of Procrustes analysis.
+Given two data sets with the same sample size and possibly different dimensions,
+Procrustes analysis finds the linear transformation that maps one data matrix as close as possible to the other data matrix.
+In our contex, the PC scores of the reference matrix is computed and we obtain the $n \times n$ matrix $V$.
+For a study individal with genotype $y$, we decompose $\tilde{X} = (X, y)$ into $\tilde{X} = \tilde{U}\tilde{D}\tilde{V}^T$.
+(TRACE uses eigendecomposition to find the ``$V$'' matrix to reduce computational complexity since we do not need the ``$U$'' matrix here.)
+Let
+\[
+  V =
+  \begin{bmatrix}
+    V_{\text{ref}} & W
+  \end{bmatrix},
+  \quad
+  \tilde{V} =
+  \begin{bmatrix}
+    \tilde{V}_{\text{ref}} & \tilde{W}_\text{ref} \\
+    \tilde{V}_\text{stu} & \tilde{W}_\text{stu}
+  \end{bmatrix},
+\]
+where the dimensions of $V_\text{ref}$, $\tilde{V}_\text{ref}$, and $\tilde{V}_\text{stu}$ are $n \times k_1$, $n \times k_2$, and $1 \times k_2$, respectively, with $ 1 \leq k_1 \leq k_2 \leq n+1$. 
+We use Procrustes analysis to find
+\[
+  A, b = \argmin{A, b} d(V_\text{ref}, \tilde{V}_{\text{ref}}A+b)
+\]
+for some metric $d$.
+Finally, we get the Procrustes-adjusted top $k_1$ PC scores for the study individual $V_\text{pro} = \tilde{V}_\text{stu} A + b$.
+The algorithm is summarized as follows:
+\begin{enumerate}
+\item Compute $X^T X$.
+  (Computational complexity: $\bO[n^2p]$.)  
+\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$ (columns of $D$ and $V$ are sorted by PC variance with the first column corresponding to the greatest PC variance).
+  ($\bO[n^3]$.)
+\item Append $X^T y$ and its transpose to the last column and row of $X^T X$, respectively.
+  The entry of the bottom-right corner is $y^T y$.
+  This is exactly the same as computing $\tilde{X}^T \tilde{X}$,
+  where $\tilde{X} = (X, y)$ is the reference group with the testing individual added.
+  ($\bO[np]$.)
+\item Apply eigendecomposition to $\tilde{X}^T \tilde{X}$ to get $\tilde{X}^T \tilde{X} = \tilde{V} \tilde{D}^2 \tilde{V}^T$.
+  ($\bO[n^3]$.)
+\item Project the first $k_2$ columns of $\tilde{V}$ to the first $k_1$ columns of $V$ by using Procrustes analysis to get the transformed PC scores of the testing individual (the last row of $V$),
+  where $k_1 < k_2 \ll n$.
+  (Computational complexity is ignorable if $k_2$ is not large compared to $n$.)
+  \item Go to step 3 for the next testing individual.
+\end{enumerate}
+
+Total Computational complexity: $\bO[n^2p + m(np + n^3)]$.
+
+TRACE is the slowest among the computational methods we study.
+However, its result is also the most reliable.
+
+\subsubsection{Projection}
+An exchange for runtimes with accuracy is the projection method.
+For this method, we simply find the PC's of the reference matrix and project the study individual's genotype onto them,
+as shown below:
+
+\begin{enumerate}
+\item Compute $X^T X$.
+  (Computational complexity: $\bO[n^2p]$.)  
+\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
+  ($\bO[n^3]$.)
+\item Calculate $W = Y^T (X V D_1^{-1})$, where $Y$ is the data matrix for all the testing individuals, $D_1$ the first $k_1$ columns of $D$. ($\bO[mpk_1 + pnk_1]$.)
+\end{enumerate}
+
+Total computational complexity: $\bO[n^2p + n^3 + mpk_1 + pnk_1)] \approx \bO[n^2p + mk_1p)]$,
+given that $k_1 \ll n \ll p$.
+
+As the reference sample size increases,
+the computational complexity of the projection method only increases quadratically,
+(except for decomposing the reference matrix, which is done once for all study individuals,)
+while that of TRACE increases cubically.
+However, it is known that the projection method tends to underestimates the magnitude of the PC scores when $n \ll p$,
+which is known as the ``shrinking bias''.
+
+\subsubsection{Online TRACE}
+
+A remedy for TRACE is to reduce the computational complexity withou much sacrifice of the accuracy.
+This is achieved by the online TRACE method.
+Notice that in TRACE, only the top $k_2$ PC's are used.
+Online TRACE calculates a close approximation of the first $k_3$ columns of $\tilde{V}$ for some $k_2 \leq k_3 \ll n$ and keeps everything else the same as in TRACE, including Procrustes analysis. 
+The algorithm is
+\begin{enumerate}
+\item Compute $X^T X$.
+  (Computational complexity: $\bO[n^2p]$.)  
+\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
+  ($\bO[n^3]$.)
+\item Calculate $U_3 = X V_3 D_3^{-1}$,
+  where $V_3$ is the first $k_3$ columns of $V$,
+  and $D_3$ is the diagonal matrix of the first $k_3$ diagonal entries of $D$.
+  ($\bO[k_3 n p]$.)
+\item Calculate 
+  \[
+    L = U_3^T y \quad \text{and} \quad K = y^T H,
+  \]
+  where $H$ is the normalized  $y - U_3L$
+  ($\bO[k_3 p]$.)
+\item Calculate $Q^T Q$, where
+  \[
+    Q = 
+    \begin{bmatrix}
+      D_3 & L \\
+      0 & K
+    \end{bmatrix}.
+  \]
+  ($\bO[k_3^3]$.)
+\item Apply eigendecomosition to $Q^T Q$ to get $Q^T Q = \ddot{V}_3 \ddot{D}^2_3 \ddot{V}^T_3$.
+  ($\bO[k_3^3]$.)
+\item Calculate
+  \[
+    \tilde{V}_3 =
+    \begin{bmatrix}
+      V_3 & 0 \\
+      0 & 1
+    \end{bmatrix}
+    \ddot{V}_3.
+  \]
+  ($\bO[nk_3^2]$.)
+\item Project the first $k_2$ columns of $\tilde{V}_3$ to the first $k_1$ columns of $V$ by using Procrustes analysis to get the transformed PC scores of the testing individual,
+  where $k_1 < k_2  < k_3 \ll n$.
+  (Computational complexity is ignorable if $k_2$ is not large compared to $n$.)
+  \item Go to step 4 for the next testing individual.
+\end{enumerate}
+
+Total computational complexity: $\bO[n^2p + n^3 + k_3np + m(k_3p + k_3^3 + nk_3^2]) \approx \bO[n^2p + m(k_3p + k_3^2n)]$, provided $k_3 \ll n \ll p$.
+
+Here we see that the computational complexity of online TRACE for the study individuals increases quadratically with respect to the reference sample size.
+This makes the runtimes of online TRACE close to those of the projection method.
+The closeness between the results given by online TRACE and TRACE will be empirically shown later.
+
+\subsubsection{HDPCA Projection}
+
+As online TRACE reduces the computational complexity of TRACE,
+we have HDPCA projection that improves the accuracy of projection without increasing the runtimes.
+HDPCA reads the PC scores and variances calculated by projection and estimate the shrinkage factor to restore the unshrinked scores. 
+The algorithm is
+\begin{enumerate}
+\item Compute $X^T X$.
+  (Computational complexity: $\bO[n^2p]$.)  
+\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
+  ($\bO[n^3]$.)
+\item Calculate $W = (Y^T X) V D^{-1}$, where $Y$ is the data matrix for all the testing individuals. ($\bO[mpn + mn^2]$.)
+  \item Input $D$ and $W$ to the pc\_adjust function in the HDPCA function to obtain the PC scores adjusted for the shrinking bias. ($\bO[p]$ for finding the number of distant spikes (function select.nspike), $\bO[n]$ for adjusting for the shrinking bias (function hdpc\_est))
+\end{enumerate}
+
+Total computational complexity: $\bO[n^2p + mn(p + n) + p + n] \approx \bO[n^2p + mn(p+n)]$,
+given that $m$ or $n$ is large.
+
+The computational complexities between projection and HDPCA projection are the same.
+The accuracy of HDPCA projection will be empirically shown later.
+
+\subsubsection{Computational Complexity Summary}
+A comparison of computatinal complexities of the four PCA methods are shown in \Cref{tbl:cplx}.
+
+
+\begin{table} 
+  \centering
+  \begin{tabular}{|l|l|}
+    \hline
+    Method & Computational Complexity \\ 
+    \hline
+    TRACE & $\bO[n^2 p + mn(p + n^2)]$ \\
+    \hline
+    Projection & $\bO[n^2p + mk_1p)]$ \\
+    \hline
+    Online TRACE & $\bO[n^2 p + mk_3(p + k_3 n)]$ \\
+    \hline
+    HDPCA Projection & $\bO[n^2p + mn(p+n)]$ \\
+    \hline
+  \end{tabular}
+  \caption{
+    Comparison of computational complexity for the three methods.
+    Here $p$ is the number of SNPs,
+    $n$ is the number of individuals in the reference group,
+    and $m$ is the number of individuals in the  testing group.
+    For projection, $k_1$ is the number of PCs needed
+    For Online TRACE, $k_3$ is the number of PCs calculated by online SVD, which is usually much less than $n$.}
+  \label{tbl:cplx}
+\end{table}
+
+\subsection{Data}
+
+In this study, we used both simulated data and real-world data.
+
+\subsubsection{Simulation Studies}
+
+We used the GGS software to simulate individuals migrating on a grid.
+The parameters we chose to use are as follows:
+\begin{enumerate}
+\item L: Number of loci in each genealogy. (Fixed to $1000$.)
+\item G: Number of genealogies. (Equal to $p / L$)
+\item K: Side length of the grid. (Fixed to $2$.)
+\item c: Number of haploids at each cell of the grid. (Equal to $2n / K^2$ and
+$2m / K^2$)
+\item M: Migration rate. (Varies)
+\end{enumerate}
+
+\subsubsection{Real-World Datasets}
+
+The real-world datasets used in our study are the HGDP and 1000 Genomes datasets.
+They contain the genotype readings of individuals from different ethnic groups over the world.
+For better comparison, we select only the SNPs that are included in both datasets,
+the number of which is approximately $6 \times 10^5$.
+Moreover, we removed individuals who have at least parent also in the dataset.
+The samples size is approximately $900$ for HGDP and $2300$ for 1000 Genomes.
+
+
+
+\section{Results (Simulation Study)}
+
+We now present the results of our study.
+
+\subsection{Parameter Setting}
+
+\begin{enumerate}
+\item $n$ fixed, $m$ changing
+\begin{enumerate}
+\item $p = 100000$
+\item $n = 600$
+\item $m$: $\min = 1000$, $\max = 5000$, $\text{increment} = 500$ 
+\item $migration = 100$
+\end{enumerate}
+\item $m$ fixed, $n$ changing
+\begin{enumerate}
+\item $p = 100000$
+\item $n$: $\min = 1000$, $\max = 5000$, $\text{increment} = 500$ 
+\item $m = 200$
+\item $migration = 100$
+\end{enumerate}
+\end{enumerate}
+
+\subsection{Computation Time}
+
+\includegraphics[width=0.98\textwidth]{runtimes}
+
+\subsection{Accuracy}
+
+Next, we show the accuracy of each method.
+We have two ways to measure the accuracy.
+First, we can use the information from the simulation given by GGS to categorize the reference individuals into $K^2$ clusters and find the mean of each cluster,
+which will be treated as the center of that cluster.
+We then find the Euclidean distance between the study individuals and the centers,
+again using the true locations in the grid to categorize the study individuals.
+
+Second, we can use Online TRACE as the standard and find the Euclidean distance between the study individuals' PC scores calculated by Online TRACE and another method.
+
+The parameter setting is the same as in comparing the runtimes.
+
+\includegraphics[width=0.98\textwidth]{err_refcenter.pdf}
+
+\includegraphics[width=0.98\textwidth]{err_online.pdf}
+
+\section{Discussion}
+
+\newpage
+
+\begin{thebibliography}{}
+ 
+\bibitem[Brand(2002)]{brand} Brand, M. (2002). Incremental singular value decomposition of uncertain data with missing values. {\it Computer Vision--ECCV 2002}, 707-720.
+
+\bibitem[Dey \& Lee(2016)]{dey} Dey, R., \& Lee, S. (2016). Asymptotic properties of Principal Component Analysis and shrinkage-bias adjustment under the Generalized Spiked Population model. {\it arXiv preprint arXiv:1607.08647}.
+  
+\bibitem[Jolliffe(2002)]{jolliffe} Jolliffe, I. (2002). {\it Principal component analysis}. John Wiley \& Sons, Ltd.
+Chicago	
+
+
+ \bibitem[Wang et al.(2015)]{wang} Wang, C., Zhan, X., Liang, L., Abecasis, G. R., \& Lin, X. (2015). Improved ancestry estimation for both genotyping and sequencing data using projection procrustes analysis and genotype imputation. {\it The American Journal of Human Genetics, 96}(6), 926-937.
+
+\end{thebibliography}
+
+
+    % \begin{enumerate}
+    %     \item $X$ ($p$ by $n$): 
+    %         Genotype readings for the reference group.
+    %     \item $Y = (y_1 \cdots y_m)$ ($p$ by $m$): 
+    %         Genotype readings for the study group.
+    % \end{enumerate}
+
+
+% \begin{enumerate}
+% \item HGDP
+%   The HGDP dataset contains individuals from different ethnic groups in the world. It includes about $6 \times 10^5$ SNPs and 
+%   \begin{enumerate}
+%   \item Individuals from different countries in the world.
+%   \item We only use the SNPs that are also included in the 1000
+%     Genomes dataset.
+%   \item $p \approx 6 \times 10^5, n \approx 900$.
+%   \end{enumerate}
+% \item 1000 Genomes
+%   \begin{enumerate}
+%   \item Individuals from different countries in the world.
+%   \item We only use the SNPs that are also included in the HGDP
+%     dataset.
+%   \item $p \approx 6 \times 10^5, n \approx 2300$.
+%   \end{enumerate}
+% \item Data filtering
+%   \begin{enumerate}
+%   \item We only used the SNPs that are included in both the HGDP and
+%     1000 Genomes datasets.
+%   \item We have removed the individuals with at least one parent in
+%     the dataset.
+%   \end{enumerate}
+% \end{enumerate}
+
+\end{document}

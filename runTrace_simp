@@ -1,0 +1,41 @@
+#!/bin/bash
+
+ver=$1
+refd=$2
+refn=$3
+stud=$4
+stun=$5
+outd=${stud}
+outn=${refn}_${stun}
+name=trace.${ver}
+
+DIM=4
+DIM_HIGH=20
+
+cd ../data/laser
+# echo Compiling ${name}.cpp...
+# g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} `pkg-config --libs gsl lapack` -larmadillo
+# For running on cluster
+# g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2 -I /home/daiweiz/prog/armadillo/usr/include -lblas -llapack -lgsl -lgslcblas -lm -larmadillo
+# echo No compilation
+# g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2  -I/net/dumbo/home/daiweiz/usr/include/ -L/net/dumbo/home/daiweiz/usr/lib/x86_64-linux-gnu -lblas -llapack -lgsl -lgslcblas -lm -larmadillo -lhdf5
+echo Compiling...
+rm ${name}
+
+# For running on FLUX
+export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH
+echo $LD_LIBRARY_PATH
+g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2  -I/home/daiweiz/gsl/include -L/home/daiweiz/gsl/lib -lblas -llapack -lgsl -lgslcblas -lm -larmadillo
+
+echo Done!
+
+hostname > ../${outd}/${outn}.${ver}.nodename
+echo "\
+STUDY_FILE	../${stud}/${stun}.geno
+GENO_FILE	../${refd}/${refn}.geno
+OUT_PREFIX	../${outd}/${outn}.${ver}
+DIM        	${DIM}
+DIM_HIGH	${DIM_HIGH}
+" > trace.conf
+
+./${name} -p trace.conf

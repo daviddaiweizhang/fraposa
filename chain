@@ -1,0 +1,50 @@
+#!/bin/bash
+
+ver=$1
+pref=$2
+p=$3
+# n and m must be a multiple of K^2, where K is the grid size in the ggs program
+n=$4
+m=$5
+k=$6
+s=$7
+mig=$8
+let "nplusm = n + m"
+let "h = k * k"
+# Not using unbalanced for now. Kind of buggy
+# let "nplusmHigh = nplusm * (h * s) / (s + h) -1"
+let "nplusmHigh = nplusm"
+
+module load python-dev 
+module load numpy-dev 
+# module load gsl # Using gsl installed on home
+module load mkl/11.3.3 # Dependency for armadillo
+module load gcc/5.4.0 # Dependency for armadillo
+module load armadillo
+module load R
+module list
+
+date
+echo $ver $pref $p $n $m $k $s $mig
+mkdir ../data/${pref}
+./runGgs ${pref} ${p} ${nplusmHigh} ${k} ${mig}
+date
+./ggs2trace ${pref} ${p} ${nplusmHigh} ${k} ${s} ${mig}
+date
+./getHalfRows ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
+date
+./runTrace ${ver} ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
+date
+Rscript runHdpca.R ${ver} ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
+date
+
+pdf=../data/${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.pdf
+rm ${pdf}
+Rscript plot.R ${ver} ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
+evince ${pdf}
+
+
+
+# Unused
+# ./getWeightedCols ${pref} ${p} ${n} ${m}
+# rm ../data/${pref}/${pref}_${p}_${nplusm}.ggs

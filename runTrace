@@ -1,0 +1,52 @@
+#!/bin/bash
+
+ver=$1
+pref=$2
+p=$3
+n=$4
+m=$5
+k=$6
+s=$7
+mig=$8
+name=trace.${ver}
+
+DIM=4
+DIM_HIGH=20
+
+cd ../data/laser
+echo "Entered laser dir"
+
+# echo "Not compiling cpp"
+echo Compiling ${name}.cpp...
+rm ${name}
+# make
+
+# For running locally
+# g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} `pkg-config --libs gsl lapack` -larmadillo
+
+# For running on biostat cluster
+# g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2 -I /home/daiweiz/prog/armadillo/usr/include -lblas -llapack -lgsl -lgslcblas -lm -larmadillo
+
+# For running on CSG cluster
+# g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2  -I/net/dumbo/home/daiweiz/usr/include/ -L/net/dumbo/home/daiweiz/usr/lib/x86_64-linux-gnu -lblas -llapack -lgsl -lgslcblas -lm -larmadillo -lhdf5
+
+
+# For running on FLUX
+export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH
+echo $LD_LIBRARY_PATH
+g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2  -I/home/daiweiz/gsl/include -L/home/daiweiz/gsl/lib -lblas -llapack -lgsl -lgslcblas -lm -larmadillo 
+
+echo Done!
+
+cd ../data/laser
+hostname > ../${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.${ver}.nodename
+
+echo "\
+STUDY_FILE	../${pref}/${pref}_${p}_${m}_${k}_${s}_${mig}_1.geno
+GENO_FILE	../${pref}/${pref}_${p}_${n}_${k}_${s}_${mig}_0.geno
+OUT_PREFIX	../${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.${ver}
+DIM        	${DIM}
+DIM_HIGH	${DIM_HIGH}
+" > trace.conf
+
+./${name} -p trace.conf

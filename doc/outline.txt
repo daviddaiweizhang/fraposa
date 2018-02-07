@@ -1,0 +1,30 @@
+section 0 (intro)
+section 1 (method)
+    subsection 1  
+        write down models (pca for training and study sets)
+    subsection 2 (describe each method)
+        simple proj
+        trace
+        hdpca
+        online
+            randomized (for ref)
+                reduce memory and computation time
+    subsection 3
+        simulation studies 
+        describe ggs
+        explain parameters being changed (mig, #snps, #ref sample)
+        explain real dataset (HDPG, 1000genome)
+section 2 (results)
+    describe simulation studies
+        computation time
+            show plots and figures
+            fix nTest, change nTrain
+            fix nTrain, change nTest
+                can cut off and use projected runtimes  
+        accuracy
+            compare test results to ref centers
+            compare trace and other methods
+section 4 (discussion)
+
+
+increase n for fixed m varying n plot to reduce noise

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+pref=$1
+p=$2
+n=$3
+m=$4
+let "nplusm = n + m"
+
+inFile=../data/${pref}/${pref}_${p}_${nplusm}.ggs
+
+
+python run_getWeightedCols.py ${inFile} outFile.temp /dev/null 5    
+mv outFile.temp ${inFile}
