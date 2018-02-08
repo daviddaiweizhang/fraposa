@@ -1,0 +1,32 @@
+#!/bin/bash
+####  PBS preamble
+
+#PBS -N nChg_comb
+# Change the number of cores (ppn=1), amount of memory, and walltime:
+#PBS -l nodes=1:ppn=1,mem=32000mb,walltime=06:00:00
+#PBS -t 0-4
+
+#PBS -M daiweiz@umich.edu
+#PBS -j oe
+#PBS -m abe
+#PBS -V
+#PBS -A leeshawn_fluxod
+#PBS -q fluxod
+#PBS -l qos=flux
+####  End PBS preamble
+
+#  Change to the directory you submitted from
+if [ -n "$PBS_O_WORKDIR" ]; then cd $PBS_O_WORKDIR; fi
+
+# Print job and array ids
+echo $PBS_JOBID
+echo $PBS_ARRAYID
+
+#  Put your job commands here:
+i=$PBS_ARRAYID
+let "n = 1000 + 500 * i"
+pref=$PBS_JOBID
+
+date
+./chain comb ${pref} 100000 $n 200 2 1 100
+date
