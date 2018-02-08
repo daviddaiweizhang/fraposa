@@ -14,11 +14,11 @@ DIM=4
 DIM_HIGH=20
 
 
-# echo "Not compiling cpp"
-echo Compiling ${name}.cpp...
+echo Checking whether ${name} needs to be recompiled...
 export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH
-make
+make ${name}
 cp ${name} ../data/laser/${name}
+echo Done.
 
 
 
