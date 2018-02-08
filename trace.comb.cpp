@@ -995,6 +995,7 @@ int main(int argc, char* argv[]){
         double augEigen_time = 0.0;
         double procrust_time = 0.0;
         double onlsvd_time = 0.0;
+        double onlprocrust_time = 0.0;
         double randsvd_time = 0.0;
         double proj_time = 0.0;
         mat V_proj(LAST_IND, REF_SIZE); 
@@ -1177,6 +1178,7 @@ int main(int argc, char* argv[]){
                                 onlsvd_time += time_entry;
 
 				//=================  Procrustes Analysis (Online) =======================
+                                t2 = clock();
 				refPC_rot.clear();
 				t = 0;
 				rho = 0;
@@ -1191,6 +1193,8 @@ int main(int argc, char* argv[]){
 				refPC_new.clear();
 				refPC_rot.clear();
 				rotPC_one = rho*PC_one*A+b;
+        time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
+        onlprocrust_time += time_entry;
 
 				//================= Output Procrustes Results (Online) ===================				
 				fout2 << Info1 << "\t" << Info2 << "\t" << (LOCI-Lm) << "\t" << DIM_HIGH << "\t" << t << "\t";	
@@ -1282,6 +1286,9 @@ int main(int argc, char* argv[]){
         name_entry = "onlSVD";
         time_entry = onlsvd_time;
         runtimes[name_entry] = time_entry;
+        name_entry = "onlProcrust";
+        time_entry = onlprocrust_time;
+        runtimes[name_entry] = time_entry;
         // name_entry = "randSVD";
         // time_entry = randsvd_time;
         // runtimes[name_entry] = time_entry;
@@ -1331,7 +1338,7 @@ int main(int argc, char* argv[]){
 	runtimes_sum["ref_proj"] = runtimes_sum["ref_trace"];
 	runtimes_sum["ref_hdpca"] = runtimes_sum["ref_proj"];
 	runtimes_sum["test_trace"] = runtimes["augCov"] + runtimes["augEigen"] + runtimes["procrustes"];
-	runtimes_sum["test_onl"] = runtimes["onlSVD"] + runtimes["procrustes"];
+	runtimes_sum["test_onl"] = runtimes["onlSVD"] + runtimes["onlProcrust"];
 	runtimes_sum["test_proj"] = runtimes["proj"];
 	runtimes_sum["test_hdpca"] = runtimes["proj"];
 	cout << "Runtime breakdown (sec): " << endl;

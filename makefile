@@ -8,13 +8,15 @@ build:
 	@if [ `hostname` = "david-XPS-13-9343" ]; then \
 	    echo "Local libs"; \
 	    g++ $(FLAGS) trace.rand.cpp -o trace.rand $(LIBS_LOCAL); \
+	    g++ $(FLAGS) trace.comb.cpp -o trace.comb $(LIBS_LOCAL); \
 	elif [ `hostname` = "fantasia" ]; then \
 	    echo "CSG libs"; \
 	    g++ $(FLAGS) trace.rand.cpp -o trace.rand $(LIBS_CSG); \
+	    g++ $(FLAGS) trace.comb.cpp -o trace.comb $(LIBS_FLUX); \
 	else \
 	    echo "Flux libs"; \
 	    g++ $(FLAGS) trace.rand.cpp -o trace.rand $(LIBS_FLUX); \
+	    g++ $(FLAGS) trace.comb.cpp -o trace.comb $(LIBS_FLUX); \
 	fi
 
 trace.comb : trace.comb.cpp
-	g++ $(FLAGS) trace.comb.cpp -o trace.comb $(LIBS)
