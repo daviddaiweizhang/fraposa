@@ -606,7 +606,6 @@ int main(int argc, char* argv[]){
 	string *RefInfo2 = new string [REF_SIZE];
 	fmat RefD(REF_SIZE, LOCI);
 	mat refPC = zeros<mat>(REF_SIZE,DIM);
-	mat refPC_rand = zeros<mat>(REF_SIZE,DIM);
 	mat V = zeros<mat>(REF_SIZE, REF_SIZE);
 	vec d = zeros<vec>(REF_SIZE);
 	unsigned DIM_SUPER = 2 * DIM_HIGH;
@@ -829,7 +828,7 @@ int main(int argc, char* argv[]){
 		d_rand = conv_to<mat>::from(d_rand_flt);
     V = V_rand;
     d = d_rand;
-		eigDes2pcaCov(d_rand, V_rand, DIM, refPC_rand, PCvar_rand);
+		eigDes2pcaCov(d_rand, V_rand, DIM, refPC, PCvar_rand);
 		name_entry = "calc_ref_pca_coord_rand";
 		time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
 		runtimes[name_entry] = time_entry;
