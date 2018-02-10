@@ -286,8 +286,8 @@ def transpose_block(inFile, outFile, p, q):
             qq = N % q
         concat_col(outRowBlocks, outRow, qq, M, m)
     concat(outRows, outFile)
-    subprocess.call(["rm", inFile + "_*"])
-    subprocess.call(["rm", outFile + "_*"])
+    # subprocess.call(["rm", inFile + "_*"])
+    # subprocess.call(["rm", outFile + "_*"])
 
 
 def concat(inFiles, outFile):

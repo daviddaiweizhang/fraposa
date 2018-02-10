@@ -3,7 +3,7 @@ LIBS_LOCAL = -lblas -llapack -lgsl -lgslcblas -lm -larmadillo
 LIBS_CSG = -I/net/dumbo/home/daiweiz/usr/include/ -L/net/dumbo/home/daiweiz/usr/lib/x86_64-linux-gnu -lblas -llapack -lgsl -lgslcblas -lm -larmadillo -lhdf5 
 LIBS_FLUX = -I/home/daiweiz/gsl/include -L/home/daiweiz/gsl/lib -lblas -llapack -lgsl -lgslcblas -lm -larmadillo
 
-all: test1.o test2.o
+all: trace.comb trace.rand
 .PHONY: all
 
 trace.comb : trace.comb.cpp

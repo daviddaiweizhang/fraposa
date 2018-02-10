@@ -50,10 +50,14 @@ pcprops <- list()
 # Input the display names
 display.names <- c(
     "ref_trace",
+    "ref_rand",
     "test_trace",
-    "test_onl",
+  "test_onl",
+  "test_onlRand",
     "test_proj",
-    "test_hdpca"
+    "test_projRand",
+    "test_hdpca",
+    "test_hdpcaRand"
 )
 pcprops$display.names <- display.names
 meths.n <- length(display.names)
@@ -62,7 +66,7 @@ meths.n <- length(display.names)
 args <- commandArgs(trailingOnly = TRUE)
 if(identical(args, character(0))){
     print("Using testing args...")
-    args <- c("rand", "ggsim", "1000", "300", "100", '2', '1', '100')
+    args <- c("rand", "tmp", "100000", "1000", "200", '2', '1', '10')
     print(args)
 }
 ver <- args[1]
@@ -86,11 +90,15 @@ pcprops$runtimes <- runtimes$elapse[match(pcprops$display.names, runtimes$method
 # Input file names
 file.names <- c(
     paste(name, ver, "RefPC.coord", sep = "."),
+    paste(name, ver, "RefPC.rand.coord", sep = "."),
     paste(name, ver, "ori.ProPC.coord", sep = "."),
     paste(name, ver, "onl.ProPC.coord", sep = "."),
+    paste(name, ver, "onlRand.ProPC.coord", sep = "."),
     ## paste(name, ver, "rand.ProPC.coord", sep = "."),
     paste(name, ver, "hdpca.vproj", sep = "."),
-    paste(name, ver, "hdpca.vpred", sep = ".")
+    paste(name, ver, "hdpcaRand.vproj", sep = "."),
+    paste(name, ver, "hdpca.vpred", sep = "."),
+    paste(name, ver, "hdpcaRand.vpred", sep = ".")
 )
 pcprops$file.names <- file.names
 
@@ -105,7 +113,7 @@ for(i in 1:meths.n){
 # The index for reference group
 idx.ref <- 1
 # The index for trace study pcs (the golden standard)
-idx.trace.ori <- 2
+idx.trace.ori <- 3
 # The first few columns are not pc scores
 nonpcs.cols.n.ref <- 2
 nonpcs.cols.n <- 5
@@ -125,8 +133,11 @@ for (i in 1:meths.n){
 }
 
 # Extract the PC scores as a matrix from the data frame
-pcprops$pcs[[idx.ref]] <- as.matrix(pcprops$datafr[[1]][,-(1:nonpcs.cols.n.ref)])
-for(i in (idx.ref+1):meths.n){
+meth.ref.n <- 2
+for(i in 1:meth.ref.n){
+  pcprops$pcs[[idx.ref+i-1]] <- as.matrix(pcprops$datafr[[i]][,-(1:nonpcs.cols.n.ref)])
+}
+for(i in (idx.ref+meth.ref.n):meths.n){
     pcprops$pcs[[i]] <- as.matrix(pcprops$datafr[[i]][,-(1:nonpcs.cols.n)])
 }
 
@@ -160,9 +171,9 @@ for(i in 1:meths.n){
 
 # Input errors of testing pcs from reference pcs
 # Error from trace
-err.trace <- c(-1) # The first entry is a placeholder for the reference group
+err.trace <- rep(-1, meth.ref.n) # The first entry is a placeholder for the reference group
 mat.trace.ori <- pcprops$pcs[[idx.trace.ori]][,1:l]
-for(i in (idx.ref+1):meths.n){
+for(i in (idx.ref+meth.ref.n):meths.n){
     mat.i <- pcprops$pcs[[i]][,1:l]
     err.trace.i <- mat.err(mat.trace.ori, mat.i)
     err.trace <- c(err.trace, err.trace.i)
@@ -219,7 +230,7 @@ for (i in 0 : kk) {
         xlab = paste0("PC", j),
         ylab = paste0("PC", (j+1))
     )
-    for(ii in 2:meths.n){
+    for(ii in 2:(meths.n)){
         points(
             pcprops$pcs[[ii]][,j], pcprops$pcs[[ii]][,j+1],
             pch = pcprops$plot.pch[ii],

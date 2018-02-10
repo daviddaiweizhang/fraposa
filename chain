@@ -24,18 +24,27 @@ module load armadillo
 module load R
 module list
 
+
 date
 echo $ver $pref $p $n $m $k $s $mig
 mkdir ../data/${pref}
-./runGgs ${pref} ${p} ${nplusmHigh} ${k} ${mig}
-date
-./ggs2trace ${pref} ${p} ${nplusmHigh} ${k} ${s} ${mig}
-date
-./getHalfRows ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
-date
+
+if [ ! -f ../data/${pref}/${pref}_${p}_${nplusmHigh}_${k}_${mig}.ggs ]; then
+    echo "Generating data with GGS..."
+    ./runGgs ${pref} ${p} ${nplusmHigh} ${k} ${mig}
+    date
+    ./ggs2trace ${pref} ${p} ${nplusmHigh} ${k} ${s} ${mig}
+    date
+    ./getHalfRows ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
+    date
+    echo "Done."
+fi
+
 ./runTrace ${ver} ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
 date
-Rscript runHdpca.R ${ver} ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
+Rscript runHdpca.R ${ver} hdpca ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
+date
+Rscript runHdpca.R ${ver} hdpcaRand ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
 date
 
 pdf=../data/${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.pdf

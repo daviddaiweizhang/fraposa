@@ -46,15 +46,31 @@ void PRINTER(string name, int X) {cout << endl << name << endl << X << endl;}
 void PRINTER(string name, float X) {cout << endl << name << endl << X << endl;}
 void PRINTER(string name, double X) {cout << endl << name << endl << X << endl;}
 
-template<class Matrix>
-void pm(Matrix matrix) {
+// template<class Matrix>
+// void pm(Matrix matrix) {
+//   cout << endl << size(matrix) << endl;
+//   Matrix submat = matrix.submat(0,0,4,4);
+//   submat.print(std::cout);
+//   cout << endl;
+// }
+// template void pm<arma::mat>(arma::mat matrix);
+// template void pm<arma::fmat>(arma::fmat matrix);
+
+
+void pm(mat matrix) {
   cout << endl << size(matrix) << endl;
-  Matrix submat = matrix.submat(0,0,4,4);
+  int p = matrix.n_rows - 1;
+  int q = matrix.n_cols - 1;
+  if(p > 4){
+    p = 4;
+  }
+  if (q > 4){
+    q = 4;
+  }
+  mat submat = matrix.submat(0,0,p,q);
   submat.print(std::cout);
   cout << endl;
 }
-template void pm<arma::mat>(arma::mat matrix);
-template void pm<arma::fmat>(arma::fmat matrix);
 
 
 const string ARG_PARAM_FILE = "-p";
@@ -130,6 +146,7 @@ double TW = default_double;    // Threshold to determine significant Tracy-Widom
 string STUDY_SITE_FILE = default_str;     // Sitefile of the study data
 string GENO_SITE_FILE = default_str;      // Sitefile of the reference data
 
+int RANDSVD_NITER = 20;
 //=======================================================================================
 bool is_int(string str);
 bool is_numeric(string str);
@@ -150,7 +167,7 @@ int eig_descend(vec &d, mat &V, const mat &XTX);
 int eig_descend(fvec &d, fmat &V, const fmat &XTX);
 int eigDes2pcaCov(const vec &d, const mat &V, int nPCs, mat &PC, rowvec &PCvar);
 int pca_online(const fmat &U1, const vec &d1, const mat &V1, int k, const vec &b, vec &d2, mat &V2);
-int randSvd(const fmat &XX, fmat &U, fvec &d, unsigned k = 200, unsigned nIter = 100);
+int randSvd(const fmat &XX, fmat &U, fvec &d, unsigned k = 200, unsigned nIter = RANDSVD_NITER);
 int standardize_rsvd(fmat &X);
 int normalize_rsvd(fmat &X);
 
@@ -164,9 +181,11 @@ int main(int argc, char* argv[]){
 	int tmp=0;
 	ifstream fin;
 	ofstream fout;	
-	ofstream fout2;	
+	ofstream fout_onl;	
 	// ofstream fout3;
-	ofstream fout4;
+	ofstream fout_proj;
+	ofstream fout_onlRand;
+	ofstream fout_projRand;
 	ofstream fout5;
 	string str;
 	string outfile;	
@@ -606,12 +625,16 @@ int main(int argc, char* argv[]){
 	string *RefInfo2 = new string [REF_SIZE];
 	fmat RefD(REF_SIZE, LOCI);
 	mat refPC = zeros<mat>(REF_SIZE,DIM);
+	mat refPC_rand = zeros<mat>(REF_SIZE,DIM);
 	mat V = zeros<mat>(REF_SIZE, REF_SIZE);
 	vec d = zeros<vec>(REF_SIZE);
 	unsigned DIM_SUPER = 2 * DIM_HIGH;
 	mat V1 = zeros<mat>(REF_SIZE, DIM_SUPER);
 	vec d1 = zeros<vec>(DIM_SUPER);
 	fmat U1 = zeros<fmat>(LOCI, DIM_SUPER);
+	mat V1_rand = zeros<mat>(REF_SIZE, DIM_SUPER);
+	vec d1_rand = zeros<vec>(DIM_SUPER);
+	fmat U1_rand = zeros<fmat>(LOCI, DIM_SUPER);
 	fmat V_rand_flt = zeros<fmat>(REF_SIZE, REF_SIZE);
 	fvec d_rand_flt = zeros<fvec>(REF_SIZE);
 	mat V_rand = zeros<mat>(REF_SIZE, REF_SIZE);
@@ -710,7 +733,7 @@ int main(int argc, char* argv[]){
 	// cout << "Creating augmented raw reference matrix" << endl;
   	// foutLog << endl << asctime (timeinfo);
 	// foutLog << "Creating augmented raw reference matrix" << endl;
-	fmat RefD_raw = RefD;
+	fmat RefD_rand = RefD;
 	// fmat RefD_augraw = join_cols(RefD, zeros<frowvec>(LOCI));
 	// name_entry = "create_Xaugraw";
 	// time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
@@ -793,20 +816,20 @@ int main(int argc, char* argv[]){
 	}else{
 		rowvec PCvar = zeros<rowvec>(DIM);
 		rowvec PCvar_rand = zeros<rowvec>(DIM);
-		// t2 = clock();
-		// time ( &rawtime );
-		// timeinfo = localtime ( &rawtime );
-		// cout << endl << asctime (timeinfo);
-		// cout << "Performing PCA on reference individuals ..." << endl;
-		// foutLog << endl << asctime (timeinfo);
-		// foutLog << "Performing PCA on reference individuals ..." << endl;	
-		// // pca_cov(RefM, DIM, refPC, PCvar);   // Perform PCA
-		// // These two functions is a breakdown of pca_cov. It makes d and V available.
-		// eig_descend(d, V, RefM);
-		// eigDes2pcaCov(d, V, DIM, refPC, PCvar);
-		// name_entry = "calc_ref_pca_coord";
-		// time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
-		// runtimes[name_entry] = time_entry;
+		t2 = clock();
+		time ( &rawtime );
+		timeinfo = localtime ( &rawtime );
+		cout << endl << asctime (timeinfo);
+		cout << "Performing PCA on reference individuals ..." << endl;
+		foutLog << endl << asctime (timeinfo);
+		foutLog << "Performing PCA on reference individuals ..." << endl;	
+		// pca_cov(RefM, DIM, refPC, PCvar);   // Perform PCA
+		// These two functions is a breakdown of pca_cov. It makes d and V available.
+		eig_descend(d, V, RefM);
+		eigDes2pcaCov(d, V, DIM, refPC, PCvar);
+		name_entry = "calc_ref_pca_coord";
+		time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
+		runtimes[name_entry] = time_entry;
 
 		t2 = clock();
 		time ( &rawtime );
@@ -815,23 +838,36 @@ int main(int argc, char* argv[]){
 		cout << "Performing PCA on reference individuals (using rand)..." << endl;
 		foutLog << endl << asctime (timeinfo);
 		foutLog << "Performing PCA on reference individuals (using rand)..." << endl;
-		randSvd(RefD_raw, V_rand_flt, d_rand_flt, k = REF_SIZE);
-		// V.save("/home/david/research/ref_V", raw_ascii);
-		// V_rand_flt.save("/home/david/research/ref_V_rand", raw_ascii);
-		// printer(V.submat(0, 0, 4, 4));
-		// printer(V_rand_flt.submat(0, 0, 4, 4));
-		// printer(d.head(5));
-		// printer(d_rand_flt.head(5));
-		// int trash;
-		// cin >> trash;
+    int randsvd_k = 200;
+    if(randsvd_k > REF_SIZE){
+      randsvd_k = REF_SIZE;
+    }
+    standardize_rsvd(RefD_rand);
+		randSvd(RefD_rand, V_rand_flt, d_rand_flt, k = randsvd_k);
 		V_rand = conv_to<mat>::from(V_rand_flt);
 		d_rand = conv_to<mat>::from(d_rand_flt);
-    V = V_rand;
-    d = d_rand;
-		eigDes2pcaCov(d_rand, V_rand, DIM, refPC, PCvar_rand);
+		eigDes2pcaCov(d_rand, V_rand, DIM, refPC_rand, PCvar_rand);
 		name_entry = "calc_ref_pca_coord_rand";
 		time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
 		runtimes[name_entry] = time_entry;
+
+    for(int i = 0; i < randsvd_k; i++){
+      vec V_cor = cor(V.col(i), V_rand.col(i));
+      if(V_cor[0] < 0){
+        V_rand.col(i) = 0 - V_rand.col(i);
+      }
+    }
+
+		V.save(OUT_PREFIX + ".RefPC.std.V", raw_ascii);
+		V_rand.save(OUT_PREFIX + ".RefPC.rand.V", raw_ascii);
+		d.save(OUT_PREFIX + ".RefPC.std.d", raw_ascii);
+		d_rand.save(OUT_PREFIX + ".RefPC.rand.d", raw_ascii);
+    ofstream randpar;
+		outfile = OUT_PREFIX;
+		outfile.append(".RefPC.rand.par");
+    randpar.open(outfile.c_str());
+    randpar << randsvd_k << "\t" << RANDSVD_NITER << endl;
+    randpar.close();
 
 		//==================== Output reference PCs ==========================
 		outfile = OUT_PREFIX;
@@ -877,30 +913,30 @@ int main(int argc, char* argv[]){
 		foutLog << "Variances explained by PCs are output to '" << outfile << "'." << endl;		
 
 
-		// //==================== Output reference PCs (rand) ==========================
-		// t2 = clock();
-		// outfile = OUT_PREFIX;
-		// outfile.append(".RefPC.rand.coord");
-		// fout.open(outfile.c_str());
-		// if(fout.fail()){
-		// 	cerr << "Error: cannot create a file named " << outfile << "." << endl;
-		// 	foutLog << "Error: cannot create a file named " << outfile << "." << endl;
-		// 	foutLog.close();
-		// 	return 1;
-		// }
-		// fout << "popID" << "\t" << "indivID" << "\t";
-		// for(j=0; j<DIM-1; j++){ fout << "PC" << j+1 << "\t"; }
-		// fout << "PC" << DIM << endl;
-		// for(i=0; i<REF_SIZE; i++){
-		// 	fout << RefInfo1[i] << "\t" << RefInfo2[i] << "\t";
-		// 	for(j=0; j<DIM-1; j++){
-		// 		fout << refPC_rand(i,j) << "\t";
-		// 	}
-		// 	fout << refPC_rand(i,DIM-1) << endl;
-		// }
-		// fout.close();
-		// cout << "Reference PCA (rand) coordinates are output to '" << outfile << "'." << endl;
-		// foutLog << "Reference PCA (rand) coordinates are output to '" << outfile << "'." << endl;
+		//==================== Output reference PCs (rand) ==========================
+		t2 = clock();
+		outfile = OUT_PREFIX;
+		outfile.append(".RefPC.rand.coord");
+		fout.open(outfile.c_str());
+		if(fout.fail()){
+			cerr << "Error: cannot create a file named " << outfile << "." << endl;
+			foutLog << "Error: cannot create a file named " << outfile << "." << endl;
+			foutLog.close();
+			return 1;
+		}
+		fout << "popID" << "\t" << "indivID" << "\t";
+		for(j=0; j<DIM-1; j++){ fout << "PC" << j+1 << "\t"; }
+		fout << "PC" << DIM << endl;
+		for(i=0; i<REF_SIZE; i++){
+			fout << RefInfo1[i] << "\t" << RefInfo2[i] << "\t";
+			for(j=0; j<DIM-1; j++){
+				fout << refPC_rand(i,j) << "\t";
+			}
+			fout << refPC_rand(i,DIM-1) << endl;
+		}
+		fout.close();
+		cout << "Reference PCA (rand) coordinates are output to '" << outfile << "'." << endl;
+		foutLog << "Reference PCA (rand) coordinates are output to '" << outfile << "'." << endl;
 		// //==================================================================
 
 		// outfile = OUT_PREFIX;
@@ -941,6 +977,20 @@ int main(int argc, char* argv[]){
 	time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
 	runtimes[name_entry] = time_entry;
 
+	//========================= Prepare for online svd (rand) ==========================
+  t2 = clock();
+ 	time ( &rawtime );
+  timeinfo = localtime ( &rawtime );
+  cout << endl << asctime (timeinfo);
+	cout << "Finding (partial) PC direction (U1 for online svd) from rand..." << endl;
+  foutLog << endl << asctime (timeinfo);	
+	foutLog << "Finding (partial) PC direction (U1 for online svd) from rand..." << endl;
+	V1_rand = V_rand.head_cols(DIM_SUPER);
+	d1_rand = d_rand.head(DIM_SUPER);
+	U1_rand = RefD.t() * conv_to<fmat>::from(V1_rand) * conv_to<fmat>::from(diagmat(1/d1_rand));
+	name_entry = "onl_rand_find_U1";
+	time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
+	runtimes[name_entry] = time_entry;
 			
 	//========================= Read genotype data of the study sample ==========================
 	fin.open(STUDY_FILE.c_str());
@@ -957,15 +1007,21 @@ int main(int argc, char* argv[]){
 	outfile = OUT_PREFIX;
 	outfile.append(".ori.ProPC.coord");
 	fout.open(outfile.c_str());
-	outfile2 = OUT_PREFIX;
-	outfile2.append(".onl.ProPC.coord");
-	fout2.open(outfile2.c_str());
-	// outfile3 = OUT_PREFIX;
-	// outfile3.append(".rand.ProPC.coord");
-	// fout3.open(outfile3.c_str());
-	outfile4 = OUT_PREFIX;
-	outfile4.append(".hdpca.vproj");
-	fout4.open(outfile4.c_str());
+	outfile = OUT_PREFIX;
+	outfile.append(".onl.ProPC.coord");
+	fout_onl.open(outfile.c_str());
+	outfile = OUT_PREFIX;
+	outfile.append(".hdpca.vproj");
+	fout_proj.open(outfile.c_str());
+	outfile = OUT_PREFIX;
+	outfile.append(".onlRand.ProPC.coord");
+	fout_onlRand.open(outfile.c_str());
+	outfile = OUT_PREFIX;
+	outfile.append(".hdpcaRand.vproj");
+	fout_projRand.open(outfile.c_str());
+	// outfile = OUT_PREFIX;
+	// outfile.append(".rand.ProPC.coord");
+	// fout3.open(outfile.c_str());
 	if(fout.fail()){
 		delete [] RefInfo1;
 		delete [] RefInfo2;
@@ -978,15 +1034,26 @@ int main(int argc, char* argv[]){
 	fout << "popID\t" << "indivID\t" << "L\t" << "K\t" << "t\t";
 	for(j=0; j<DIM-1; j++){ fout << "PC" << j+1 << "\t"; }
 	fout << "PC" << DIM << endl;
-	fout2 << "popID\t" << "indivID\t" << "L\t" << "K\t" << "t\t";
-	for(j=0; j<DIM-1; j++){ fout2 << "PC" << j+1 << "\t"; }
-	fout2 << "PC" << DIM << endl;
+
+	fout_onl << "popID\t" << "indivID\t" << "L\t" << "K\t" << "t\t";
+	for(j=0; j<DIM-1; j++){ fout_onl << "PC" << j+1 << "\t"; }
+	fout_onl << "PC" << DIM << endl;
+
 	// fout3 << "popID\t" << "indivID\t" << "L\t" << "K\t" << "t\t";
 	// for(j=0; j<DIM-1; j++){ fout3 << "PC" << j+1 << "\t"; }
 	// fout3 << "PC" << DIM << endl;
-	fout4 << "popID\t" << "indivID\t" << "L\t" << "K\t" << "t\t";
-	for(j=0; j<DIM-1; j++){ fout4 << "PC" << j+1 << "\t"; }
-	fout4 << "PC" << DIM << endl;
+
+	fout_proj << "popID\t" << "indivID\t" << "L\t" << "K\t" << "t\t";
+	for(j=0; j<DIM-1; j++){ fout_proj << "PC" << j+1 << "\t"; }
+	fout_proj << "PC" << DIM << endl;
+
+	fout_onlRand << "popID\t" << "indivID\t" << "L\t" << "K\t" << "t\t";
+	for(j=0; j<DIM-1; j++){ fout_onlRand << "PC" << j+1 << "\t"; }
+	fout_onlRand << "PC" << DIM << endl;
+
+	fout_projRand << "popID\t" << "indivID\t" << "L\t" << "K\t" << "t\t";
+	for(j=0; j<DIM-1; j++){ fout_projRand << "PC" << j+1 << "\t"; }
+	fout_projRand << "PC" << DIM << endl;
 
 	//==========================
         t2 = clock();
@@ -1009,9 +1076,12 @@ int main(int argc, char* argv[]){
         double augEigen_time = 0.0;
         double procrust_time = 0.0;
         double onlsvd_time = 0.0;
+        double onlRandSvd_time = 0.0;
         double onlprocrust_time = 0.0;
+        double onlRandProcrust_time = 0.0;
         double randsvd_time = 0.0;
         double proj_time = 0.0;
+        double projRand_time = 0.0;
         mat V_proj(LAST_IND, REF_SIZE); 
 
 	for(i=1; i<=LAST_IND; i++){
@@ -1094,9 +1164,7 @@ int main(int argc, char* argv[]){
         t2 = clock();
         vec eigval(REF_SIZE+1);
 				mat eigvec(REF_SIZE+1, REF_SIZE+1);
-        // eig_sym(eigval, eigvec, M, "dc");
-        eigval.randu();
-        eigvec.randu();
+        eig_sym(eigval, eigvec, M, "dc");
 				M.clear();
 								
 				// ####    Calculate Tracy-Widom Statistics and determine DIM_HIGH  ####
@@ -1187,6 +1255,8 @@ int main(int argc, char* argv[]){
                                 vec E_one = conv_to<vec>::from(D_one); // New individual
                                 vec d2;
                                 mat V2;
+                                vec d2_rand;
+                                mat V2_rand;
                                 pca_online(U1, d1, V1, DIM_SUPER, E_one, d2, V2);
                                 V2 = V2.head_cols(DIM_HIGH);
                                 d2 = d2.head(DIM_HIGH);
@@ -1217,11 +1287,11 @@ int main(int argc, char* argv[]){
 
 
 				//================= Output Procrustes Results (Online) ===================				
-				fout2 << Info1 << "\t" << Info2 << "\t" << (LOCI-Lm) << "\t" << DIM_HIGH << "\t" << t << "\t";	
+				fout_onl << Info1 << "\t" << Info2 << "\t" << (LOCI-Lm) << "\t" << DIM_HIGH << "\t" << t << "\t";	
 				for(j=0; j<DIM-1; j++){
-					fout2 << rotPC_one(j) << "\t";
+					fout_onl << rotPC_one(j) << "\t";
 				}
-				fout2 << rotPC_one(DIM-1) << endl;
+				fout_onl << rotPC_one(DIM-1) << endl;
 
 
 
@@ -1272,16 +1342,71 @@ int main(int argc, char* argv[]){
                                 t2 = clock();
                                 rowvec V_proj_one = (D_one * RefD.t()) * V.head_cols(DIM) * diagmat(1/d.head(DIM));
                                 // V_proj.row(i-1) = V_proj_one;
-								fout4 << Info1 << "\t" << Info2 << "\t" << (LOCI-Lm) << "\t" << DIM_HIGH << "\t" << t << "\t";
+								fout_proj << Info1 << "\t" << Info2 << "\t" << (LOCI-Lm) << "\t" << DIM_HIGH << "\t" << t << "\t";
 								for(j=0; j<DIM-1; j++){
-									fout4 << V_proj_one(j) << "\t";
+									fout_proj << V_proj_one(j) << "\t";
 								}
-								fout4 << V_proj_one(DIM-1) << endl;
+								fout_proj << V_proj_one(DIM-1) << endl;
 
                                 time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
                                 proj_time += time_entry;
 
-				//========================================================================				
+
+				//================= Online SVD (rand) =======================
+                                t2 = clock();
+                                E_one = conv_to<vec>::from(D_one); // New individual
+                                pca_online(U1_rand, d1_rand, V1_rand, DIM_SUPER, E_one, d2_rand, V2_rand);
+                                V2_rand = V2_rand.head_cols(DIM_HIGH);
+                                d2_rand = d2_rand.head(DIM_HIGH);
+                                V2_rand = V2_rand * diagmat(d2_rand);
+                                refPC_new = V2_rand.head_rows(REF_SIZE);
+                                PC_one = V2_rand.tail_rows(1);
+                                time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
+                                onlRandSvd_time += time_entry;
+
+				//=================  Procrustes Analysis (Online rand) =======================
+        t2 = clock();
+				refPC_rot.clear();
+				t = 0;
+				rho = 0;
+				A.clear();
+				b.clear();
+                                epsilon = 0;
+				epsilon = pprocrustes(refPC_new, refPC_rand, refPC_rot, t, rho, A, b, MAX_ITER, THRESHOLD, PROCRUSTES_SCALE);
+				if(epsilon>THRESHOLD){
+					cout << "Warning: Projection Procrustes analysis doesn't converge in " << MAX_ITER << " iterations for " << Info2 <<", THRESHOLD=" << THRESHOLD << "." << endl;
+					foutLog << "Warning: Projection Procrustes analysis doesn't converge in " << MAX_ITER << " iterations for " << Info2 <<", THRESHOLD=" << THRESHOLD << "." << endl;
+				}				
+				refPC_new.clear();
+				refPC_rot.clear();
+				rotPC_one = rho*PC_one*A+b;
+        time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
+        onlRandProcrust_time += time_entry;
+
+
+				//================= Output Procrustes Results (Online rand) ===================				
+				fout_onlRand << Info1 << "\t" << Info2 << "\t" << (LOCI-Lm) << "\t" << DIM_HIGH << "\t" << t << "\t";	
+				for(j=0; j<DIM-1; j++){
+					fout_onlRand << rotPC_one(j) << "\t";
+				}
+				fout_onlRand << rotPC_one(DIM-1) << endl;
+
+
+				//================= Projection (rand) ===================
+        t2 = clock();
+        V_proj_one = (D_one * RefD_rand.t()) * V_rand.head_cols(DIM) * diagmat(1/d_rand.head(DIM));
+        // V_proj.row(i-1) = V_proj_one;
+        fout_projRand << Info1 << "\t" << Info2 << "\t" << (LOCI-Lm) << "\t" << DIM_HIGH << "\t" << t << "\t";
+        for(j=0; j<DIM-1; j++){
+          fout_projRand << V_proj_one(j) << "\t";
+        }
+        fout_projRand << V_proj_one(DIM-1) << endl;
+
+        time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
+        projRand_time += time_entry;
+
+
+
                                 D_one.clear();
 			}else{
 				fout << Info1 << "\t" << Info2 << "\t" << (LOCI-Lm) << "\t" << "NA" << "\t" << "NA" << "\t";	
@@ -1303,6 +1428,9 @@ int main(int argc, char* argv[]){
         name_entry = "augEigen";
         time_entry = augEigen_time;
         runtimes[name_entry] = time_entry;
+        name_entry = "procrustes";
+        time_entry = procrust_time;
+        runtimes[name_entry] = time_entry;
         name_entry = "onlSVD";
         time_entry = onlsvd_time;
         runtimes[name_entry] = time_entry;
@@ -1312,11 +1440,17 @@ int main(int argc, char* argv[]){
         // name_entry = "randSVD";
         // time_entry = randsvd_time;
         // runtimes[name_entry] = time_entry;
-        name_entry = "procrustes";
-        time_entry = procrust_time;
-        runtimes[name_entry] = time_entry;
         name_entry = "proj";
         time_entry = proj_time;
+        runtimes[name_entry] = time_entry;
+        name_entry = "onlRandSVD";
+        time_entry = onlRandSvd_time;
+        runtimes[name_entry] = time_entry;
+        name_entry = "onlRandProcrust";
+        time_entry = onlRandProcrust_time;
+        runtimes[name_entry] = time_entry;
+        name_entry = "projRand";
+        time_entry = projRand_time;
         runtimes[name_entry] = time_entry;
 
 	gsl_rng_free (rng);
@@ -1334,11 +1468,13 @@ int main(int argc, char* argv[]){
 
 	fin.close();
 	fout.close();
-	fout2.close();
+	fout_onl.close();
 	// fout3.close();
-	fout4.close();
-	// V_proj.save(OUT_PREFIX + ".hdpca.vproj", raw_ascii);
+	fout_proj.close();
+	fout_onlRand.close();
+	fout_projRand.close();
 	d.save(OUT_PREFIX + ".hdpca.d", raw_ascii);
+	d_rand.save(OUT_PREFIX + ".hdpcaRand.d", raw_ascii);
 	cout << "Procrustean PCA coordinates are output to '" << outfile << "'." << endl;
 	foutLog << "Procrustean PCA coordinates are output to '" << outfile << "'." << endl;
 
@@ -1355,13 +1491,20 @@ int main(int argc, char* argv[]){
 	foutLog << "=====================================================================" <<endl;
 	map<string, float> runtimes_sum;
 	runtimes_sum["ref_trace"] = runtimes["calc_ref_cov"] + runtimes["calc_ref_pca_coord"];
+	runtimes_sum["ref_rand"] = runtimes["calc_ref_pca_coord_rand"];
 	runtimes_sum["ref_onl"] = runtimes_sum["ref_trace"] + runtimes["onl_find_U1"];
 	runtimes_sum["ref_proj"] = runtimes_sum["ref_trace"];
 	runtimes_sum["ref_hdpca"] = runtimes_sum["ref_proj"];
+	runtimes_sum["ref_onlRand"] = runtimes_sum["ref_rand"] + runtimes["onl_rand_find_U1"];
+	runtimes_sum["ref_projRand"] = runtimes_sum["ref_trace"];
+	runtimes_sum["ref_hdpcaRand"] = runtimes_sum["ref_proj"];
 	runtimes_sum["test_trace"] = runtimes["augCov"] + runtimes["augEigen"] + runtimes["procrustes"];
 	runtimes_sum["test_onl"] = runtimes["onlSVD"] + runtimes["onlProcrust"];
 	runtimes_sum["test_proj"] = runtimes["proj"];
 	runtimes_sum["test_hdpca"] = runtimes["proj"];
+	runtimes_sum["test_onlRand"] = runtimes["onlRandSVD"] + runtimes["onlRandProcrust"];
+	runtimes_sum["test_projRand"] = runtimes["projRand"];
+	runtimes_sum["test_hdpcaRand"] = runtimes["projRand"];
 	cout << "Runtime breakdown (sec): " << endl;
 	foutLog << "Runtime breakdown (sec): " << endl;
 	for(map<string, float>::iterator it = runtimes.begin(); it != runtimes.end(); it++){
@@ -1382,10 +1525,6 @@ int main(int argc, char* argv[]){
 		foutLog << it -> first << "\t" << it -> second << endl;
 		fout << it -> first << "\t" << it -> second << endl;
 	}
-	cout << "=====================================================================" <<endl;
-	foutLog << "=====================================================================" <<endl;
-  cout << "Note: Eigendecomposition is not done for the study individuals for the regular TRACE method. Random numbers are used as place holders." << endl;
-  foutLog << "Note: Eigendecomposition is not done for the study individuals for the regular TRACE method. Random numbers are used as place holders." << endl;
 	cout << "=====================================================================" <<endl;
 	foutLog << "=====================================================================" <<endl;
 	foutLog.close();
@@ -2476,7 +2615,7 @@ int randSvd(const fmat &XX, fmat &U, fvec &d, unsigned k, unsigned nIter){
   unsigned p = XX.n_cols;
   fmat X = XX;
   // cout << "X" << accu(X) << endl << X.submat(0,0,3,3) << endl;
-  standardize_rsvd(X);
+  // standardize_rsvd(X);
   // cout << "X after standarization" << accu(X) << endl << X.submat(0,0,3,3) << endl;
   fmat R(p, k, fill::randn);
   // cout << "R" << accu(R) << endl << R.submat(0,0,3,3) << endl;
