@@ -1,44 +1,35 @@
 #!/bin/bash
 
 ver=$1
-pref=$2
-p=$3
-n=$4
-m=$5
-k=$6
-s=$7
-mig=$8
-name="trace.${ver}.o"
+geno_file=$2
+study_file=$3
+out_pref=$4
+exe="trace.${ver}.o"
 
 DIM=4
 DIM_HIGH=20
 
-echo Checking whether ${name} needs to be recompiled...
-export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH
-make ${name}
-cp ${name} ../data/laser/${name}
+echo "Running TRACE..."
+echo Checking whether ${exe} needs to be recompiled...
+make ${exe}
 echo Done.
 
+hostname > ${out_pref}.nodename
 
+# For running trace in this directory
+# Better than putting all the info as arguments. This way running gdb will be easier
+echo "\
+GENO_FILE ${geno_file}
+STUDY_FILE ${study_file}
+OUT_PREFIX ${out_pref}
+DIM        	${DIM}
+DIM_HIGH	${DIM_HIGH}
+" > trace.conf
 
-# For running locally
-# g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} `pkg-config --libs gsl lapack` -larmadillo
+./${exe} -p trace.conf
 
-# For running on biostat cluster
-# g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2 -I /home/daiweiz/prog/armadillo/usr/include -lblas -llapack -lgsl -lgslcblas -lm -larmadillo
-
-# For running on CSG cluster
-# g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2  -I/net/dumbo/home/daiweiz/usr/include/ -L/net/dumbo/home/daiweiz/usr/lib/x86_64-linux-gnu -lblas -llapack -lgsl -lgslcblas -lm -larmadillo -lhdf5
-
-
-# For running on FLUX
-# g++ -std=c++11 -g ../../research/${name}.cpp -o ${name} -O2  -I/home/daiweiz/gsl/include -L/home/daiweiz/gsl/lib -lblas -llapack -lgsl -lgslcblas -lm -larmadillo 
-
-echo Finished compiling.
-
-
-hostname > ../data/${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.${ver}.nodename
-
+# cd ../data/laser
+# echo "Entered laser dir"
 # For running trace in ../data/laser
 # echo "\
 # STUDY_FILE	../${pref}/${pref}_${p}_${m}_${k}_${s}_${mig}_1.geno
@@ -47,17 +38,3 @@ hostname > ../data/${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.${ver}.nodena
 # DIM        	${DIM}
 # DIM_HIGH	${DIM_HIGH}
 # " > trace.conf
-
-# For running trace here
-echo "\
-STUDY_FILE	../data/${pref}/${pref}_${p}_${m}_${k}_${s}_${mig}_1.geno
-GENO_FILE	../data/${pref}/${pref}_${p}_${n}_${k}_${s}_${mig}_0.geno
-OUT_PREFIX	../data/${pref}/${pref}_${p}_${n}_${m}_${k}_${s}_${mig}.${ver}
-DIM        	${DIM}
-DIM_HIGH	${DIM_HIGH}
-" > trace.conf
-
-# cd ../data/laser
-# echo "Entered laser dir"
-
-./${name} -p trace.conf

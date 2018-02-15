@@ -18,4 +18,4 @@ let "C = ${N} / (${K} * ${K}) * 2"
 let G=${P}/${L}
 
 cd ../data/ggs
-./ggs  -K ${K} -c ${C} -M ${M} -G ${G} -L ${L} -o ../${PREF}/${PREF}_${P}_${N}_${K}_${M}.ggs
+./ggs  -K ${K} -c ${C} -M ${M} -G ${G} -L ${L} -o ../${PREF}/${PREF}_${P}_${N}_${K}_${M}.ggs > ggs.log 2>&1

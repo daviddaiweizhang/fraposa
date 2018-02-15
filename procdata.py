@@ -17,16 +17,14 @@ def getNCols(fileName):
 
 def getRows(inFile, rowIdxs, outFile, otherFile):
     '''Get rows from inFile by rowIdxs as index and save in outFile'''
-    print("Getting rows from index...")
     with open(inFile, 'r') as inf, open(outFile, 'w') as outf, open(otherFile, 'w') as othf:
         for i, line in enumerate(inf):
             if (i in rowIdxs):
                 outf.write(line)
             else:
                 othf.write(line)
-            if i % 100000 == 0:
-                print('Finished line ' + str(i))
-    print("Done!")
+            if i % 100000 == -1:
+                print('Finished ' + str(i) + ' lines.')
 
 
 def getCols(inFile, idxs, outFile, otherFile):
@@ -46,6 +44,7 @@ def getRandRows(inFile, n, nn, outFile, otherFile):
     print("Getting " + str(n) + " random rows out of " + str(nn) + " rows ...")
     rowIdxs = np.random.choice(nn, size=n, replace=False)
     getRows(inFile, rowIdxs, outFile, otherFile)
+    print("Done.")
 
 
 def getEvenRows(inFile, nn, outFile, otherFile):
@@ -74,14 +73,8 @@ def getEvenCols(inFile, outFile, othFile):
 
 def ggs2trace(ggsFile, genoFile, weight=[1]):
     ''' Convert a genotype simulated by ggs to TRACE's .geno format. Every two haploids are added to form a duploid.'''
-    print("Converting ggs output")
-    print(ggsFile)
-    print("to trace input")
-    print(genoFile)
-    print("with weight")
-    print(weight)
-    print("...")
-    print("Creating duploids...")
+    print("Converting ggs file to TRACE file...")
+    print("Creating duploid file...")
     nCols = getNCols(ggsFile) - 1  # The first column is the row names
     if nCols % 2 != 0:
         print(nCols)
@@ -119,16 +112,14 @@ def ggs2trace(ggsFile, genoFile, weight=[1]):
             lst = list(map(str, lst))
             st = '\t'.join(lst) + '\n'
             dupF.write(st)
-            if i % 100000 == 0:
-                print("Finished line " + str(i))
-    print("Finished!")
-    print("Duploid file written to " + dupFile)
-    print("Transposing " + dupFile + " into " + genoFile + "...")
+            if i % 100000 == -1:
+                print("Finished " + str(i) + " lines.")
+    print("Done.")
+    print("Transposing ggs duploid file to TRACE's .geno file...")
     transpose_block(dupFile, genoFile, p=P, q=Q)
     # subprocess.call(["./transpose", dupFile, genoFile])
     # subprocess.call(["rm", dupFile])
-    print("Finished!")
-    print("Geno file written to " + genoFile)
+    print("Done.")
 
 
 def ggsChild2trace(ggsFile, genoFile, nChild):

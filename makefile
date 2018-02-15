@@ -12,6 +12,7 @@ trace.comb.o : trace.comb.cpp
 	    g++ $(FLAGS) trace.comb.cpp -o trace.comb.o $(LIBS_LOCAL); \
 	elif [ `hostname` = "fantasia" ]; then \
 	    echo "CSG libs"; \
+			export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH; \
 	    g++ $(FLAGS) trace.comb.cpp -o trace.comb.o $(LIBS_CSG); \
 	else \
 	    echo "Flux libs"; \
@@ -25,6 +26,7 @@ trace.rand.o : trace.rand.cpp
 	    g++ $(FLAGS) trace.rand.cpp -o trace.rand.o $(LIBS_LOCAL); \
 	elif [ `hostname` = "fantasia" ]; then \
 	    echo "CSG libs"; \
+			export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH; \
 	    g++ $(FLAGS) trace.rand.cpp -o trace.rand.o $(LIBS_CSG); \
 	else \
 	    echo "Flux libs"; \
