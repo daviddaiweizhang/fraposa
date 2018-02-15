@@ -29,18 +29,31 @@ date
 echo $ver $pref $p $n $m $k $s $mig
 mkdir ../data/${pref}
 
-if [ ! -f ../data/${pref}/${pref}_${p}_${nplusmHigh}_${k}_${mig}.ggs ]; then
+GENO_FILE=../${pref}/${pref}_${p}_${n}_${k}_${s}_${mig}_0.geno
+STUDY_FILE=../${pref}/${pref}_${p}_${m}_${k}_${s}_${mig}_1.geno
+ggs_file=../${pref}/${pref}_${p}_${nplusmHigh}_${k}_${mig}.ggs
+dup_file=../${pref}/${pref}_${p}_${nplusmHigh}_${k}_${s}_${mig}.geno.tr
+geno_both_file=../${pref}/${pref}_${p}_${nplusmHigh}_${k}_${s}_${mig}.geno
+site_both_file=../${pref}/${pref}_${p}_${nplusmHigh}_${k}_${s}_${mig}.site
+
+if [[ -f ${GENO_FILE} || -f ${STUDY_FILE} ]] ; then
+    echo "Using existing GENO_FILE: ${GENO_FILE}"
+    echo "Using existing STUDY_FILE: ${STUDY_FILE}"
+else
     echo "Generating data with GGS..."
-    ./runGgs ${pref} ${p} ${nplusmHigh} ${k} ${mig}
+    bash runGgs.sh ${pref} ${p} ${nplusmHigh} ${k} ${mig}
     date
-    ./ggs2trace ${pref} ${p} ${nplusmHigh} ${k} ${s} ${mig}
+    bash ggs2trace.sh ${pref} ${p} ${nplusmHigh} ${k} ${s} ${mig}
     date
-    ./getHalfRows ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
+    bash getHalfRows.sh ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
     date
+    echo "Done."
+    echo "Removing intermediate files..."
+    rm ${ggs_file} ${dup_file} ${geno_both_file} ${site_both_file}
     echo "Done."
 fi
 
-./runTrace ${ver} ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
+bash runTrace.sh ${ver} ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
 date
 Rscript runHdpca.R ${ver} hdpca ${pref} ${p} ${n} ${m} ${k} ${s} ${mig}
 date

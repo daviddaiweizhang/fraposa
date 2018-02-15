@@ -2,7 +2,7 @@ dir <- "../data"
 pref <- "tmp"
 p <- "100000"
 n <- "1000"
-m <- "200"
+m <- "100"
 k <- "2"
 s <- "1"
 mig <- "10"
@@ -67,17 +67,18 @@ title(
   outer = TRUE
 )
 
-pcs.std.1 <- V.ref.std[,1] * d.ref.std[1]
-pcs.std.2 <- V.ref.std[,2] * d.ref.std[2]
-plot(pcs.std.1, pcs.std.2)
-pcs.rand.1 <- V.ref.rand[,1] * d.ref.rand[1]
-pcs.rand.2 <- V.ref.rand[,2] * d.ref.rand[2]
-plot(pcs.rand.1, pcs.rand.2, col = 2)
+## pcs.std.1 <- V.ref.std[,1] * d.ref.std[1]
+## pcs.std.2 <- V.ref.std[,2] * d.ref.std[2]
+## plot(pcs.std.1, pcs.std.2)
+## pcs.rand.1 <- V.ref.rand[,1] * d.ref.rand[1]
+## pcs.rand.2 <- V.ref.rand[,2] * d.ref.rand[2]
+## plot(pcs.rand.1, pcs.rand.2, col = 2)
 
 
-par(mfrow=c(2,2))
-plot(1:1000, pcs.std.1)
-points(1:1000, pcs.rand.1, col = 2)
-points(1:1000, pcs.std.2, col = 3)
-points(1:1000, pcs.rand.2, col = 4)
-plot(pcs.std.1, pcs.std.2)
+## par(mfrow=c(2,2))
+## plot(1:1000, pcs.std.1)
+## points(1:1000, pcs.rand.1, col = 2)
+## points(1:1000, pcs.std.2, col = 3)
+## points(1:1000, pcs.rand.2, col = 4)
+## plot(pcs.std.1, pcs.std.2)
+## points(pcs.rand.1, pcs.rand.2, col = 2)

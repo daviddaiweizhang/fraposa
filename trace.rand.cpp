@@ -843,7 +843,7 @@ int main(int argc, char* argv[]){
       randsvd_k = REF_SIZE;
     }
     standardize_rsvd(RefD_rand);
-		randSvd(RefD_rand, V_rand_flt, d_rand_flt, k = randsvd_k);
+		randSvd(RefD, V_rand_flt, d_rand_flt, k = randsvd_k);
 		V_rand = conv_to<mat>::from(V_rand_flt);
 		d_rand = conv_to<mat>::from(d_rand_flt);
 		eigDes2pcaCov(d_rand, V_rand, DIM, refPC_rand, PCvar_rand);
@@ -1394,7 +1394,7 @@ int main(int argc, char* argv[]){
 
 				//================= Projection (rand) ===================
         t2 = clock();
-        V_proj_one = (D_one * RefD_rand.t()) * V_rand.head_cols(DIM) * diagmat(1/d_rand.head(DIM));
+        V_proj_one = (D_one * RefD.t()) * V_rand.head_cols(DIM) * diagmat(1/d_rand.head(DIM));
         // V_proj.row(i-1) = V_proj_one;
         fout_projRand << Info1 << "\t" << Info2 << "\t" << (LOCI-Lm) << "\t" << DIM_HIGH << "\t" << t << "\t";
         for(j=0; j<DIM-1; j++){
@@ -2613,6 +2613,7 @@ int normalize_rsvd(fmat &X){
 
 int randSvd(const fmat &XX, fmat &U, fvec &d, unsigned k, unsigned nIter){
   unsigned p = XX.n_cols;
+  unsigned n = XX.n_rows;
   fmat X = XX;
   // cout << "X" << accu(X) << endl << X.submat(0,0,3,3) << endl;
   // standardize_rsvd(X);

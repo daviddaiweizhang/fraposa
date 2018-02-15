@@ -1,0 +1,7 @@
+*.o
+*.dat
+*.log
+*.pyc
+*.conf
+.Rhistory
+__pycache__/

@@ -8,7 +8,7 @@ m=$5
 k=$6
 s=$7
 mig=$8
-name=trace.${ver}
+name="trace.${ver}.o"
 
 DIM=4
 DIM_HIGH=20

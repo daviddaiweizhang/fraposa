@@ -66,7 +66,7 @@ meths.n <- length(display.names)
 args <- commandArgs(trailingOnly = TRUE)
 if(identical(args, character(0))){
     print("Using testing args...")
-    args <- c("rand", "tmp", "100000", "1000", "200", '2', '1', '10')
+    args <- c("rand", "tmp", "100000", "1000", "200", '2', '1', '100')
     print(args)
 }
 ver <- args[1]
@@ -313,7 +313,7 @@ pcsummary.header <- c(pcsummary.header, paste("err.refcenter", pcprops$display.n
 pcsummary.header <- c(pcsummary.header, paste("err.trace", pcprops$display.names, sep = "."))
 
 # Modify database
-pcsummary.file <- "pcSummary"
+pcsummary.file <- "pcSummary.dat"
 if(!file.exists(pcsummary.file)){
     print("Creating dataframe file...")
     # Create dataframe
