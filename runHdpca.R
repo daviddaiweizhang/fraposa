@@ -3,28 +3,23 @@
 require(hdpca)
 require(MASS)
 
-print("Running hdpca...")
+print("Running HDPCA...")
 args <- commandArgs(trailingOnly = TRUE)
 if(identical(args, character(0))){
     print("Using testing args...")
-	args <- c("rand", "hdpcaRand", "tmp", "100000", "1000", "200", "2", "1", "10")
+	args <- c("rand", "hdpca", "tmp", "tmp_1000_200_100_2_1_100")
 }
 
-ver <- args[1]
-subver <- args[2]
-pref <- args[3]
-pref <- paste(pref, pref, sep = "/")
-p <- args[4]
-n <- args[5]
-m <- args[6]
-k <- args[7]
-s <- args[8]
-mig <- args[9]
-name <- paste(pref, p, n, m, k, s, mig, sep = "_")
-name <- paste0("../data/", name, ".", ver)
+out.pref <- args[1]
+refver <- args[2]
 
+info.file <- paste(out.pref, "info", sep = ".")
+info.df <- read.table(info.file, sep = "\t",
+                      colClasses = "character")
+n <- as.integer(info.df[info.df[,1]=="n", 2])
+p <- as.integer(info.df[info.df[,1]=="p", 2])
 
-d.file <- paste(name, subver, "d", sep = ".")
+d.file <- paste(out.pref, refver, "d", sep = ".")
 d <- c(as.matrix(read.table(d.file)))
 if(length(d) < as.integer(n)-1){
   nn <- length(d)
@@ -36,34 +31,31 @@ if(length(d) < as.integer(n)-1){
   d <- c(d[1:(nn-1)], fill.y)
 }
 
-
-vproj.file <- paste(name, subver, "vproj", sep = ".")
+vproj.file <- paste(out.pref, refver, "vproj", sep = ".")
 vproj.df <- read.table(vproj.file, header = TRUE)
 vproj <- as.matrix(vproj.df[,-(1:5)])
 vproj.k <- ncol(vproj)
 vproj <- vproj %*% diag(1/d[1:vproj.k])
 
-
 timing <- (system.time({
-	print("Running HDPCA (pc_adjust)...")
-	vpred <- pc_adjust(d^2, as.numeric(p), as.numeric(n), vproj, method = "d.gsp", n.spikes.max = 20)
+	print("Running pc_adjust...")
+	vpred <- pc_adjust(d^2, p, n, vproj, method = "d.gsp", n.spikes.max = 20)
   vpred <- vpred %*% diag(d[1:vproj.k])
 }))
 timing.idx <- 3
 hdpca.timing <- unname(timing[timing.idx])
 
-runtimes.file <- paste0(name, ".runtimes")
+runtimes.file <- paste0(out.pref, ".runtimes")
 runtimes <- read.table(runtimes.file, header=TRUE)
-method.name <- paste("test", subver, sep = "_")
-runtimes$elapse[runtimes$method==method.name] <- runtimes$elapse[runtimes$method==method.name] + hdpca.timing
+method.name <- refver
+runtimes$study[runtimes$method==method.name] <- runtimes$study[runtimes$method==method.name] + hdpca.timing
 write.table(runtimes, runtimes.file, sep = "\t", quote=FALSE, row.names=FALSE)
 
 popID <- vproj.df$popID
 indivID <- vproj.df$indivID
 vpred.df <- data.frame(popID, indivID, L=NaN, K=NaN, t=NaN, vpred)
 colnames(vpred.df) <- colnames(vproj.df)
-pred.file <- paste(name, subver, "vpred", sep = ".")
+pred.file <- paste(out.pref, refver, "vpred", sep = ".")
 write.matrix(vpred, pred.file, sep = "\t")
 write.table(vpred.df, pred.file, sep="\t", quote=FALSE, row.names=FALSE)
 print("Done!")
-

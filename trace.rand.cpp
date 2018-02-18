@@ -846,17 +846,16 @@ int main(int argc, char* argv[]){
 		randSvd(RefD, V_rand_flt, d_rand_flt, k = randsvd_k);
 		V_rand = conv_to<mat>::from(V_rand_flt);
 		d_rand = conv_to<mat>::from(d_rand_flt);
-		eigDes2pcaCov(d_rand, V_rand, DIM, refPC_rand, PCvar_rand);
-		name_entry = "calc_ref_pca_coord_rand";
-		time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
-		runtimes[name_entry] = time_entry;
-
     for(int i = 0; i < randsvd_k; i++){
       vec V_cor = cor(V.col(i), V_rand.col(i));
       if(V_cor[0] < 0){
         V_rand.col(i) = 0 - V_rand.col(i);
       }
     }
+		eigDes2pcaCov(d_rand, V_rand, DIM, refPC_rand, PCvar_rand);
+		name_entry = "calc_ref_pca_coord_rand";
+		time_entry = (clock() - t2) * 1.0 / CLOCKS_PER_SEC;
+		runtimes[name_entry] = time_entry;
 
 		V.save(OUT_PREFIX + ".RefPC.std.V", raw_ascii);
 		V_rand.save(OUT_PREFIX + ".RefPC.rand.V", raw_ascii);
@@ -864,9 +863,13 @@ int main(int argc, char* argv[]){
 		d_rand.save(OUT_PREFIX + ".RefPC.rand.d", raw_ascii);
     ofstream randpar;
 		outfile = OUT_PREFIX;
-		outfile.append(".RefPC.rand.par");
-    randpar.open(outfile.c_str());
-    randpar << randsvd_k << "\t" << RANDSVD_NITER << endl;
+		outfile.append(".info");
+    randpar.open(outfile.c_str(), ofstream::app);
+    randpar << "p" << "\t" << LOCI << endl;
+    randpar << "n" << "\t" << REF_SIZE << endl;
+    randpar << "m" << "\t" << LAST_IND << endl;
+    randpar << "randsvd_k" << "\t" << randsvd_k << endl;
+    randpar << "randsvd_niter" << "\t" << RANDSVD_NITER << endl;
     randpar.close();
 
 		//==================== Output reference PCs ==========================
@@ -1491,20 +1494,19 @@ int main(int argc, char* argv[]){
 	foutLog << "=====================================================================" <<endl;
 	map<string, float> runtimes_sum;
 	runtimes_sum["ref_trace"] = runtimes["calc_ref_cov"] + runtimes["calc_ref_pca_coord"];
-	runtimes_sum["ref_rand"] = runtimes["calc_ref_pca_coord_rand"];
 	runtimes_sum["ref_onl"] = runtimes_sum["ref_trace"] + runtimes["onl_find_U1"];
 	runtimes_sum["ref_proj"] = runtimes_sum["ref_trace"];
 	runtimes_sum["ref_hdpca"] = runtimes_sum["ref_proj"];
-	runtimes_sum["ref_onlRand"] = runtimes_sum["ref_rand"] + runtimes["onl_rand_find_U1"];
-	runtimes_sum["ref_projRand"] = runtimes_sum["ref_trace"];
-	runtimes_sum["ref_hdpcaRand"] = runtimes_sum["ref_proj"];
+	runtimes_sum["ref_onlRand"] = runtimes["calc_ref_pca_coord_rand"] + runtimes["onl_rand_find_U1"];
+	runtimes_sum["ref_projRand"] = runtimes["calc_ref_pca_coord_rand"];
+	runtimes_sum["ref_hdpcaRand"] = runtimes_sum["ref_projRand"];
 	runtimes_sum["test_trace"] = runtimes["augCov"] + runtimes["augEigen"] + runtimes["procrustes"];
 	runtimes_sum["test_onl"] = runtimes["onlSVD"] + runtimes["onlProcrust"];
 	runtimes_sum["test_proj"] = runtimes["proj"];
 	runtimes_sum["test_hdpca"] = runtimes["proj"];
 	runtimes_sum["test_onlRand"] = runtimes["onlRandSVD"] + runtimes["onlRandProcrust"];
 	runtimes_sum["test_projRand"] = runtimes["projRand"];
-	runtimes_sum["test_hdpcaRand"] = runtimes["projRand"];
+	runtimes_sum["test_hdpcaRand"] = runtimes["test_projRand"];
 	cout << "Runtime breakdown (sec): " << endl;
 	foutLog << "Runtime breakdown (sec): " << endl;
 	for(map<string, float>::iterator it = runtimes.begin(); it != runtimes.end(); it++){
@@ -1516,19 +1518,30 @@ int main(int argc, char* argv[]){
 	foutLog << "=====================================================================" <<endl;
 	cout << "Runtime summary (sec): " << endl;
 	foutLog << "Runtime summary (sec): " << endl;
-	outfile = OUT_PREFIX;
-	outfile.append(".runtimes");
-	fout.open(outfile.c_str());
-	fout << "method" << "\t" << "elapse" << endl;
+
+
 	for(map<string, float>::iterator it = runtimes_sum.begin(); it != runtimes_sum.end(); it++){
 		cout << it -> first << "\t" << it -> second << endl;
 		foutLog << it -> first << "\t" << it -> second << endl;
-		fout << it -> first << "\t" << it -> second << endl;
 	}
+
 	cout << "=====================================================================" <<endl;
 	foutLog << "=====================================================================" <<endl;
 	foutLog.close();
-	fout.close();
+
+	outfile = OUT_PREFIX;
+	outfile.append(".runtimes");
+	fout.open(outfile.c_str());
+  fout << "method" << "\t" << "reference" << "\t" << "study" << endl;
+  fout << "trace" << "\t" << runtimes_sum["ref_trace"] << "\t" << runtimes_sum["test_trace"] << endl;
+  fout << "onl" << "\t" << runtimes_sum["ref_onl"] << "\t" << runtimes_sum["test_onl"] << endl;
+  fout << "onlRand" << "\t" << runtimes_sum["ref_onlRand"] << "\t" << runtimes_sum["test_onlRand"] << endl;
+  fout << "proj" << "\t" << runtimes_sum["ref_proj"] << "\t" << runtimes_sum["test_proj"] << endl;
+  fout << "projRand" << "\t" << runtimes_sum["ref_projRand"] << "\t" << runtimes_sum["test_projRand"] << endl;
+  fout << "hdpca" << "\t" << runtimes_sum["ref_hdpca"] << "\t" << runtimes_sum["test_hdpca"] << endl;
+  fout << "hdpcaRand" << "\t" << runtimes_sum["ref_hdpcaRand"] << "\t" << runtimes_sum["test_hdpcaRand"] << endl;
+  fout.close();
+
 	return 0;
 }
 //##########################################################################################################

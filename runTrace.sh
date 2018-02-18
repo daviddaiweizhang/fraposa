@@ -14,7 +14,7 @@ echo Checking whether ${exe} needs to be recompiled...
 make ${exe}
 echo Done.
 
-hostname > ${out_pref}.nodename
+echo -e "hostname\t`hostname`" >> ${out_pref}.info
 
 # For running trace in this directory
 # Better than putting all the info as arguments. This way running gdb will be easier

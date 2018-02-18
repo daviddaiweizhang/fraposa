@@ -3,6 +3,15 @@
 sim=$1
 ver=$2
 
+# module load python-dev 
+# module load numpy-dev 
+# # module load gsl # Using gsl installed on home
+# module load mkl/11.3.3 # Dependency for armadillo
+# module load gcc/5.4.0 # Dependency for armadillo
+# module load armadillo
+# module load R
+# module list
+
 if [ ${sim} == "1" ]; then
     pref=$3
     p=$4
@@ -31,7 +40,23 @@ else
     exit 1
 fi
 
+if [ -f ${out_pref}.info ]; then
+    rm ${out_pref}.info
+fi
+
+
+date
 bash runTrace.sh ${ver} ${geno_file} ${study_file} ${out_pref}
+
+date
+Rscript runHdpca.R ${out_pref} hdpca
+
+date
+Rscript runHdpca.R ${out_pref} hdpcaRand
+
+date
+Rscript accuracy.R ${out_pref}
+
 
 
 # ver=$1
@@ -49,14 +74,6 @@ bash runTrace.sh ${ver} ${geno_file} ${study_file} ${out_pref}
 # # let "h = k * k"
 # # let "nplusmHigh = nplusm * (h * s) / (s + h) -1"
 
-# module load python-dev 
-# module load numpy-dev 
-# # module load gsl # Using gsl installed on home
-# module load mkl/11.3.3 # Dependency for armadillo
-# module load gcc/5.4.0 # Dependency for armadillo
-# module load armadillo
-# module load R
-# module list
 
 
 # date

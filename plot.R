@@ -175,7 +175,7 @@ err.trace <- rep(-1, meth.ref.n) # The first entry is a placeholder for the refe
 mat.trace.ori <- pcprops$pcs[[idx.trace.ori]][,1:l]
 for(i in (idx.ref+meth.ref.n):meths.n){
     mat.i <- pcprops$pcs[[i]][,1:l]
-    err.trace.i <- mat.err(mat.trace.ori, mat.i)
+   err.trace.i <- mat.err(mat.trace.ori, mat.i)
     err.trace <- c(err.trace, err.trace.i)
 }
 err.trace <- signif(err.trace, 3)
@@ -255,12 +255,12 @@ for (i in 0 : kk) {
         pch = pcprops$plot.pch,
         col = pcprops$plot.col
     )
-    legend("topright",
-        title = "runtimes",
-        legend = pcprops$runtimes,
-        pch = pcprops$plot.pch,
-        col = pcprops$plot.col
-    )
+    ## legend("topright",
+    ##     title = "runtimes",
+    ##     legend = pcprops$runtimes,
+    ##     pch = pcprops$plot.pch,
+    ##     col = pcprops$plot.col
+    ## )
     text(centers[,1], centers[,2], popu)
     points(centers[,1], centers[,2], pch=20, cex = 2)
 }
@@ -273,10 +273,11 @@ rundate <- get.tracedate(trace.log)
 
 
 # Get node name for TRACE
-nodename.file <- paste(name, ver, "nodename", sep=".")
-con <- file(nodename.file, open="r")
-nodename <- readLines(con, n=1)
-close(con)
+## nodename.file <- paste(name, ver, "nodename", sep=".")
+## con <- file(nodename.file, open="r")
+## nodename <- readLines(con, n=1)
+## close(con)
+nodename <- "lala"
 
 
 # Save result to a database
@@ -299,10 +300,6 @@ pcsummary.entry <- c(
     as.list(pcprops$err.refcenter),
     as.list(pcprops$err.trace)
 )
-
-
-
-
 
 # The colnames for identifying results
 pcsummary.header.par <- c("ver", "pref", "p", "n", "m", "gridsize", "unbalance", "mig", "nodename", "timestamp")
