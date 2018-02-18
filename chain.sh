@@ -3,14 +3,15 @@
 sim=$1
 ver=$2
 
-# module load python-dev 
-# module load numpy-dev 
-# # module load gsl # Using gsl installed on home
-# module load mkl/11.3.3 # Dependency for armadillo
-# module load gcc/5.4.0 # Dependency for armadillo
-# module load armadillo
-# module load R
-# module list
+host=`hostname`
+if [ ${host:0:3} == "flux" ]; then
+    module load python-dev 
+    module load numpy-dev 
+    module load mkl/11.3.3 # Dependency for armadillo
+    module load gcc/5.4.0 # Dependency for armadillo
+    module load armadillo
+    module load R
+fi
 
 if [ ${sim} == "1" ]; then
     pref=$3

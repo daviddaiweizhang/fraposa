@@ -105,7 +105,7 @@ print("Done!")
 ref.popu <- as.integer(trace.ref$popID)
 popu.n <- length(unique(ref.popu))
 meth.col <- rainbow(meth.n)
-pdf(
+pdf(pdf.file, width = 8, height = 8)
 plot(ref.mat[,1], ref.mat[,2],
      pch = ref.popu+1, col = "gray",
      xlab = "PC1", ylab = "PC2",
@@ -131,5 +131,5 @@ legend("bottomright",
        pch = 1,
        col = meth.col
 )
-
+dev.off()
 
