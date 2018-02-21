@@ -3,7 +3,7 @@
 
 #PBS -N mChg_comb
 # Change the number of cores (ppn=1), amount of memory, and walltime:
-#PBS -l nodes=1:ppn=1,mem=32000mb,walltime=06:00:00
+#PBS -l nodes=1:ppn=4,mem=32000mb,walltime=06:00:00
 #PBS -t 0-4
 
 #PBS -M daiweiz@umich.edu

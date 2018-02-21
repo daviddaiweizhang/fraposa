@@ -1,9 +1,9 @@
 #!/bin/bash
 ####  PBS preamble
 
-#PBS -N chain_simp_comb
+#PBS -N ukb
 # Change the number of cores (ppn=1), amount of memory, and walltime:
-#PBS -l nodes=1:ppn=1,mem=32000mb,walltime=2:00:00:00
+#PBS -l nodes=1:ppn=1,mem=16000mb,walltime=1:00:00:00
 # use this for array: #PBS -t 0-4
 
 #PBS -M daiweiz@umich.edu
@@ -25,5 +25,5 @@ echo $PBS_ARRAYID
 #  Put your job commands here:
 
 date
-./chain_simp comb kgn kgn_allChr_ukb_orphans ukb ukb_1k
+bash chain.sh 0 rand kgn kgn_allChr_ukb_orphans ukb ukb_1k
 date

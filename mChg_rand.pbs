@@ -3,7 +3,7 @@
 
 #PBS -N mChg_rand
 # Change the number of cores (ppn=1), amount of memory, and walltime:
-#PBS -l nodes=1:ppn=1,mem=32000mb,walltime=1:00:00:00
+#PBS -l nodes=1:ppn=4,mem=16000mb,walltime=1:00:00:00
 #PBS -t 0-4
 
 #PBS -M daiweiz@umich.edu
@@ -26,8 +26,9 @@ echo $PBS_ARRAYID
 #  Put your job commands here:
 i=$PBS_ARRAYID
 let "m = 1000 + 500 * i"
-pref=mChg_rand_$PBS_JOBID
+id="${PBS_JOBID:0:8}"
+pref=mChg_rand_${id}
 
 date
-./chain rand ${pref} 100000 600 $m 2 1 100
+bash chain.sh 1 rand ${pref} 100000 600 ${m} 2 1 100
 date

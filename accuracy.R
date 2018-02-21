@@ -25,7 +25,8 @@ print("Calculating accuracy...")
 args <- commandArgs(trailingOnly = TRUE)
 if(identical(args, character(0))){
     print("Using testing args.")
-    args <- "../data/tmp/tmp_100000_1000_100_2_1_10.rand"
+    ## args <- "../data/tmp/tmp_100000_1000_100_2_1_10.rand"
+    args <- "../data/ukb/kgn_allChr_ukb_orphans_ukb_1k.rand"
 }
 
 # Info about data file format
@@ -59,6 +60,9 @@ trace.ref.ctr <- aggregate(trace.ref[,ref.pc.idx], by = list(trace.ref$popID), F
 colnames(trace.ref.ctr) <- c("popID", "PC1.ctr", "PC2.ctr")
 trace.test.ctr <- merge(trace.test[,info.idx], trace.ref.ctr, by = "popID")
 ref.ctr <- as.matrix(trace.test.ctr[,-info.idx])
+if(nrow(ref.ctr) == 0){
+  ref.ctr <- matrix(-99, nrow(trace.test), 2)
+}
 
 # Create reference matrix (gold)
 ref.gold <- as.matrix(trace.test[,test.pc.idx])
@@ -104,31 +108,34 @@ print("Done!")
 ## Plot pc scores
 ref.popu <- as.integer(trace.ref$popID)
 popu.n <- length(unique(ref.popu))
-meth.col <- rainbow(meth.n)
+ref.col <- rainbow(popu.n)[ref.popu]
+ref.pch <- 0
+meth.col <- rep("gray40", meth.n)
+meth.pch <- c(1:meth.n)
 pdf(pdf.file, width = 8, height = 8)
 plot(ref.mat[,1], ref.mat[,2],
-     pch = ref.popu+1, col = "gray",
+     pch = ref.pch, col = ref.col,
      xlab = "PC1", ylab = "PC2",
      main = out.pref)
 for(i in 1:meth.n){
-  points(test.mat[[i]][,1], test.mat[[i]][,2], pch = 1, col = meth.col[i])
+  points(test.mat[[i]][,1], test.mat[[i]][,2], pch = meth.pch[i], col = meth.col[i])
 }
 legend("topleft",
        title = "method",
        legend = meth.name,
-       pch = 1,
+       pch = meth.pch,
        col = meth.col
 )
 legend("bottomleft",
        title = "err.center",
        legend = err.ctr,
-       pch = 1,
+       pch = meth.pch,
        col = meth.col
 )
 legend("bottomright",
        title = "err.golden",
        legend = err.gold,
-       pch = 1,
+       pch = meth.pch,
        col = meth.col
 )
 dev.off()

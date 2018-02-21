@@ -6,3 +6,4 @@
 .Rhistory
 __pycache__/
 .#*
+*.o27*

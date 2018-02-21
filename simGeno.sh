@@ -27,9 +27,7 @@ if [[ -f ${geno_file} && -f ${study_file} ]]; then
     echo "Using existing data files."
 else
     echo "Generating data with GGS..."
-    if [ ! ../data/${pref}/ ]; then
-        mkdir ../data/${pref}
-    fi
+    mkdir -p ../data/${pref}
     bash runGgs.sh ${pref} ${p} ${nplusmHigh} ${k} ${mig}
     date
     bash ggs2trace.sh ${pref} ${p} ${nplusmHigh} ${k} ${s} ${mig}

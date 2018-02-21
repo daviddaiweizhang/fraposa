@@ -4,13 +4,16 @@ sim=$1
 ver=$2
 
 host=`hostname`
-if [ ${host:0:3} == "flux" ]; then
+if [[ "${host:0:3}" == "nyx" || "${host:0:4}" == "flux" ]]; then
+    echo "Loading modules for flux..."
     module load python-dev 
     module load numpy-dev 
     module load mkl/11.3.3 # Dependency for armadillo
     module load gcc/5.4.0 # Dependency for armadillo
     module load armadillo
     module load R
+    export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH;
+    echo "Done."
 fi
 
 if [ ${sim} == "1" ]; then

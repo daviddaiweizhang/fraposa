@@ -8,27 +8,29 @@ all: trace.comb.o trace.rand.o
 
 trace.comb.o : trace.comb.cpp
 	@if [ `hostname` = "david-XPS-13-9343" ]; then \
-	    echo "Local libs"; \
+	    echo "Compiling with Local libs"; \
 	    g++ $(FLAGS) trace.comb.cpp -o trace.comb.o $(LIBS_LOCAL); \
 	elif [ `hostname` = "fantasia" ]; then \
-	    echo "CSG libs"; \
+	    echo "Compiling with CSG libs"; \
 			export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH; \
+			echo ${LD_LIBRARY}; \
 	    g++ $(FLAGS) trace.comb.cpp -o trace.comb.o $(LIBS_CSG); \
 	else \
-	    echo "Flux libs"; \
+	    echo "Compiling with Flux libs"; \
 	    g++ $(FLAGS) trace.comb.cpp -o trace.comb.o $(LIBS_FLUX); \
 	fi
 
 
 trace.rand.o : trace.rand.cpp
 	@if [ `hostname` = "david-XPS-13-9343" ]; then \
-	    echo "Local libs"; \
+	    echo "Compiling with Local libs"; \
 	    g++ $(FLAGS) trace.rand.cpp -o trace.rand.o $(LIBS_LOCAL); \
 	elif [ `hostname` = "fantasia" ]; then \
-	    echo "CSG libs"; \
+	    echo "Compiling with CSG libs"; \
 			export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH; \
+			echo ${LD_LIBRARY}; \
 	    g++ $(FLAGS) trace.rand.cpp -o trace.rand.o $(LIBS_CSG); \
 	else \
-	    echo "Flux libs"; \
+	    echo "Compiling with Flux libs"; \
 	    g++ $(FLAGS) trace.rand.cpp -o trace.rand.o $(LIBS_FLUX); \
 	fi
