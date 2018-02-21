@@ -66,7 +66,7 @@ meths.n <- length(display.names)
 args <- commandArgs(trailingOnly = TRUE)
 if(identical(args, character(0))){
     print("Using testing args...")
-    args <- c("rand", "tmp", "100000", "1000", "200", '2', '1', '100')
+    args <- c("rand", "tmp", "100000", "1000", "100", '2', '1', '10')
     print(args)
 }
 ver <- args[1]

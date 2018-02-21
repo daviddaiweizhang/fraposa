@@ -14,6 +14,11 @@ if [[ "${host:0:3}" == "nyx" || "${host:0:4}" == "flux" ]]; then
     module load R
     export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH;
     echo "Done."
+elif [ ${host} == "david-XPS-13-9343" ]; then
+    echo "Using Python virtualenv for local."
+    source virtualenvwrapper.sh
+    workon research
+    python --version
 fi
 
 if [ ${sim} == "1" ]; then

@@ -23,7 +23,7 @@ ggs_file=../data/${pref}/${pref}_${p}_${nplusmHigh}_${k}_${mig}.ggs
 geno_both_file=../data/${pref}/${pref}_${p}_${nplusmHigh}_${k}_${s}_${mig}.geno
 dup_file=${geno_both_file}.tr
 
-if [[ -f ${geno_file} && -f ${study_file} ]]; then
+if [[ -s ${geno_file} && -s ${study_file} ]]; then
     echo "Using existing data files."
 else
     echo "Generating data with GGS..."
