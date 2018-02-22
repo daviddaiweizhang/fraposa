@@ -1,0 +1,14 @@
+MY PROJECT -*- mode: org -*- 
+#+TODO: TODO IN-PROGRESS WAITING DONE
+
+* TODO use first 1000 people from ukb on flux
+* TODO If possible do all the people
+
+This is [[mit.edu][a school]]
+and here a [[file:~/.spacemacs::pandoc][dotkkfile]]  
+* UKBioBank
+** One table
+** Row: a method, 
+** col: computation time for 1000 people, projected for all the people
+** 2 by 2 plot showing the PC plots
+** sharelatex

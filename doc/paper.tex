@@ -1,4 +1,4 @@
-\documentclass{article}[12pt]
+\documentclass{article}
 
 \usepackage{epsfig} \usepackage[margin=1.5in]{geometry}
 \usepackage[semicolon,authoryear]{natbib} \bibliographystyle{natbib}
@@ -11,8 +11,9 @@
 \newcommand{\bO}{\mathcal{O}}
 \newcommand{\argmin}[1]{\underset{#1}{\operatorname{arg\;min}}\;}
 
-\title{Principle Component Analysis Computational Methods
-  for Estimating Ancestral Histroy from Genotype Data}
+\title{Computational Methods for Principle Component Analysis Applied to
+  Genotype Data}
+\date{}
 
 \begin{document}
 
@@ -20,54 +21,159 @@
 
 \section{Introduction}
 
+Ancestral history can be a influential confounder for the association between
+genotypes and phenotypes (\cite{price}).
+Thus stratification is needed to eliminate this bias.
+Principle component analysis (PCA) has been proven to be useful in estimating
+ancestral history (\cite{reich}).
+The standard way of doing PCA is to find the principle components (PC) of the
+reference data and project the data points of the study data onto them.
+We call this method simple projection.
+However, when the number of features are greatly larger than the size of the
+reference sample,
+the estimated PC scores by this method are known to be biased and less
+than the populational PC scores.
+One way of solving this issue is presented by \cite{wang}.
+Their solution is to combine one study individual with the reference set and
+find the PC scores of this augmented data set by singular value decomposition (SVD).
+The study individual's PC scores is then retrieved from the PC score matrix and
+mapped to the reference PC's by a Procrustes transformation.
+We call this method ``augment, decompose, and transform (ADT).
+This method has been shown to be useful in eliminating the shrinking bias of
+study PC scores, but its disadvantage is computational inefficiency.
+
+Two methods have been developed to solve this dillema of accuracy verses efficiency.
+The magnitude and angle of shrinkage in simple projection has been calculated by
+\cite{dey} and the result is implemented into the High Dimensional Principle
+Component Analysis (HDPCA) package in R.
+We call this method ``adjusted projection'' (AP).
+The computational complexity of AP is significantly lower than that of ADT.
+Moreover, an online SVD algorithm has been developed to speed up SVD by calculating an approximation of the top few PC scores only.
+This is useful for our purpose since in genetic studies usually only the first few PC scores are needed. 
+We call this method ``online augment-decompose-transform'' (OADT). 
+
+In addition, we aim at solving a problem with finding the PC's of the reference set.
+The previously mentioned four methods all need to find the SVD of the reference data first.
+This requires loading the covariance matrix of the reference data into the
+computer's memory. 
+However, when the size of the reference set is large,
+the resulted covariance matrix will far exceed the size of a normal personal
+computer's memory.
+To solve this issue, a randomized SVD method has been developed that does not
+require finding the covariance matrix.
+
+In this paper, we compare the theoretical and empirical properties of simple
+projection, augment-decompose-transform, adjusted projection, and online augment-decompose-transform. In particular, we are
+interested in their computational complexity as well as empirical speed and
+accuracy.
+Secondly, we compare using standard SVD and randomized SVD for the reference set
+and examine the difference in accuracy and runtimes.
+We found that HDPCA projection and OADT have both achieved the accuracy of ADT
+and the efficiency of simple projection.
+In addition, randomized SVD gives results similar to standard SVD and only
+increase the computational time for the reference data.
+
+
+
+
+
 \section{Method}
 
 \subsection{Model}
 
-\begin{enumerate}
-\item Data matrices:\\
-  The data matrix contains the genotypes for the individuals.
-  Each row represents a SNP, and each column represents an individual.
-  Each entry is $0$, $1$, or $2$.
-  The genotypes of the reference group are stored in the $p \times n$ matrix $X$,
-  and those of the study group are stored in the $p \times m$ matrix $Y$.
-  For most genetic data, $n \ll p$ and $m \ll p$.
-\item Principle component analysis \\
-  Given a multi-dimensional data, principle component analysis (PCA) looks for the directions, which are called the principle components (PC), in which the data has the greatest variance.
-  The PC's form an orthonormal basis for the sample space,
-  and we can ignore all but the first few PC's to reduce the dimension of the data.
-  In particular, let $X=UDV^T$ be the singular value decomposition (SVD) of $X$,
-  where $U$ is a $p \times n$ matrix whose columns are the PC's,
-  $D$ is an $n \times n$ diagonal matrix storing the standard deviations of the PC's,
-  and $V$ an $n \times n$ matrix such that each row contains the standardized PC scores of an individual.
-  (Alternatively, we can also use eigendecomposition to find the matrices since $X^T X = VD^2V^T$ and $X X^T = UD^2U^T$.)
-  We use $D$ to sort out the most influential $k$ PC's ($k \ll n$) and look at the coresponding columns of $V$ to find their PC scores.
-  For estimating ancestral histroy from genotypes, often the first $4$ PC's will be sufficient for providing the information we need.
+\subsubsection{Data Format}
+As mentioned previously, there are two datasets: a reference set and a study
+set.
+They are both represented as matrices.
+A data matrix contains the genotypes for the individuals.
+Each row represents a single-nucleotide polymorphism (SNP),
+while each column represents an individual.
+Each entry of the matrix is $0$, $1$, or $2$,
+representing the number of mutations observed at the SNP.
+In our study, we only use the SNPs that are observed in both the reference and
+the study group and have the same alleles.
+Thus we have the same number of SNPs for both groups.
+The genotypes of the reference group are stored in the $p \times n$ matrix $X$,
+and those of the study group are stored in the $p \times m$ matrix $Y$.
+For genotype data, it is common for $p$ to be significantly larger than $n$.
+Thus we assume this to be true except for the part where we discuss the randomized SVD algorithm,
+which is developed to handle datasets with exceedingly large $n$.
 
-  PCA allows us to use the reference data to find the PC scores of the study data.
-  The standard method is to append a study individual's genotype to the reference matrix and then conduct a SVD of the augmented matrix.
-  The corresponding row in the matrix $V$ is the study individual's PC scores.
+\subsubsection{Principle Component Analysis}\label{pca-intro}
+  Given a multi-dimensional data, principle component analysis (PCA) looks for the directions in which the data has the greatest variance.
+These unit vectors are called the principle components (PC's).
+The PC's form an orthonormal basis for the sample space,
+and we can ignore all but the first few PC's to reduce the dimension of the data.
+In particular, let $X=UDV^T$ be the SVD of $X$,
+where $U$ is a $p \times n$ matrix whose columns are the PC's,
+$D$ is an $n \times n$ diagonal matrix storing the standard deviations of the PC's,
+and $V$ an $n \times n$ matrix such that each row contains the standardized PC scores of an individual.
+(Alternatively, we can use eigendecomposition to find the matrices since $X^T X = VD^2V^T$ and $X X^T = UD^2U^T$.)
+We sort the diagonal elements of $D$ in descending order and rearrange the
+columns of $U$ and $V$ accordingly.
+We are interested in the top $k$ PC's (where $k \ll n$) and look at the top $k$
+columns of $V$ for their PC scores.
+
+\subsubsection{Estimating PC scores}
+
+We assume that the reference data and the study data are generated from the same
+population.
+When the genotypes of all individuals of the population are given (which is very
+unlikely in global genetic studies),
+we use the method in \Cref{pca-intro} to find the PC scores of the individuals
+we are interested in.
+In practice, we have a reference dataset and a study dataset assumed to be generated from the
+same population and use the former to estimate the populational PC scores of the latter.
+There are several computational methods one can use to do this estimation.
+In \Cref{sec:compu}, we compare the performance of four of them.
+
+\subsection{Computational Methods}\label{sec:compu}
+
+
+
+\subsubsection{Simple Projection}
+The standard way for estimating PC scores is by projecting the study
+individuals' data points to the PCs of the reference individuals.
+We call this method ``simple projection'' (SP).
+The algorithm goes as follows.
+
+\begin{enumerate}
+\item Compute $X^T X$.
+  (Computational complexity: $\bO[n^2p]$.)  
+\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
+  ($\bO[n^3]$.)
+\item Calculate $W = Y^T (X V D_1^{-1})$, where $Y$ is the data matrix for all the study individuals, $D_1$ the first $k_1$ columns of $D$. ($\bO[mpk_1 + pnk_1]$.)
 \end{enumerate}
 
-\subsection{Computational Methods}
+Total computational complexity: $\bO[n^2p + n^3 + mpk_1 + pnk_1)] \approx \bO[n^2p + mk_1p]$,
+given that $k_1 \ll n \ll p$.
 
-The usefulness of PCA for genetic data largely depends on its computational cost.
-The computational complexity of SVD for a $p \times n+1$ matrix is $\min((n+1)^2p, (n+1)p^2) = n^2p $ for $1 \ll n \ll p$.
-Thus the total computational complexity for performing PCA on $m$ individuals by using the standard method is $mn^2p$.
-This value increases quadratically as we increase the reference sample size to increase the accuracy of the PC scores.
-Alternative computational methods have been developed to improve the efficiency of PCA.
-In this study, we compare four such methods: TRACE, projection, online TRACE, and HDPCA projection.
+As the reference sample size increases,
+the computational complexity of SP stays as a constant,
+except for decomposing the reference matrix, which is done once for all study individuals.
+However, it is known that the projection method tends to underestimates the magnitude of the PC scores when $n \ll p$,
+which we call the ``shrinking bias''. (See \cite{dey}.)
+This limits the accuracy of SP for high dimensional data.
 
-\subsubsection{TRACE}
+\subsubsection{Augment, Decompose, and Transform}
 
-TRACE implements the standard PCA method, with additional procedures for handling minor issues such as missing data.
-An important improvement in TRACE on the standard method is the inclusion of Procrustes analysis.
-Given two data sets with the same sample size and possibly different dimensions,
-Procrustes analysis finds the linear transformation that maps one data matrix as close as possible to the other data matrix.
-In our contex, the PC scores of the reference matrix is computed and we obtain the $n \times n$ matrix $V$.
-For a study individal with genotype $y$, we decompose $\tilde{X} = (X, y)$ into $\tilde{X} = \tilde{U}\tilde{D}\tilde{V}^T$.
-(TRACE uses eigendecomposition to find the ``$V$'' matrix to reduce computational complexity since we do not need the ``$U$'' matrix here.)
-Let
+One way to solve the shrinking bias of SP is developed by \cite{wang}.
+In this method, each study individual's data point is appended to the reference
+data matrix.
+Then SVD is applied to the augmented matrix,
+and PC scores in this augmented sample are found for both the reference
+individuals and the study individual.
+The the PC scores of the reference individuals in this augmented sample is
+compared with the PC scores of the reference individuals in the reference
+sample,
+which is calculated in the beginning,
+and a linear (Procrustes) map is found to transform the latter into the former
+with the smallest error.
+This transformation is then applied to the PC scores of the study individual in
+the augmented sample.
+The resulted PC scores are used as an estimate for the study individual's
+population PC scores.
+Specifically, let
 \[
   V =
   \begin{bmatrix}
@@ -81,7 +187,7 @@ Let
   \end{bmatrix},
 \]
 where the dimensions of $V_\text{ref}$, $\tilde{V}_\text{ref}$, and $\tilde{V}_\text{stu}$ are $n \times k_1$, $n \times k_2$, and $1 \times k_2$, respectively, with $ 1 \leq k_1 \leq k_2 \leq n+1$. 
-We use Procrustes analysis to find
+Next, we use Procrustes analysis to find
 \[
   A, b = \argmin{A, b} d(V_\text{ref}, \tilde{V}_{\text{ref}}A+b)
 \]
@@ -96,50 +202,51 @@ The algorithm is summarized as follows:
 \item Append $X^T y$ and its transpose to the last column and row of $X^T X$, respectively.
   The entry of the bottom-right corner is $y^T y$.
   This is exactly the same as computing $\tilde{X}^T \tilde{X}$,
-  where $\tilde{X} = (X, y)$ is the reference group with the testing individual added.
+  where $\tilde{X} = (X, y)$ is the reference group with the study individual added.
   ($\bO[np]$.)
 \item Apply eigendecomposition to $\tilde{X}^T \tilde{X}$ to get $\tilde{X}^T \tilde{X} = \tilde{V} \tilde{D}^2 \tilde{V}^T$.
   ($\bO[n^3]$.)
-\item Project the first $k_2$ columns of $\tilde{V}$ to the first $k_1$ columns of $V$ by using Procrustes analysis to get the transformed PC scores of the testing individual (the last row of $V$),
+\item Project the first $k_2$ columns of $\tilde{V}$ to the first $k_1$ columns of $V$ by using Procrustes analysis to get the transformed PC scores of the study individual (the last row of $V$),
   where $k_1 < k_2 \ll n$.
   (Computational complexity is ignorable if $k_2$ is not large compared to $n$.)
-  \item Go to step 3 for the next testing individual.
+  \item Go to step 3 for the next study individual.
 \end{enumerate}
 
 Total Computational complexity: $\bO[n^2p + m(np + n^3)]$.
 
-TRACE is the slowest among the computational methods we study.
-However, its result is also the most reliable.
+Although accurate, ADT is the slowest among the other three computational
+methods.
+Its computational complexity increases cubically as we increase the reference sample size to increase the accuracy of the PC scores.
+The ADT method is has been implemented in the TRACE software by \cite{wang}.
 
-\subsubsection{Projection}
-An exchange for runtimes with accuracy is the projection method.
-For this method, we simply find the PC's of the reference matrix and project the study individual's genotype onto them,
-as shown below:
 
+\subsubsection{Adjusted Projection}
+
+A more efficient way to solve the shrinking bias of SP is to estimate the
+magnitude and angle of the shrinkage and adjust the study individuals' PC scores accordingly.
+This method has been developed by \cite{dey} and implemented in the High
+Dimension Principal Component Analysis (HDPCA) in the R language.
+HDPCA reads the PC scores and variances calculated by projection and estimate the shrinkage factor to restore the unshrinked scores. 
+The algorithm is
 \begin{enumerate}
 \item Compute $X^T X$.
   (Computational complexity: $\bO[n^2p]$.)  
 \item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
   ($\bO[n^3]$.)
-\item Calculate $W = Y^T (X V D_1^{-1})$, where $Y$ is the data matrix for all the testing individuals, $D_1$ the first $k_1$ columns of $D$. ($\bO[mpk_1 + pnk_1]$.)
+\item Calculate $W = Y^T (X V D_1^{-1})$, where $Y$ is the data matrix for all the study individuals, $D_1$ the first $k_1$ columns of $D$. ($\bO[mpk_1 + pnk_1]$.)
+  \item Input $D$ and $W$ to the pc\_adjust function in the HDPCA function to obtain the PC scores adjusted for the shrinking bias. ($\bO[p]$ for finding the number of distant spikes (function select.nspike), $\bO[n]$ for adjusting for the shrinking bias (function hdpc\_est))
 \end{enumerate}
 
-Total computational complexity: $\bO[n^2p + n^3 + mpk_1 + pnk_1)] \approx \bO[n^2p + mk_1p)]$,
-given that $k_1 \ll n \ll p$.
+Total computational complexity: $\bO[n^2p + mk_1(p + n) + p + n] \approx \bO[n^2p + mk_1p]$,
+given that $m$ or $n$ is large. The computational complexities between simple projection and adjusted projection are the same.
+The accuracy of adjusted projection will be empirically shown later.
 
-As the reference sample size increases,
-the computational complexity of the projection method only increases quadratically,
-(except for decomposing the reference matrix, which is done once for all study individuals,)
-while that of TRACE increases cubically.
-However, it is known that the projection method tends to underestimates the magnitude of the PC scores when $n \ll p$,
-which is known as the ``shrinking bias''.
+\subsubsection{Online ADT}
 
-\subsubsection{Online TRACE}
-
-A remedy for TRACE is to reduce the computational complexity withou much sacrifice of the accuracy.
-This is achieved by the online TRACE method.
-Notice that in TRACE, only the top $k_2$ PC's are used.
-Online TRACE calculates a close approximation of the first $k_3$ columns of $\tilde{V}$ for some $k_2 \leq k_3 \ll n$ and keeps everything else the same as in TRACE, including Procrustes analysis. 
+A remedy for ADT is to reduce the computational complexity withou much sacrifice of the accuracy.
+This is achieved by the online ADT (OADT) method.
+Notice that in OADT, only the top $k_2$ PC's are used.
+OADT uses the online SVD method, which calculates a close approximation of the first $k_3$ columns of $\tilde{V}$ for some $k_2 \leq k_3 \ll n$ and keeps everything else the same as in ADT, including Procrustes analysis. 
 The algorithm is
 \begin{enumerate}
 \item Compute $X^T X$.
@@ -177,41 +284,32 @@ The algorithm is
     \ddot{V}_3.
   \]
   ($\bO[nk_3^2]$.)
-\item Project the first $k_2$ columns of $\tilde{V}_3$ to the first $k_1$ columns of $V$ by using Procrustes analysis to get the transformed PC scores of the testing individual,
+\item Project the first $k_2$ columns of $\tilde{V}_3$ to the first $k_1$ columns of $V$ by using Procrustes analysis to get the transformed PC scores of the study individual,
   where $k_1 < k_2  < k_3 \ll n$.
   (Computational complexity is ignorable if $k_2$ is not large compared to $n$.)
-  \item Go to step 4 for the next testing individual.
+  \item Go to step 4 for the next study individual.
 \end{enumerate}
 
 Total computational complexity: $\bO[n^2p + n^3 + k_3np + m(k_3p + k_3^3 + nk_3^2]) \approx \bO[n^2p + m(k_3p + k_3^2n)]$, provided $k_3 \ll n \ll p$.
 
-Here we see that the computational complexity of online TRACE for the study individuals increases quadratically with respect to the reference sample size.
-This makes the runtimes of online TRACE close to those of the projection method.
-The closeness between the results given by online TRACE and TRACE will be empirically shown later.
+Here we see that the computational complexity of OADT for the study individuals increases linearly with respect to the reference sample size.
+This makes the runtimes of OADT close to those of SP.
+The closeness between the results given by OADT and ADT will be empirically shown later.
 
-\subsubsection{HDPCA Projection}
-
-As online TRACE reduces the computational complexity of TRACE,
-we have HDPCA projection that improves the accuracy of projection without increasing the runtimes.
-HDPCA reads the PC scores and variances calculated by projection and estimate the shrinkage factor to restore the unshrinked scores. 
-The algorithm is
-\begin{enumerate}
-\item Compute $X^T X$.
-  (Computational complexity: $\bO[n^2p]$.)  
-\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
-  ($\bO[n^3]$.)
-\item Calculate $W = (Y^T X) V D^{-1}$, where $Y$ is the data matrix for all the testing individuals. ($\bO[mpn + mn^2]$.)
-  \item Input $D$ and $W$ to the pc\_adjust function in the HDPCA function to obtain the PC scores adjusted for the shrinking bias. ($\bO[p]$ for finding the number of distant spikes (function select.nspike), $\bO[n]$ for adjusting for the shrinking bias (function hdpc\_est))
-\end{enumerate}
-
-Total computational complexity: $\bO[n^2p + mn(p + n) + p + n] \approx \bO[n^2p + mn(p+n)]$,
-given that $m$ or $n$ is large.
-
-The computational complexities between projection and HDPCA projection are the same.
-The accuracy of HDPCA projection will be empirically shown later.
-
-\subsubsection{Computational Complexity Summary}
 A comparison of computatinal complexities of the four PCA methods are shown in \Cref{tbl:cplx}.
+
+\subsubsection{Randomized SVD}
+In addition to estimating the PC scores of the study individuals,
+we have another algorithm that aims at improving the decomposition of the
+training data.
+For SP, AP, ADT, and OADT, we need to find the covariance matrix of the training
+data, which has dimension $n \times n$, and conduct eigendecomosition on it.
+However, when $n$ is exceedingly large,
+the covariance matrix cannot be loaded into the memory of an average personal
+computer.
+A randomized SVD (RSVD)algorithm has been developed to handle this issue.
+RSVD is slower than standard SVD,
+but it does not require loading the whole covariance matrix into the memory.
 
 
 \begin{table} 
@@ -220,28 +318,29 @@ A comparison of computatinal complexities of the four PCA methods are shown in \
     \hline
     Method & Computational Complexity \\ 
     \hline
-    TRACE & $\bO[n^2 p + mn(p + n^2)]$ \\
+    Simple Projection (SP) & $\bO[n^2p + mk_1p]$ \\
     \hline
-    Projection & $\bO[n^2p + mk_1p)]$ \\
+    Augment-Decompose-Transform (ADT) & $\bO[n^2 p + mn(p + n^2)]$ \\
     \hline
-    Online TRACE & $\bO[n^2 p + mk_3(p + k_3 n)]$ \\
+    Adjusted Projection (AP) & $\bO[n^2p + mk_1p]$ \\
     \hline
-    HDPCA Projection & $\bO[n^2p + mn(p+n)]$ \\
+    Online Augment-Decompose-Transform (OADT) & $\bO[n^2 p + mk_3(p + k_3 n)]$ \\
     \hline
   \end{tabular}
   \caption{
     Comparison of computational complexity for the three methods.
     Here $p$ is the number of SNPs,
     $n$ is the number of individuals in the reference group,
-    and $m$ is the number of individuals in the  testing group.
+    and $m$ is the number of individuals in the  study group.
     For projection, $k_1$ is the number of PCs needed
-    For Online TRACE, $k_3$ is the number of PCs calculated by online SVD, which is usually much less than $n$.}
+    For OADT, $k_3$ is the number of PCs calculated by online SVD, which is usually much less than $n$.}
   \label{tbl:cplx}
 \end{table}
 
 \subsection{Data}
 
-In this study, we used both simulated data and real-world data.
+In this study, we used both simulated data and real-life data to conduct
+empirical tests of the computational methods for PCA.
 
 \subsubsection{Simulation Studies}
 
@@ -253,65 +352,85 @@ The parameters we chose to use are as follows:
 \item K: Side length of the grid. (Fixed to $2$.)
 \item c: Number of haploids at each cell of the grid. (Equal to $2n / K^2$ and
 $2m / K^2$)
-\item M: Migration rate. (Varies)
+\item M: Migration rate. (Fixed to $100$)
 \end{enumerate}
 
-\subsubsection{Real-World Datasets}
+For our study, we used different reference and study sample sizes.
+First, we fix
+the study size to be $m=200$ and increase $n$ from $1000$ to $3000$ with the
+increment equal to $500$.
+Next, we fix
+the reference size to be $n=600$ and increase $m$ from $1000$ to $3000$ with the increment equal to $500$.
 
-The real-world datasets used in our study are the HGDP and 1000 Genomes datasets.
+For comparing the speed of the algorithms,
+we only compare the runtimes for the study individuals.
+The time spent on calculations that are once-for-all (such as finding the SVD of
+the reference matrix) is ignored.
+
+For comparing the accuracy, we use two different measures.
+First, for a given cell of the grid, we compute the mean of the PC scores of the 
+reference individuals located at this cell.  
+This is the estimated coordinate of the cell.
+Next, we find the Euclidean distance between the estimated PC scores of the
+study individuals and the estimated coordinates of the cells they are located
+at.
+These are the geographic estimation errors for the study individuals.
+The average of these errors are used to measure the accuracy of the
+computational methods (that is, the square root of the sum of squares divided by the
+study size). 
+Second, since ADT is believed to be the most reliable, we compare the average
+Euclidean distance between the PC score estimates calculated by another method
+to those calculated by ADT. 
+This golden-standard error and the geographic error both range from zero to infinity.
+
+The comparison of the runtimes and accuracy are conducted by using both the
+standard SVD and randomized SVD on the training data matrix.
+
+\subsubsection{Real-Life Datasets}
+
+The real-life datasets used in our study are the UKBioBank and 1000 Genomes datasets.
 They contain the genotype readings of individuals from different ethnic groups over the world.
 For better comparison, we select only the SNPs that are included in both datasets,
-the number of which is approximately $6 \times 10^5$.
-Moreover, we removed individuals who have at least parent also in the dataset.
-The samples size is approximately $900$ for HGDP and $2300$ for 1000 Genomes.
+the number of which is approximately $1.5 \times 10^5$.
+We use the 1000 Genomes dataset as the reference and removed individuals who have at least one parent who is also in the dataset.
+The reference samples size is approximately $2300$.
+Moreover, we use the first 1000 individuals in the UKBioBank data set out of a
+total number of $5 \times 10^5$ individuals. 
+The measures we use for comparing speed and accuracy are the same as for
+simulated data,
+except that we do not use the geographic error here.
+In addition, both the standard and randomized SVD on the training data set are tested.
 
 
 
-\section{Results (Simulation Study)}
+\section{Results}
 
-We now present the results of our study.
+See plots.
 
-\subsection{Parameter Setting}
 
-\begin{enumerate}
-\item $n$ fixed, $m$ changing
-\begin{enumerate}
-\item $p = 100000$
-\item $n = 600$
-\item $m$: $\min = 1000$, $\max = 5000$, $\text{increment} = 500$ 
-\item $migration = 100$
-\end{enumerate}
-\item $m$ fixed, $n$ changing
-\begin{enumerate}
-\item $p = 100000$
-\item $n$: $\min = 1000$, $\max = 5000$, $\text{increment} = 500$ 
-\item $m = 200$
-\item $migration = 100$
-\end{enumerate}
-\end{enumerate}
-
-\subsection{Computation Time}
-
-\includegraphics[width=0.98\textwidth]{runtimes}
-
-\subsection{Accuracy}
-
-Next, we show the accuracy of each method.
-We have two ways to measure the accuracy.
-First, we can use the information from the simulation given by GGS to categorize the reference individuals into $K^2$ clusters and find the mean of each cluster,
-which will be treated as the center of that cluster.
-We then find the Euclidean distance between the study individuals and the centers,
-again using the true locations in the grid to categorize the study individuals.
-
-Second, we can use Online TRACE as the standard and find the Euclidean distance between the study individuals' PC scores calculated by Online TRACE and another method.
-
-The parameter setting is the same as in comparing the runtimes.
-
-\includegraphics[width=0.98\textwidth]{err_refcenter.pdf}
-
-\includegraphics[width=0.98\textwidth]{err_online.pdf}
 
 \section{Discussion}
+
+We find that AP improved the accuracy of SP without increasing the runtimes.
+Moreover, OADT improves the speed of ADT without much sacrifice of accuracy.
+Inaddition, randomized SVD is found to be as reliable as standard SVD in
+calculating the PC's of the reference group.
+
+\newpage
+
+\includegraphics[width=0.98\textwidth]{runtimes_rand}
+
+\includegraphics[width=0.98\textwidth]{err_refcenter_rand}
+
+\includegraphics[width=0.98\textwidth]{err_trace_rand}
+
+\includegraphics[width=0.98\textwidth]{err_refcenter_rand}
+
+\includegraphics[width=0.98\textwidth]{kgn_allChr_ukb_orphans_ukb_1k_comb}
+
+\newpage
+ 
+\includegraphics[width=0.98\textwidth]{kgn_allChr_ukb_orphans_ukb_1k_rand}
 
 \newpage
 
@@ -327,40 +446,16 @@ Chicago
 
  \bibitem[Wang et al.(2015)]{wang} Wang, C., Zhan, X., Liang, L., Abecasis, G. R., \& Lin, X. (2015). Improved ancestry estimation for both genotyping and sequencing data using projection procrustes analysis and genotype imputation. {\it The American Journal of Human Genetics, 96}(6), 926-937.
 
+ \bibitem[Reich et al.(2008)]{reich} Reich, D., Price, A. L., \& Patterson, N.
+   (2008). Principal component analysis of genetic data. {\it Nature genetics}, 40(5), 491.
+   Reich, D., Price, A., Patterson, N (2008).
+   Principle component analysis of genetic data. {\it Nature Genetics}
+
+   \bibitem[Price et al.(2006)]{price} Price, A. L., Patterson, N. J., Plenge,
+     R. M., Weinblatt, M. E., Shadick, N. A., \& Reich, D. (2006). Principal
+     components analysis corrects for stratification in genome-wide association
+     studies. {\it Nature genetics}, 38(8), 904.
+
 \end{thebibliography}
-
-
-    % \begin{enumerate}
-    %     \item $X$ ($p$ by $n$): 
-    %         Genotype readings for the reference group.
-    %     \item $Y = (y_1 \cdots y_m)$ ($p$ by $m$): 
-    %         Genotype readings for the study group.
-    % \end{enumerate}
-
-
-% \begin{enumerate}
-% \item HGDP
-%   The HGDP dataset contains individuals from different ethnic groups in the world. It includes about $6 \times 10^5$ SNPs and 
-%   \begin{enumerate}
-%   \item Individuals from different countries in the world.
-%   \item We only use the SNPs that are also included in the 1000
-%     Genomes dataset.
-%   \item $p \approx 6 \times 10^5, n \approx 900$.
-%   \end{enumerate}
-% \item 1000 Genomes
-%   \begin{enumerate}
-%   \item Individuals from different countries in the world.
-%   \item We only use the SNPs that are also included in the HGDP
-%     dataset.
-%   \item $p \approx 6 \times 10^5, n \approx 2300$.
-%   \end{enumerate}
-% \item Data filtering
-%   \begin{enumerate}
-%   \item We only used the SNPs that are included in both the HGDP and
-%     1000 Genomes datasets.
-%   \item We have removed the individuals with at least one parent in
-%     the dataset.
-%   \end{enumerate}
-% \end{enumerate}
 
 \end{document}
