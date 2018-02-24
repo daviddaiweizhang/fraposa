@@ -405,7 +405,7 @@ In addition, both the standard and randomized SVD on the training data set are t
 
 \section{Results}
 
-See plots.
+See \Cref{fig:nChg} and \Cref{fig:mChg} for the comparison of the runtimes and accuracy.
 
 
 
@@ -417,6 +417,28 @@ Inaddition, randomized SVD is found to be as reliable as standard SVD in
 calculating the PC's of the reference group.
 
 \newpage
+
+\begin{figure}[p]
+  \label{fig:nChg}
+  \centering
+  \includegraphics[width=0.98\textwidth]{nChg}
+  \caption{
+    Runtimes and deviations for different methods as the reference sample size increases.
+    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
+    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+  }
+\end{figure}
+
+\begin{figure}[p]
+  \label{fig:mChg}
+  \centering
+  \includegraphics[width=0.98\textwidth]{mChg}
+  \caption{
+    Runtimes and deviations for different methods as the study sample size increases.
+    The reference sample size is fixed to 600 and the number of SNPs is 100,000 (1000 per genealogy).
+    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+  }
+\end{figure}
 
 % \includegraphics[width=0.98\textwidth]{runtimes_rand}
 
