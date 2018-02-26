@@ -1506,7 +1506,7 @@ int main(int argc, char* argv[]){
 	runtimes_sum["test_hdpca"] = runtimes["proj"];
 	runtimes_sum["test_onlRand"] = runtimes["onlRandSVD"] + runtimes["onlRandProcrust"];
 	runtimes_sum["test_projRand"] = runtimes["projRand"];
-	runtimes_sum["test_hdpcaRand"] = runtimes["test_projRand"];
+	runtimes_sum["test_hdpcaRand"] = runtimes_sum["test_projRand"];
 	cout << "Runtime breakdown (sec): " << endl;
 	foutLog << "Runtime breakdown (sec): " << endl;
 	for(map<string, float>::iterator it = runtimes.begin(); it != runtimes.end(); it++){

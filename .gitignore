@@ -12,3 +12,5 @@ __pycache__/
 *.synctex.gz
 *.rtf
 paper.pdf
+*.fdb_latexmk
+*.fls
