@@ -9,6 +9,8 @@
 
 #i=SLURM_ARRAY_TASK_ID
 
+id=${SLURM_ARRAY_JOB_ID}
+
 date
-bash chain.sh 0 rand kgn kgn_allChr_ukb_orphans ukb ukb_1k
+bash chain.sh 0 rand kgn kgn_allChr_ukb_orphans ukb ukb_1k ${id}
 date

@@ -39,7 +39,8 @@ elif [ ${sim} == "0" ]; then
     refn=$4
     stud=$5
     stun=$6
-    outd=${stud}
+    outid=$7
+    outd=${refd}_${stud}_${outid}
     outn=${refn}_${stun}
     study_file=../data/${stud}/${stun}.geno
     geno_file=../data/${refd}/${refn}.geno
