@@ -9,6 +9,6 @@ __pycache__/
 *.o27*
 /doc/auto
 *.aux
-*.pdf
 *.synctex.gz
 *.rtf
+paper.pdf
