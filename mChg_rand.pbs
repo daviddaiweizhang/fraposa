@@ -19,6 +19,9 @@
 #  Change to the directory you submitted from
 if [ -n "$PBS_O_WORKDIR" ]; then cd $PBS_O_WORKDIR; fi
 
+#  Show list of CPUs you ran on, if you're running under PBS
+if [ -n "$PBS_NODEFILE" ]; then cat $PBS_NODEFILE; fi
+
 # Print job and array ids
 echo $PBS_JOBID
 echo $PBS_ARRAYID
@@ -27,7 +30,7 @@ echo $PBS_ARRAYID
 i=$PBS_ARRAYID
 let "m = 1000 + 500 * i"
 id="${PBS_JOBID:0:8}"
-pref=mChg_rand_${id}
+pref=mChg_rand_${id}_${i}
 
 date
 bash chain.sh 1 rand ${pref} 100000 600 ${m} 2 1 100
