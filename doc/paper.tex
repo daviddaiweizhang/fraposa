@@ -131,7 +131,7 @@ In \Cref{sec:compu}, we compare the performance of four of them.
 
 
 
-\subsubsection{Simple Projection}
+\subsubsection{Simple Projection (SP)}
 The standard way for estimating PC scores is by projecting the study
 individuals' data points to the PCs of the reference individuals.
 We call this method ``simple projection'' (SP).
@@ -155,7 +155,7 @@ However, it is known that the projection method tends to underestimates the magn
 which we call the ``shrinking bias''. (See \cite{dey}.)
 This limits the accuracy of SP for high dimensional data.
 
-\subsubsection{Augment, Decompose, and Transform}
+\subsubsection{Augment, Decompose, and Transform (ADT)}
 
 One way to solve the shrinking bias of SP is developed by \cite{wang}.
 In this method, each study individual's data point is appended to the reference
@@ -220,7 +220,7 @@ Its computational complexity increases cubically as we increase the reference sa
 The ADT method is has been implemented in the TRACE software by \cite{wang}.
 
 
-\subsubsection{Adjusted Projection}
+\subsubsection{Adjusted Projection (AP)}
 
 A more efficient way to solve the shrinking bias of SP is to estimate the
 magnitude and angle of the shrinkage and adjust the study individuals' PC scores accordingly.
@@ -241,7 +241,7 @@ Total computational complexity: $\bO[n^2p + mk_1(p + n) + p + n] \approx \bO[n^2
 given that $m$ or $n$ is large. The computational complexities between simple projection and adjusted projection are the same.
 The accuracy of adjusted projection will be empirically shown later.
 
-\subsubsection{Online ADT}
+\subsubsection{Online ADT (OADT)}
 
 A remedy for ADT is to reduce the computational complexity withou much sacrifice of the accuracy.
 This is achieved by the online ADT (OADT) method.
@@ -312,30 +312,6 @@ RSVD is slower than standard SVD,
 but it does not require loading the whole covariance matrix into the memory.
 
 
-\begin{table} 
-  \centering
-  \begin{tabular}{|l|l|}
-    \hline
-    Method & Computational Complexity \\ 
-    \hline
-    Simple Projection (SP) & $\bO[n^2p + mk_1p]$ \\
-    \hline
-    Augment-Decompose-Transform (ADT) & $\bO[n^2 p + mn(p + n^2)]$ \\
-    \hline
-    Adjusted Projection (AP) & $\bO[n^2p + mk_1p]$ \\
-    \hline
-    Online Augment-Decompose-Transform (OADT) & $\bO[n^2 p + mk_3(p + k_3 n)]$ \\
-    \hline
-  \end{tabular}
-  \caption{
-    Comparison of computational complexity for the three methods.
-    Here $p$ is the number of SNPs,
-    $n$ is the number of individuals in the reference group,
-    and $m$ is the number of individuals in the  study group.
-    For projection, $k_1$ is the number of PCs needed
-    For OADT, $k_3$ is the number of PCs calculated by online SVD, which is usually much less than $n$.}
-  \label{tbl:cplx}
-\end{table}
 
 \subsection{Data}
 
@@ -405,7 +381,10 @@ In addition, both the standard and randomized SVD on the training data set are t
 
 \section{Results}
 
-See \Cref{fig:nChg} and \Cref{fig:mChg} for the comparison of the runtimes and accuracy.
+The predicted PC scores are shown in \Cref{fig:n1000} and \Cref{fig:ukb}.
+For the comparison of the runtimes and accuracy for different reference and sample sizes for the simulated data,
+see \Cref{fig:nChg} and \Cref{fig:mChg}.
+For comparing the methods for the real-life data, see
 
 
 
@@ -413,46 +392,8 @@ See \Cref{fig:nChg} and \Cref{fig:mChg} for the comparison of the runtimes and a
 
 We find that AP improved the accuracy of SP without increasing the runtimes.
 Moreover, OADT improves the speed of ADT without much sacrifice of accuracy.
-Inaddition, randomized SVD is found to be as reliable as standard SVD in
+In addition, randomized SVD is found to be as reliable as standard SVD in
 calculating the PC's of the reference group.
-
-\newpage
-
-\begin{figure}[p]
-  \label{fig:nChg}
-  \centering
-  \includegraphics[width=0.98\textwidth]{nChg}
-  \caption{
-    Runtimes and deviations for different methods as the reference sample size increases.
-    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
-    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
-  }
-\end{figure}
-
-\begin{figure}[p]
-  \label{fig:mChg}
-  \centering
-  \includegraphics[width=0.98\textwidth]{mChg}
-  \caption{
-    Runtimes and deviations for different methods as the study sample size increases.
-    The reference sample size is fixed to 600 and the number of SNPs is 100,000 (1000 per genealogy).
-    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
-  }
-\end{figure}
-
-% \includegraphics[width=0.98\textwidth]{runtimes_rand}
-
-% \includegraphics[width=0.98\textwidth]{err_refcenter_rand}
-
-% \includegraphics[width=0.98\textwidth]{err_trace_rand}
-
-% \includegraphics[width=0.98\textwidth]{err_refcenter_rand}
-
-% \includegraphics[width=0.98\textwidth]{kgn_allChr_ukb_orphans_ukb_1k_comb}
-
-\newpage
- 
-% \includegraphics[width=0.98\textwidth]{kgn_allChr_ukb_orphans_ukb_1k_rand}
 
 \newpage
 
@@ -479,5 +420,126 @@ Chicago
      studies. {\it Nature genetics}, 38(8), 904.
 
 \end{thebibliography}
+
+\newpage
+
+\begin{table} 
+  \centering
+  \begin{tabular}{|l|l|}
+    \hline
+    Method & Computational Complexity \\ 
+    \hline
+    Simple Projection (SP) & $\bO[n^2p + mk_1p]$ \\
+    \hline
+    Augment-Decompose-Transform (ADT) & $\bO[n^2 p + mn(p + n^2)]$ \\
+    \hline
+    Adjusted Projection (AP) & $\bO[n^2p + mk_1p]$ \\
+    \hline
+    Online Augment-Decompose-Transform (OADT) & $\bO[n^2 p + mk_3(p + k_3 n)]$ \\
+    \hline
+  \end{tabular}
+  \caption{
+    Comparison of computational complexity for the three methods.
+    Here $p$ is the number of SNPs,
+    $n$ is the number of individuals in the reference group,
+    and $m$ is the number of individuals in the  study group.
+    For projection, $k_1$ is the number of PCs needed
+    For OADT, $k_3$ is the number of PCs calculated by online SVD, which is usually much less than $n$.}
+  \label{tbl:cplx}
+\end{table}
+
+\begin{table} 
+  \centering
+  \begin{tabular}{|l|l|l|l|l|}
+    \hline
+    Method & Reference Runtimes & Study Runtimes & Reference Center Error & Golden Standard Error \\ 
+    \hline
+    Simple Projection (SP) &  \\
+    \hline
+    Augment-Decompose-Transform (ADT) & $\bO[n^2 p + mn(p + n^2)]$ \\
+    \hline
+    Adjusted Projection (AP) & $\bO[n^2p + mk_1p]$ \\
+    \hline
+    Online Augment-Decompose-Transform (OADT) & $\bO[n^2 p + mk_3(p + k_3 n)]$ \\
+    \hline
+  \end{tabular}
+  \caption{
+    Comparison of computational complexity for the three methods.
+    Here $p$ is the number of SNPs,
+    $n$ is the number of individuals in the reference group,
+    and $m$ is the number of individuals in the  study group.
+    For projection, $k_1$ is the number of PCs needed
+    For OADT, $k_3$ is the number of PCs calculated by online SVD, which is usually much less than $n$.}
+  \label{tbl:cplx}
+\end{table}
+
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.98\textwidth]{n1000}
+  \caption{
+    Predicted PC scores on top of reference PC scores.
+    The four populations in the $2 \times 2$ grid simulated by the GGS software can be clearly identified.
+    Reference individuals are in color,
+    while predicted PC scores for the study individuals are in gray.
+    Two measurements of deviations (accuracy) are used.
+    The reference center error is the square root of the average squared distance between the study individuals and the population centers, which are the means of the PC scores of the reference individuals by the populations.
+    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADT.
+    The reference size is 1000 and the study size is 200.
+    There are 100,000 loci (1000 per genealogy) and the migration rate is 100.
+  }
+  \label{fig:n1000}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.98\textwidth]{ukb}
+  \caption{
+    The reference individuals are from the 1000 Genomes dataset with 2492 unrelated individuals from 5 superpopulations: African, American, East Asian, European, and South Asian. 
+    The study sample contain 1000 individuals from the UKBioBank dataset.
+    There are about 125,000 loci shared by the reference and study data.
+    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADT.
+  }
+  \label{fig:ukb}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.98\textwidth]{nChg}
+  \caption{
+    Runtimes and deviations for different methods as the reference sample size increases.
+    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
+    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+  }
+  \label{fig:nChg}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.98\textwidth]{mChg}
+  \caption{
+    Runtimes and deviations for different methods as the study sample size increases.
+    The reference sample size is fixed to 600 and the number of SNPs is 100,000 (1000 per genealogy).
+    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+  }
+  \label{fig:mChg}
+\end{figure}
+
+% \includegraphics[width=0.98\textwidth]{runtimes_rand}
+
+% \includegraphics[width=0.98\textwidth]{err_refcenter_rand}
+
+% \includegraphics[width=0.98\textwidth]{err_trace_rand}
+
+% \includegraphics[width=0.98\textwidth]{err_refcenter_rand}
+
+% \includegraphics[width=0.98\textwidth]{kgn_allChr_ukb_orphans_ukb_1k_comb}
+
+\newpage
+ 
+% \includegraphics[width=0.98\textwidth]{kgn_allChr_ukb_orphans_ukb_1k_rand}
+
+\newpage
+
 
 \end{document}
