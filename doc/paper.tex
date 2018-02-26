@@ -307,9 +307,10 @@ data, which has dimension $n \times n$, and conduct eigendecomosition on it.
 However, when $n$ is exceedingly large,
 the covariance matrix cannot be loaded into the memory of an average personal
 computer.
-A randomized SVD (RSVD)algorithm has been developed to handle this issue.
+A randomized SVD (RSVD) algorithm has been developed to handle this issue.
 RSVD is slower than standard SVD,
 but it does not require loading the whole covariance matrix into the memory.
+For the details of the RSVD algorithm, see \cite{halko} and \cite{abraham}.
 
 
 
@@ -398,6 +399,8 @@ calculating the PC's of the reference group.
 \newpage
 
 \begin{thebibliography}{}
+
+\bibitem[Abraham \& Inouye(2014)]{abraham} Abraham, G., \& Inouye, M. (2014). Fast principal component analysis of large-scale genome-wide data. {\it PloS one}, 9(4), e93766.
  
 \bibitem[Brand(2002)]{brand} Brand, M. (2002). Incremental singular value decomposition of uncertain data with missing values. {\it Computer Vision--ECCV 2002}, 707-720.
 
@@ -405,6 +408,8 @@ calculating the PC's of the reference group.
   
 \bibitem[Jolliffe(2002)]{jolliffe} Jolliffe, I. (2002). {\it Principal component analysis}. John Wiley \& Sons, Ltd.
 Chicago	
+
+\bibitem[Halko et al.(2011)]{halko} Halko, N., Martinsson, P. G., \& Tropp, J. A. (2011). Finding structure with randomness: Probabilistic algorithms for constructing approximate matrix decompositions. {\it SIAM review}, 53(2), 217-288.
 
 
  \bibitem[Wang et al.(2015)]{wang} Wang, C., Zhan, X., Liang, L., Abecasis, G. R., \& Lin, X. (2015). Improved ancestry estimation for both genotyping and sequencing data using projection procrustes analysis and genotype imputation. {\it The American Journal of Human Genetics, 96}(6), 926-937.
@@ -425,26 +430,32 @@ Chicago
 
 \begin{table} 
   \centering
-  \begin{tabular}{|l|l|}
+  \begin{tabular}{|l|l|l|}
     \hline
-    Method & Computational Complexity \\ 
+    Method & Reference Complexity & Study Complexity \\ 
     \hline
-    Simple Projection (SP) & $\bO[n^2p + mk_1p]$ \\
+    Simple Projection (SP) & $\bO[n^2p]$ & $\bO[mkp]$ \\
     \hline
-    Augment-Decompose-Transform (ADT) & $\bO[n^2 p + mn(p + n^2)]$ \\
+    Randomized Simple Projection (RSP) & $\bO[k^2p]$ & $\bO[mkp]$ \\
     \hline
-    Adjusted Projection (AP) & $\bO[n^2p + mk_1p]$ \\
+    Augment-Decompose-Transform (ADT) & $\bO[n^2 p]$ & $\bO[mn(p + n^2)]$ \\
     \hline
-    Online Augment-Decompose-Transform (OADT) & $\bO[n^2 p + mk_3(p + k_3 n)]$ \\
+    Adjusted Projection (AP) & $\bO[n^2p]$ &  $\bO[mkp]$ \\
+    \hline
+    Randomized Adjusted Projection (RAP) & $\bO[k^2p]$ &  $\bO[mkp]$ \\
+    \hline
+    Online Augment-Decompose-Transform (OADT) & $\bO[n^2 p]$ & $\bO[mk(p + k n)]$ \\
+    \hline
+    Randomized Online Augment-Decompose-Transform (ROADT) & $\bO[k^2 p]$ & $\bO[mk(p + k n)]$ \\
     \hline
   \end{tabular}
   \caption{
-    Comparison of computational complexity for the three methods.
+    Comparison of computational complexity for different methods.
     Here $p$ is the number of SNPs,
     $n$ is the number of individuals in the reference group,
-    and $m$ is the number of individuals in the  study group.
-    For projection, $k_1$ is the number of PCs needed
-    For OADT, $k_3$ is the number of PCs calculated by online SVD, which is usually much less than $n$.}
+    $m$ is the number of individuals in the  study group,
+    and $k$ is the number of PCs calculated by the corresponding method.
+  }
   \label{tbl:cplx}
 \end{table}
 
@@ -452,30 +463,30 @@ Chicago
   \centering
   \begin{tabular}{|l|l|l|l|l|}
     \hline
-    Method & Reference Runtimes & Study Runtimes & Reference Center Error & Golden Standard Error \\ 
+    Method & Reference Runtimes & Study Runtimes & Golden Standard Error \\ 
     \hline
-    SP & 411 & 425 \\
+    SP & 411 & 425 & 1.95 \\
     \hline
-    RSP & 2504 & 241 \\
+    RSP & 2504 & 241 & 1.95 \\
     \hline
-    ADT & 411 & 29813 \\
+    ADT & 411 & 29813 & 0.00 \\
     \hline
-    AP & 411 & 482 \\
+    AP & 411 & 482 1 & 1.12 \\
     \hline
-    RAP & 2505 & 434 \\ 
+    RAP & 2505 & 250 & 1.83 \\ 
     \hline
-    OADT & 2518 & 103 \\
+    OADT & 2518 & 103 & 0.40 \\
     \hline
-    ROADT & 2518 & 103 \\
+    ROADT & 2518 & 103 & 1.93 \\
     \hline
   \end{tabular}
   \caption{
-    Comparison of computational complexity for the three methods.
-    Here $p$ is the number of SNPs,
-    $n$ is the number of individuals in the reference group,
-    and $m$ is the number of individuals in the  study group.
-    For projection, $k_1$ is the number of PCs needed
-    For OADT, $k_3$ is the number of PCs calculated by online SVD, which is usually much less than $n$.}
+    Comparison of runtimes and accuracy for different methods applied to the real-life datasets.
+    The reference individuals are from the 1000 Genomes dataset with 2492 unrelated individuals.
+    The study sample contain 1000 individuals from the UKBioBank dataset.
+    There are about 125,000 loci shared by the reference and study data.
+    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADT.
+  }
   \label{tbl:cplx}
 \end{table}
 
