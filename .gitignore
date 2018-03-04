@@ -14,3 +14,5 @@ __pycache__/
 paper.pdf
 *.fdb_latexmk
 *.fls
+*.prv
+_region_.tex

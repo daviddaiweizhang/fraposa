@@ -3,13 +3,13 @@ library(scales)
 
 
 meth.n <- 7
-chg.var <- "n"
-chg.jobid <- "27483940"
+chg.var <- "m"
+chg.jobid <- "27483942"
 chg.range <- seq(1000, 3000, 500)
 chg.taskid <- c(0:4)
 chg.length <- length(chg.range)
 
-file.head <- "../flux/data/"
+file.head <- "data/"
 file.neck <- paste0(
   chg.var,
   "Chg_rand_",
@@ -19,8 +19,6 @@ file.neck <- paste0(
 )
 file.upper <- paste0(
   file.head,
-  file.neck,
-  "/",
   file.neck,
   "_100000_")
 if(chg.var == "n"){
@@ -82,7 +80,7 @@ if(chg.var == "n"){
           ylab = "PC Score Units",
           lty = lty, pch = pch, col = col, cex = cex, type = "b", lwd = lwd, col.main = col.main)
   matplot(accuracy.gold[,1], accuracy.gold[,(1:meth.n)+1],
-          main = "Deviations (Distance from TRACE)",
+          main = "Deviations (Distance from ADT)",
           xlab = xlab,
           ylab = "PC Score Units",
           lty = lty, pch = pch, col = col, cex = cex, type = "b", lwd = lwd, col.main = col.main)

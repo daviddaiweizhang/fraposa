@@ -301,6 +301,7 @@ The closeness between the results given by OADT and ADT will be empirically show
 A comparison of computatinal complexities of the four PCA methods are shown in \Cref{tbl:cplx}.
 
 \subsubsection{Randomized SVD}
+
 In addition to estimating the PC scores of the study individuals,
 we have another algorithm that aims at improving the decomposition of the
 training data.
@@ -313,6 +314,15 @@ A randomized SVD (RSVD) algorithm has been developed to handle this issue.
 RSVD is slower than standard SVD,
 but it does not require loading the whole covariance matrix into the memory.
 For the details of the RSVD algorithm, see \cite{halko} and \cite{abraham}.
+
+Notice that the randomized SVD method on the training data
+only calculates the first $k$ eigenvalues.
+However, in order to use adjusted projection,
+all the eigenvalues of the training data are required.
+Thus for the missing eigenvalues,
+we predict them by regressing their log-scale values on the ranks
+and using the first $k$ eigenvalues for training the linear regression.
+
 
 
 
@@ -393,10 +403,42 @@ For comparing the methods for the real-life data, see \Cref{tbl:ukb}.
 
 \section{Discussion}
 
-We find that AP improved the accuracy of SP without increasing the runtimes.
-Moreover, OADT improves the speed of ADT without much sacrifice of accuracy.
-In addition, randomized SVD is found to be as reliable as standard SVD in
-calculating the PC's of the reference group.
+For the real-life datasets (\Cref{tbl:ukb} and \Cref{fig:ukb}),
+we see that ADT, which is the most reliable method,
+is the slowest in study runtimes.
+By using the online SVD algorithm,
+OADT achieved the highest accuracy (excluding ADT, which is the golden standard) and the fastest runtime.
+SP is fast, also,
+but its accuracy is the lowest.
+By using the HDPCA package,
+AP reduces the error of AP
+and achieved the second highest in accuracy.
+The randomized version of SP is as accurate as the standard SP,
+which shows that the randomized SVD algorithm gives reliable results,
+and that using linear regression to predict the uncalculated reference eigenvalues is satisfactory.
+It also reduces the runtime almost by half,
+due to not calculating all the eigenvalues.
+Similar reduction in study runtime is observed for the randomized version of AP,
+but in this case the accuracy is also decreased,
+thought it is still higher than that of SP and RSP.
+Finally, the randomized OADT is disappointing,
+as its error is almost as high as SP and RSP.
+
+The pattern for accuracy is very similar when we look at the simulated data.
+(\Cref{tbl:nChg-runtimes-ref}, \Cref{tbl:nChg-runtimes-study},
+\Cref{tbl:nChg-accuracy-gold}, \Cref{tbl:nChg-accuracy-ctr},
+\Cref{tbl:mChg-runtimes-study}).
+A noticeable difference in this case is the accuracy of ROADT.
+Here ROADT's accuracy is almost identical to OADT's,
+as measured by both the golden standard error and the geographic center err.
+However, as the reference size increases,
+the accuracies of different methods become closer and closer (\Cref{fig:nChg}).
+As for the speed,
+AWD's study runtime increases so fast with the reference size
+that the study runtimes for the other methods seem to be constant in comparison (\Cref{fig:nChg}).
+On the other hand,
+the study runtimes appear to increase linearly with respect to the study size (\Cref{fig:mChg}).
+This information can be used to predict the runtime for larger study samples.
 
 \newpage
 
@@ -436,19 +478,19 @@ Chicago
     \hline
     Method & Reference Complexity & Study Complexity \\ 
     \hline
-    Simple Projection (SP) & $\bO[n^2p]$ & $\bO[mkp]$ \\
+    ADT & $\bO[n^2 p]$ & $\bO[mn(p + n^2)]$ \\
     \hline
-    Randomized Simple Projection (RSP) & $\bO[k^2p]$ & $\bO[mkp]$ \\
+    OADT & $\bO[n^2 p]$ & $\bO[mk(p + k n)]$ \\
     \hline
-    Augment-Decompose-Transform (ADT) & $\bO[n^2 p]$ & $\bO[mn(p + n^2)]$ \\
+    ROADT & $\bO[k^2 p]$ & $\bO[mk(p + k n)]$ \\
     \hline
-    Adjusted Projection (AP) & $\bO[n^2p]$ &  $\bO[mkp]$ \\
+    SP & $\bO[n^2p]$ & $\bO[mkp]$ \\
     \hline
-    Randomized Adjusted Projection (RAP) & $\bO[k^2p]$ &  $\bO[mkp]$ \\
+    RSP & $\bO[k^2p]$ & $\bO[mkp]$ \\
     \hline
-    Online Augment-Decompose-Transform (OADT) & $\bO[n^2 p]$ & $\bO[mk(p + k n)]$ \\
+    AP & $\bO[n^2p]$ &  $\bO[mkp]$ \\
     \hline
-    Randomized Online Augment-Decompose-Transform (ROADT) & $\bO[k^2 p]$ & $\bO[mk(p + k n)]$ \\
+    RAP & $\bO[k^2p]$ &  $\bO[mkp]$ \\
     \hline
   \end{tabular}
   \caption{
@@ -467,19 +509,19 @@ Chicago
     \hline
     Method & Reference Runtimes & Study Runtimes & Golden Standard Error \\ 
     \hline
-    SP & 411 & 425 & 1.95 \\
-    \hline
-    RSP & 2504 & 241 & 1.95 \\
-    \hline
     ADT & 411 & 29813 & 0.00 \\
-    \hline
-    AP & 411 & 482 1 & 1.12 \\
-    \hline
-    RAP & 2505 & 250 & 1.83 \\ 
     \hline
     OADT & 2518 & 103 & 0.40 \\
     \hline
     ROADT & 2518 & 103 & 1.93 \\
+    \hline
+    SP & 411 & 425 & 1.95 \\
+    \hline
+    RSP & 2504 & 241 & 1.95 \\
+    \hline
+    AP & 411 & 482 & 1.12 \\
+    \hline
+    RAP & 2505 & 250 & 1.83 \\ 
     \hline
   \end{tabular}
   \caption{
@@ -490,6 +532,121 @@ Chicago
     The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADT.
   }
   \label{tbl:ukb}
+\end{table} 
+
+\begin{table}
+  \centering
+  \begin{tabular}{|l|l|l|l|l|l|}
+    \hline
+    Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
+    \hline
+    ADT        &  68  & 1263 & 2871 & 5720 & 9737 \\
+    OADT       &  72  & 18   & 19   & 22   & 24   \\
+    ROADT      & 809  & 18   & 17   & 20   & 21   \\
+    SP         &  68  & 26   & 42   & 67   & 96   \\
+    RSP        & 805  & 23   & 31   & 39   & 46   \\
+    AP         &  68  & 69   & 107  & 91   & 119  \\
+    RAP        & 805  & 11   & 24   & 29   & 9    \\
+    \hline
+  \end{tabular}
+  \caption{
+    Reference runtimes for the simulated data as the reference size increases.
+    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
+    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+  }
+  \label{tbl:nChg-runtimes-ref}
+\end{table}
+
+\begin{table}
+  \centering
+  \begin{tabular}{|l|l|l|l|l|l|}
+    \hline
+    Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
+    \hline
+    ADT        & 391  &  130 &  222 &  339 &  486 \\
+    OADT       & 15   &  136 &  230 &  350 &  499 \\
+    ROADT      & 15   & 1211 & 1633 & 2023 & 2422 \\
+    SP         & 16   &  130 &  222 &  339 &  486 \\
+    RSP        & 15   & 1204 & 1624 & 2012 & 2409 \\
+    AP         & 34   &  130 &  222 &  339 &  486 \\
+    RAP        & 18   & 1204 & 1624 & 2012 & 2409 \\
+    \hline
+  \end{tabular}
+  \caption{
+    Study runtimes for simulated data as the reference size increases.
+    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
+    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+  }
+  \label{tbl:nChg-runtimes-study}
+\end{table}
+
+\begin{table}
+  \centering
+  \begin{tabular}{|l|l|l|l|l|l|}
+    \hline
+    Study Size & 1000  & 1500 & 2000 & 2500 & 3000 \\
+    \hline
+    ADT        & 0.00  & 0.00 & 0.00 & 0.00 & 0.00 \\
+    OADT       & 0.23  & 0.15 & 0.11 & 0.08 & 0.07 \\
+    ROADT      & 0.23  & 0.15 & 0.12 & 0.08 & 0.08 \\
+    SP         & 6.00  & 4.34 & 3.43 & 2.75 & 2.34 \\
+    RSP        & 6.00  & 4.34 & 3.43 & 2.75 & 2.34 \\
+    AP         & 0.46  & 0.37 & 0.31 & 0.26 & 0.22 \\
+    RAP        & 3.02  & 2.93 & 2.54 & 2.15 & 1.91 \\
+    \hline
+  \end{tabular}
+  \caption{
+    Golden standard error for the simulated data as the reference size increases.
+    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
+    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+  }
+  \label{tbl:nChg-accuracy-gold}
+\end{table}
+
+\begin{table}
+  \centering
+  \begin{tabular}{|l|l|l|l|l|l|}
+    \hline
+    Reference Size & 1000  & 1500 & 2000 & 2500 & 3000 \\
+    \hline
+    ADT        & 4.53  & 4.13 & 3.81 & 3.59 & 3.23 \\
+    OADT       & 4.43  & 4.06 & 3.77 & 3.55 & 3.20 \\
+    ROADT      & 4.44  & 4.06 & 3.76 & 3.55 & 3.20 \\
+    SP         & 5.79  & 4.51 & 3.89 & 3.56 & 3.19 \\
+    RSP        & 5.79  & 4.51 & 3.89 & 3.56 & 3.19 \\
+    AP         & 4.59  & 4.10 & 3.76 & 3.57 & 3.24 \\
+    RAP        & 4.23  & 3.87 & 3.55 & 3.38 & 3.07 \\
+    \hline
+  \end{tabular}
+  \caption{
+    Geographic center error for the simulated data as the reference size increases.
+    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
+    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+  }
+  \label{tbl:nChg-accuracy-ctr}
+\end{table}
+
+\begin{table}
+  \centering
+  \begin{tabular}{|l|l|l|l|l|l|}
+    \hline
+    Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
+    \hline
+    ADT        & 507  & 758 & 1011 & 1262 & 1549 \\
+    OADT       &  73  & 108 &  156 &  189 &  282 \\
+    ROADT      &  73  & 108 &  159 &  183 &  281 \\
+    SP         &  44  &  64 &   84 &  103 &  131 \\
+    RSP        &  43  &  63 &   83 &  101 &  129 \\
+    AP         &  66  &  81 &  100 &  117 &  146 \\
+    RAP        &  22  &  15 &   15 &   21 &   24 \\
+    \hline
+  \end{tabular}
+  \caption{
+    Study runtimes for the simulated data as the study size increases.
+    The reference size is fixed to 600 and the number of SNPs is 100,000 (1000 per genealogy). 
+    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+  }
+  \label{tbl:mChg-runtimes-study}
 \end{table}
 
 
