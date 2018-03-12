@@ -7,7 +7,7 @@ all: trace.comb.o trace.rand.o
 .PHONY: all
 
 trace.comb.o : trace.comb.cpp
-	@if [ `hostname` = "david-XPS-13-9343" ]; then \
+	@if [ `hostname` = "xps-arch"]; then \
 	    echo "Compiling with Local libs"; \
 	    g++ $(FLAGS) trace.comb.cpp -o trace.comb.o $(LIBS_LOCAL); \
 	elif [ `hostname` = "fantasia" ]; then \
@@ -22,7 +22,7 @@ trace.comb.o : trace.comb.cpp
 
 
 trace.rand.o : trace.rand.cpp
-	@if [ `hostname` = "david-XPS-13-9343" ]; then \
+	@if [ `hostname` = "xps-arch" ]; then \
 	    echo "Compiling with Local libs"; \
 	    g++ $(FLAGS) trace.rand.cpp -o trace.rand.o $(LIBS_LOCAL); \
 	elif [ `hostname` = "fantasia" ]; then \

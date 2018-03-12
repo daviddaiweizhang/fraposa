@@ -5,6 +5,7 @@ ver=$2
 
 host=`hostname`
 if [[ "${host:0:3}" == "nyx" || "${host:0:4}" == "flux" ]]; then
+    # Flux
     echo "Loading modules for flux..."
     module load python-dev 
     module load numpy-dev 
@@ -14,11 +15,12 @@ if [[ "${host:0:3}" == "nyx" || "${host:0:4}" == "flux" ]]; then
     module load R
     export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH;
     echo "Done."
-elif [ ${host} == "david-XPS-13-9343" ]; then
+elif [ ${host} == "xps-arch" ]; then
+    # Local
     echo "Using Python virtualenv for local."
-    source virtualenvwrapper.sh
-    workon research
-    python --version
+    export WORKON_HOME=$HOME/.virtualenvs
+    source /usr/bin/virtualenvwrapper.sh
+    workon normal
 fi
 
 if [ ${sim} == "1" ]; then

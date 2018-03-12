@@ -333,3 +333,5 @@ def classic_pca(ref_geno, stu_geno, ref_coord, ref_sd, stu_coord, k, intType=INT
     # This line has problems
     YVd_proj = Y.T.dot(X).dot(V).dot(np.diag(1 / d))
     return V, YVd_classic, YVd_proj
+
+def onl_pca(

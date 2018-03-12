@@ -1,0 +1,7 @@
+make software
+write everything in python (no need for TRACE)
+if significantly slower, write up in c++
+use plink binary files as the standard for input
+1000genome minor allel freq > 0.01 >> plink.bed as reference
+
+pgen (plink 2.0) or bed (plin 1.9)?
