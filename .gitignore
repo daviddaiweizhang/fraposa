@@ -16,3 +16,4 @@ paper.pdf
 *.fls
 *.prv
 _region_.tex
+unused/*
