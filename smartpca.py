@@ -77,7 +77,7 @@ def test_svd_online():
     PC_ref_fat[:, :PC_ref_dim] = PC_ref
     R, s, c = procrustes(PC_ref_fat, PC_new_head)
     PC_new_tail_trsfed = PC_new_tail @ R * s + c
-    PC_new_tail_trsfed = PC_new_tail_trsfed[:PC_ref_dim]
+    PC_new_tail_trsfed = PC_new_tail_trsfed.flatten()[:PC_ref_dim]
 
     print("Nothing is tested.")
 
