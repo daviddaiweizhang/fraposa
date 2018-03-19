@@ -1,0 +1,28 @@
+SMARTPCA -*- mode: org -*-
+#+STARTUP: showall
+#+TODO: TODO IN-PROGRESS WAITING DONE
+
+* Tasks
+** TODO Make software in python
+*** IN-PROGRESS Get reference datasets
+*** IN-PROGRESS Read PLINK file into python
+**** IN-PROGRESS try pandas-plink
+*** TODO Handle missing data
+*** TODO Handle difference in SNPs
+**** TODO Allel difference in the same SNP
+*** DONE Write onine_svd
+    CLOSED: [2018-03-18 Sun 20:35]
+*** IN-PROGRESS Write procrustes
+**** DONE Same dimension
+     CLOSED: [2018-03-18 Sun 20:40]
+**** TODO Different dimensions
+*** TODO Write simple projection
+*** TODO Write a fun to run hdpca in python
+*** TODO Compare runtimes and accuracy
+** TODO Review deep learning in biolog
+** TODO Write manuscript
+*** Make plots look better
+* Questions
+** Input formats' effect on runtimes
+** Need for allowing user to input training data
+*** Try python dask
