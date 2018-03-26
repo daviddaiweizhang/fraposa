@@ -4,8 +4,8 @@ SMARTPCA -*- mode: org -*-
 
 * Tasks
 ** TODO Make software in python
-*** IN-PROGRESS Get reference datasets
-*** IN-PROGRESS Read PLINK file into python
+*** IN-PROGRESS Get reference datasets (0.05 maf or cap_hgdp)
+*** IN-PROGRESS Read PLINK file into python (try dask)
 **** IN-PROGRESS try pandas-plink
 *** TODO Handle missing data
 *** TODO Handle difference in SNPs
@@ -21,8 +21,6 @@ SMARTPCA -*- mode: org -*-
 *** TODO Compare runtimes and accuracy
 ** TODO Review deep learning in biolog
 ** TODO Write manuscript
-*** Make plots look better
+*** TODO Results and discussion
+*** TODO Make plots look better
 * Questions
-** Input formats' effect on runtimes
-** Need for allowing user to input training data
-*** Try python dask
