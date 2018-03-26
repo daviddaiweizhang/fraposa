@@ -2,6 +2,7 @@ import numpy as np
 from scipy.linalg import orthogonal_procrustes
 from pandas_plink import read_plink
 import dask.array as da
+from chest import Chest
 import inspect
 
 
@@ -138,11 +139,24 @@ def test_online_svd_procrust():
 test_online_svd_procrust()
 
 (bim, fam, X) = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp')
-X_mean = da.nanmean(X, axis = 1).compute().reshape((-1, 1))
-X_std = da.nanstd(X, axis = 1).compute().reshape((-1,1))
-X_std[X_std == 0] = 1
-X -= X_mean
-X /= X_std
+# X_mean = da.nanmean(X, axis = 1).compute().reshape((-1, 1))
+# X_std = da.nanstd(X, axis = 1).compute().reshape((-1,1))
+# X_std[X_std == 0] = 1
+# X -= X_mean
+# X /= X_std
+X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+U, s, V = da.linalg.svd(X)
+cache = Chest(path='chest', available_memory=16e9)
+print("Getting matrix output...")
+Vc = V.compute(cache = cache)
+print("Done!")
+# V.to_hdf5('myfile.hdf5', '/V')
+
+# XTX = X.T @ X
+# U, s, V = da.linalg.svd(XTX, 4)
+
 # U, s, V = da.linalg.svd_compressed(X, 4)
-compressed = da.linalg.compression_matrix(X, 4, 0, None)
-X_compressed = compressed.dot(X)
+# compressed = da.linalg.compression_matrix(X, 4, 0, None)
+# X_compressed = compressed.dot(X)
+
+# print("".join(inspect.getsourcelines(X.rechunk)[0]))
