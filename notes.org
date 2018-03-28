@@ -24,3 +24,4 @@ SMARTPCA -*- mode: org -*-
 *** TODO Results and discussion
 *** TODO Make plots look better
 * Questions
+** Exclude morep related people (not just parents) in kgn?

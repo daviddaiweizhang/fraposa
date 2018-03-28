@@ -3,7 +3,7 @@ from scipy.linalg import orthogonal_procrustes
 from pandas_plink import read_plink
 import dask.array as da
 from dask import compute
-# from chest import Chest
+from chest import Chest
 import time
 
 
@@ -154,13 +154,16 @@ X = X.astype(np.float32)
 
 # PCA on the reference data
 # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-# cache = Chest(path='chest', available_memory=16e9)
-print("Getting matrix output...")
+cache = Chest(path='cache')
+print("SVD on training data...")
 start_time = time.time()
 U, s, V = da.linalg.svd_compressed(X, 4)
-U, s, V = compute(U, s, V)
-print(time.time() - start_time)
-print("Done!")
+U, s, V = compute(U, s, V, cache=cache)
+elapse = time.time() - start_time
+np.savetxt('elapse.runtime', elapse, fmt='%10.5f')
+print("Done.")
+print("Saving training SVD result...")
 np.savetxt('U.dat', U, fmt='%10.5f')
 np.savetxt('s.dat', s, fmt='%10.5f')
 np.savetxt('V.dat', V, fmt='%10.5f')
+print("Done.")

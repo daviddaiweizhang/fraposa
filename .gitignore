@@ -18,3 +18,4 @@ paper.pdf
 _region_.tex
 unused/*
 *.swp
+cache/
