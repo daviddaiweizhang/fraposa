@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e # stop on the first error
+
 sim=$1
 ver=$2
 
@@ -47,6 +49,7 @@ elif [ ${sim} == "0" ]; then
     study_file=../data/${stud}/${stun}.geno
     geno_file=../data/${refd}/${refn}.geno
     out_pref=../data/${outd}/${outn}.${ver}
+    mkdir -p ../data/${outd}
 else
     echo "Invalid input for sim."
     exit 1

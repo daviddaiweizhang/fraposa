@@ -1,6 +1,7 @@
 import numpy as np
 import subprocess
 import math
+import pandas as pd
 
 DELIM = '\t'
 P = 1000
@@ -308,3 +309,28 @@ def getNRows(fname):
         for i, l in enumerate(f):
             pass
     return i + 1
+# Text manipulation script
+
+
+# Add population to the first column of a TRACE geno file
+def addPopu():
+    genoF = 'kgn_chr_all_keep_orphans_snp_hgdp.geno'
+    newGenoF = genoF + '.new'
+    popuF = 'ALL.ped'
+    superpopuF = 'superpopu'
+    popuDf = pd.read_table(popuF)
+    superpopuDf = pd.read_table(superpopuF)
+
+    open(newGenoF, 'w').close()
+    with open(genoF, 'r') as gf, open(newGenoF, 'a') as ngf:
+        for line in gf:
+            myid, tail = line.split('\t', 1)
+            isMyID = popuDf['Individual ID'] == myid
+            myPopu = popuDf['Population'][isMyID].values[0]
+            isMyPopu = superpopuDf['population'] == myPopu
+            mySuperpopu = superpopuDf['superpop'][isMyPopu].values[0]
+            newLine = mySuperpopu + '\t' + tail
+            ngf.write(newLine)
+
+
+
