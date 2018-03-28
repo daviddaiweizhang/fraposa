@@ -17,3 +17,4 @@ paper.pdf
 *.prv
 _region_.tex
 unused/*
+*.swp

@@ -2,8 +2,9 @@ import numpy as np
 from scipy.linalg import orthogonal_procrustes
 from pandas_plink import read_plink
 import dask.array as da
-from chest import Chest
-import inspect
+from dask import compute
+# from chest import Chest
+import time
 
 
 np.random.seed(21)
@@ -134,29 +135,32 @@ def test_online_svd_procrust():
 
     print("Need to compare the result with TRACE's")
 
+# test_online_svd_procrust()
 
+X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_train')[2]
+# W = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_test')[2]
+X = X.astype(np.float32)
+# W = W.astype(np.float32)
 
-test_online_svd_procrust()
-
-(bim, fam, X) = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp')
+# # Center and nomralize reference data
 # X_mean = da.nanmean(X, axis = 1).compute().reshape((-1, 1))
 # X_std = da.nanstd(X, axis = 1).compute().reshape((-1,1))
 # X_std[X_std == 0] = 1
 # X -= X_mean
 # X /= X_std
-X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-U, s, V = da.linalg.svd(X)
-cache = Chest(path='chest', available_memory=16e9)
+# # Center and nomralize study data
+# W -= X_mean
+# W /= X_std
+
+# PCA on the reference data
+# X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+# cache = Chest(path='chest', available_memory=16e9)
 print("Getting matrix output...")
-Vc = V.compute(cache = cache)
+start_time = time.time()
+U, s, V = da.linalg.svd_compressed(X, 4)
+U, s, V = compute(U, s, V)
+print(time.time() - start_time)
 print("Done!")
-# V.to_hdf5('myfile.hdf5', '/V')
-
-# XTX = X.T @ X
-# U, s, V = da.linalg.svd(XTX, 4)
-
-# U, s, V = da.linalg.svd_compressed(X, 4)
-# compressed = da.linalg.compression_matrix(X, 4, 0, None)
-# X_compressed = compressed.dot(X)
-
-# print("".join(inspect.getsourcelines(X.rechunk)[0]))
+np.savetxt('U.dat', U, fmt='%10.5f')
+np.savetxt('s.dat', s, fmt='%10.5f')
+np.savetxt('V.dat', V, fmt='%10.5f')
