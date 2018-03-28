@@ -154,13 +154,15 @@ X = X.astype(np.float32)
 
 # PCA on the reference data
 # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-cache = Chest(path='cache')
+cache = Chest(path='cache', available_memory = 1e9)
 print("SVD on training data...")
 start_time = time.time()
 U, s, V = da.linalg.svd_compressed(X, 4)
 U, s, V = compute(U, s, V, cache=cache)
 elapse = time.time() - start_time
-np.savetxt('elapse.runtime', elapse, fmt='%10.5f')
+print(elapse)
+with open('elapse.runtime', 'w') as file:
+    file.write(str(elapse))
 print("Done.")
 print("Saving training SVD result...")
 np.savetxt('U.dat', U, fmt='%10.5f')
