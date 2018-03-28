@@ -6,6 +6,8 @@ from dask import compute
 from chest import Chest
 import time
 
+DIM_COMPUTE = 8
+
 
 np.random.seed(21)
 
@@ -67,10 +69,10 @@ def procrustes(data1, data2):
     return R, s, b
 
 def test_online_svd_procrust():
-
     # def test_svd_online():
     print("Testing test_svd_online...")
 
+    # # For debugging only
     # # For comparing with the R script written by Shawn
     # X = np.loadtxt('test_X.dat')
     # b = np.loadtxt('test_b.dat').reshape((-1,1))
@@ -135,13 +137,15 @@ def test_online_svd_procrust():
 
     print("Need to compare the result with TRACE's")
 
-# test_online_svd_procrust()
+test_online_svd_procrust()
 
-X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_train')[2]
+# start_time = time.time()
+# 
+# X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_train')[2]
 # W = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_test')[2]
-X = X.astype(np.float32)
+# X = X.astype(np.float32)
 # W = W.astype(np.float32)
-
+# 
 # # Center and nomralize reference data
 # X_mean = da.nanmean(X, axis = 1).compute().reshape((-1, 1))
 # X_std = da.nanstd(X, axis = 1).compute().reshape((-1,1))
@@ -151,21 +155,21 @@ X = X.astype(np.float32)
 # # Center and nomralize study data
 # W -= X_mean
 # W /= X_std
-
-# PCA on the reference data
-# X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-cache = Chest(path='cache', available_memory = 1e9)
-print("SVD on training data...")
-start_time = time.time()
-U, s, V = da.linalg.svd_compressed(X, 4)
-U, s, V = compute(U, s, V, cache=cache)
-elapse = time.time() - start_time
-print(elapse)
-with open('elapse.runtime', 'w') as file:
-    file.write(str(elapse))
-print("Done.")
-print("Saving training SVD result...")
-np.savetxt('U.dat', U, fmt='%10.5f')
-np.savetxt('s.dat', s, fmt='%10.5f')
-np.savetxt('V.dat', V, fmt='%10.5f')
-print("Done.")
+# 
+# # PCA on the reference data
+# # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+# cache = Chest(path='cache', available_memory = 1e9)
+# print("SVD on training data...")
+# U, s, V = da.linalg.svd_compressed(X, DIM_COMPUTE)
+# U, s, V = compute(U, s, V, cache=cache)
+# elapse = time.time() - start_time
+# print(elapse)
+# with open('elapse.runtime', 'w') as file:
+#     file.write(str(elapse))
+# print("Done.")
+# print("Saving training SVD result...")
+# np.savetxt('U.dat', U, fmt='%10.5f')
+# np.savetxt('s.dat', s, fmt='%10.5f')
+# np.savetxt('V.dat', V, fmt='%10.5f')
+# print("Done.")
+# 
