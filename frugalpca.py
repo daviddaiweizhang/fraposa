@@ -30,7 +30,9 @@ def svd_online(U1, d1, V1, b, l):
 
 
 def procrustes(data1, data2):
-    ''' This is a simple modification of scipy.spatial.procrustes.
+    '''
+    Find the best transformation that maps data2 to data1
+    This is a simple modification of scipy.spatial.procrustes.
     For our purpose, we need to get the rotation matrix and the scaling factor,
     but these two values are not returned in the original function.
     '''
@@ -139,37 +141,41 @@ def test_online_svd_procrust():
 
 test_online_svd_procrust()
 
-# start_time = time.time()
-# 
-# X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_train')[2]
-# W = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_test')[2]
-# X = X.astype(np.float32)
-# W = W.astype(np.float32)
-# 
-# # Center and nomralize reference data
-# X_mean = da.nanmean(X, axis = 1).compute().reshape((-1, 1))
-# X_std = da.nanstd(X, axis = 1).compute().reshape((-1,1))
-# X_std[X_std == 0] = 1
-# X -= X_mean
-# X /= X_std
-# # Center and nomralize study data
-# W -= X_mean
-# W /= X_std
-# 
-# # PCA on the reference data
-# # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-# cache = Chest(path='cache', available_memory = 1e9)
-# print("SVD on training data...")
-# U, s, V = da.linalg.svd_compressed(X, DIM_COMPUTE)
-# U, s, V = compute(U, s, V, cache=cache)
-# elapse = time.time() - start_time
-# print(elapse)
-# with open('elapse.runtime', 'w') as file:
-#     file.write(str(elapse))
-# print("Done.")
-# print("Saving training SVD result...")
-# np.savetxt('U.dat', U, fmt='%10.5f')
-# np.savetxt('s.dat', s, fmt='%10.5f')
-# np.savetxt('V.dat', V, fmt='%10.5f')
-# print("Done.")
-# 
+# Read data
+start_time = time.time()
+X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_train')[2]
+W = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_test')[2]
+X = X.astype(np.float32)
+W = W.astype(np.float32)
+
+# Center and nomralize reference data
+X_mean = da.nanmean(X, axis = 1).compute().reshape((-1, 1))
+X_std = da.nanstd(X, axis = 1).compute().reshape((-1,1))
+X_std[X_std == 0] = 1
+X -= X_mean
+X /= X_std
+# Center and nomralize study data
+W -= X_mean
+W /= X_std
+
+# PCA on the reference data
+# X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+cache = Chest(path='cache', available_memory = 6e9)
+print("SVD on training data...")
+U, s, Vt = da.linalg.svd_compressed(X, DIM_COMPUTE)
+U, s, Vt = compute(U, s, Vt, cache=cache)
+elapse = time.time() - start_time
+print(elapse)
+with open('elapse.runtime.dat', 'w') as file:
+    file.write(str(elapse))
+print("Done.")
+print("Saving training SVD result...")
+V = Vt.T
+Vs = V * s
+np.savetxt('U.dat', U, fmt='%10.5f')
+np.savetxt('s.dat', s, fmt='%10.5f')
+np.savetxt('V.dat', V, fmt='%10.5f')
+np.savetxt('Vs.dat', Vs, fmt='%10.5f')
+print("Done.")
+
+b = W[:,0]
