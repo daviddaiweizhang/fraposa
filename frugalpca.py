@@ -142,6 +142,7 @@ def test_online_svd_procrust():
     PC_new_tail_trsfed = PC_new_tail_trsfed.flatten()[:PC_ref_dim]
     np.savetxt('test_PC_ref_fat.dat', PC_ref_fat)
     np.savetxt('test_PC_new_head.dat', PC_new_head)
+    call(['make', 'procrustes.o'])
     call(['./procrustes.o'])
     R_trace = np.loadtxt('procrustes_A.dat')
     rho_trace = np.loadtxt('procrustes_rho.dat')
