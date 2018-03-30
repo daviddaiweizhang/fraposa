@@ -7,11 +7,13 @@ from chest import Chest
 import time
 import pandas as pd
 from subprocess import call
+import os.path
 
 
 DIM_REF = 4
-DIM_ONLINESVD = DIM_REF * 2
-DIM_RANDSVD = DIM_REF * 2
+DIM_STUDY = 8
+DIM_ONLINESVD = DIM_STUDY * 2
+DIM_RANDSVD = DIM_STUDY * 4
 NITER_RANDSVD = 2
 
 np.random.seed(21)
@@ -157,6 +159,7 @@ test_online_svd_procrust()
 
 # Read data
 X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_train')[2]
+X_save = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_train')[2]
 W = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_test')[2]
 X = X.astype(np.float32)
 W = np.array(W)
@@ -168,47 +171,72 @@ X_std[X_std == 0] = 1
 X -= X_mean
 X /= X_std
 # Center and nomralize study data
+W_save = np.copy(W)
 W -= X_mean
 W /= X_std
 
 # PCA on the reference data
-start_time = time.time()
-# X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-cache = Chest(path='cache')
-print("SVD on training data...")
-# Direct svd
-# X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-# U, s, Vt = da.linalg.svd(X)
-# Compressed svd
-U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
-U, s, Vt = compute(U, s, Vt, cache=cache)
-V = Vt.T
-# Multiplication and eigendecomposition
-# XTX = compute(X.T @ X, cache=cache)
-# ssq, V = np.linalg.eigh(XTX)
-# V = np.squeeze(V)
-# ssq = np.squeeze(ssq)
-# s = np.sqrt(ssq)
-# V = V.T[::-1].T
-# s = s[::-1]
-elapse = time.time() - start_time
-print(elapse)
-# with open('elapse.runtime.dat', 'w') as file:
-#     file.write(str(elapse))
-print("Done.")
-print("Saving training SVD result...")
+UsV_file_all_exists = os.path.isfile('U.dat') and os.path.isfile('s.dat') and os.path.isfile('V.dat')
+if UsV_file_all_exists:
+    print("Read existing UsV.dat files...")
+    U = np.loadtxt('U.dat')
+    s = np.loadtxt('s.dat')
+    V = np.loadtxt('V.dat')
+    print("Done.")
+else:
+    print("Doing SVD on training data...")
+    start_time = time.time()
+    # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+    cache = Chest(path='cache')
+    # Direct svd
+    # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+    # U, s, Vt = da.linalg.svd(X)
+    # Compressed svd
+    U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
+    U, s, Vt = compute(U, s, Vt, cache=cache)
+    V = Vt.T
+    # Multiplication and eigendecomposition
+    # XTX = compute(X.T @ X, cache=cache)
+    # ssq, V = np.linalg.eigh(XTX)
+    # V = np.squeeze(V)
+    # ssq = np.squeeze(ssq)
+    # s = np.sqrt(ssq)
+    # V = V.T[::-1].T
+    # s = s[::-1]
+    elapse = time.time() - start_time
+    print(elapse)
+    # with open('elapse.runtime.dat', 'w') as file:
+    #     file.write(str(elapse))
+    print("Done.")
+    print("Saving training SVD result...")
+    np.savetxt('U.dat', U, fmt='%10.5f')
+    np.savetxt('s.dat', s, fmt='%10.5f')
+    np.savetxt('V.dat', V, fmt='%10.5f')
+    print("Done.")
 Vs = V * s
-np.savetxt('U.dat', U, fmt='%10.5f')
-np.savetxt('s.dat', s, fmt='%10.5f')
-np.savetxt('V.dat', V, fmt='%10.5f')
-np.savetxt('Vs.dat', Vs, fmt='%10.5f')
-print("Done.")
+ref_pcs = Vs[:, :DIM_REF]
+ref_n = ref_pcs.shape[0]
 
-i = 0
-refpc_trace = pd.read_table('../data/kgn_kgn_0/kgn_chr_all_keep_orphans_snp_hgdp_train_kgn_chr_all_keep_orphans_snp_hgdp_test.rand.RefPC.coord')
-Vs_trace = np.array(refpc_trace.iloc[:, 2:])
-print(np.corrcoef(Vs_trace[:,i], Vs[:,i]))
+# Test result close to TRACE's
+ref_pcs_trace_file = '../data/kgn_kgn_0/kgn_chr_all_keep_orphans_snp_hgdp_train_kgn_chr_all_keep_orphans_snp_hgdp_test.rand.RefPC.coord'
+ref_pcs_trace = pd.read_table(ref_pcs_trace_file)
+ref_pcs_trace = np.array(refpc_trace.iloc[:, 2:])
+ref_dim_trace = ref_pcs_trace.shape[1]
+for i in range(ref_dim_trace):
+    corr = np.corrcoef(ref_pcs_trace[:,i], ref_pcs[:,i])[1,1]
+    assert abs(corr) > 0.99 
+    if corr < 0:
+        ref_pcs_trace[:,i] *= -1
+    if(i < ref_dim_trace // 2):
+        assert np.allclose(ref_pcs_trace[:,i], ref_pcs[:,i], 0.01, 0.05)
 
 b = W[:,0]
-d2, V2 = svd_online(U, s, V, b, DIM_ONLINESVD)
+s2, V2 = svd_online(U, s, V, b, DIM_ONLINESVD)
+V2 = V2[:, :DIM_STUDY]
+s2 = s2[:DIM_STUDY]
 Vs2 = V2 * s2
+Vs2_head = Vs2[:-1, :]
+Vs2_tail = Vs2[-1, :]
+ref_pcs_fat = np.concatenate((ref_pcs, np.zeros((ref_n, DIM_STUDY - DIM_REF))), axis=1)
+R, rho, c = procrustes(ref_pcs_fat, Vs2_head)
+Vs2_tail_mapped = Vs2_tail @ R * rho + c
