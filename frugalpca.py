@@ -5,9 +5,12 @@ import dask.array as da
 from dask import compute
 from chest import Chest
 import time
+import pandas as pd
 
-DIM_COMPUTE = 8
-
+DIM_REF = 4
+DIM_ONLINESVD = DIM_REF * 2
+DIM_RANDSVD = DIM_REF * 2
+NITER_RANDSVD = 2
 
 np.random.seed(21)
 
@@ -21,12 +24,13 @@ def svd_online(U1, d1, V1, b, l):
     R = np.concatenate((np.diag(d1), U1.transpose() @ b), axis = 1)
     R_tail = np.concatenate((np.zeros((1,k)), b_tilde.transpose() @ b), axis = 1)
     R = np.concatenate((R, R_tail), axis = 0)
-    R_Vt = np.linalg.svd(R, full_matrices=False)[2]
+    # TODO:Use eigendecomposition to speedup
+    d2, R_Vt = np.linalg.svd(R, full_matrices=False)[1:] 
     V_new = np.zeros((k+1, n+1))
     V_new[:k, :n] = V1.transpose()
     V_new[k, n] = 1
-    PC = (R_Vt @ V_new).transpose()[:,:l]
-    return PC
+    V2 = (R_Vt @ V_new).transpose()[:,:l]
+    return d2, V2
 
 
 def procrustes(data1, data2):
@@ -116,7 +120,7 @@ def test_online_svd_procrust():
     U1 = U[:, :svd_online_dim]
     d1 = d[:svd_online_dim]
     V1 = V[:, :svd_online_dim]
-    PC_new = svd_online(U1, d1, V1, b, PC_new_dim)
+    d2, PC_new = svd_online(U1, d1, V1, b, PC_new_dim)
 
     # Test if the result is close enough
     trueAns = np.linalg.svd(np.concatenate((X,b),axis=1))[2].transpose()[:,:PC_new_dim]
@@ -133,20 +137,22 @@ def test_online_svd_procrust():
     PC_ref_fat[:, :PC_ref_dim] = PC_ref
     np.savetxt('test_PC_ref_fat.dat', PC_ref_fat)
     np.savetxt('test_PC_new_head.dat', PC_new_head)
-    R, s, c = procrustes(PC_ref_fat, PC_new_head)
-    PC_new_tail_trsfed = PC_new_tail @ R * s + c
+    R, rho, c = procrustes(PC_ref_fat, PC_new_head)
+    PC_new_tail_trsfed = PC_new_tail @ R * rho + c
     PC_new_tail_trsfed = PC_new_tail_trsfed.flatten()[:PC_ref_dim]
+    R_trace = np.loadtxt('procrustes_A.dat')
+    rho_trace = np.loadtxt('procrustes_rho.dat')
+    c_trace = np.loadtxt('procrustes_c.dat')
 
     print("Need to compare the result with TRACE's")
 
 test_online_svd_procrust()
 
 # Read data
-start_time = time.time()
 X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_train')[2]
 W = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_test')[2]
 X = X.astype(np.float32)
-W = W.astype(np.float32)
+W = np.array(W)
 
 # Center and nomralize reference data
 X_mean = da.nanmean(X, axis = 1).compute().reshape((-1, 1))
@@ -159,18 +165,31 @@ W -= X_mean
 W /= X_std
 
 # PCA on the reference data
+start_time = time.time()
 # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-cache = Chest(path='cache', available_memory = 6e9)
+cache = Chest(path='cache')
 print("SVD on training data...")
-U, s, Vt = da.linalg.svd_compressed(X, DIM_COMPUTE)
+# Direct svd
+# X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+# U, s, Vt = da.linalg.svd(X)
+# Compressed svd
+U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
 U, s, Vt = compute(U, s, Vt, cache=cache)
+V = Vt.T
+# Multiplication and eigendecomposition
+# XTX = compute(X.T @ X, cache=cache)
+# ssq, V = np.linalg.eigh(XTX)
+# V = np.squeeze(V)
+# ssq = np.squeeze(ssq)
+# s = np.sqrt(ssq)
+# V = V.T[::-1].T
+# s = s[::-1]
 elapse = time.time() - start_time
 print(elapse)
-with open('elapse.runtime.dat', 'w') as file:
-    file.write(str(elapse))
+# with open('elapse.runtime.dat', 'w') as file:
+#     file.write(str(elapse))
 print("Done.")
 print("Saving training SVD result...")
-V = Vt.T
 Vs = V * s
 np.savetxt('U.dat', U, fmt='%10.5f')
 np.savetxt('s.dat', s, fmt='%10.5f')
@@ -178,4 +197,11 @@ np.savetxt('V.dat', V, fmt='%10.5f')
 np.savetxt('Vs.dat', Vs, fmt='%10.5f')
 print("Done.")
 
+i = 0
+refpc_trace = pd.read_table('../data/kgn_kgn_0/kgn_chr_all_keep_orphans_snp_hgdp_train_kgn_chr_all_keep_orphans_snp_hgdp_test.rand.RefPC.coord')
+Vs_trace = np.array(refpc_trace.iloc[:, 2:])
+print(np.corrcoef(Vs_trace[:,i], Vs[:,i]))
+
 b = W[:,0]
+d2, V2 = svd_online(U, s, V, b, DIM_ONLINESVD)
+Vs2 = V2 * s2
