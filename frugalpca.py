@@ -6,6 +6,8 @@ from dask import compute
 from chest import Chest
 import time
 import pandas as pd
+from subprocess import call
+
 
 DIM_REF = 4
 DIM_ONLINESVD = DIM_REF * 2
@@ -135,16 +137,20 @@ def test_online_svd_procrust():
     PC_new_head, PC_new_tail = PC_new[:-1, :], PC_new[-1, :].reshape((1,PC_new_dim))
     PC_ref_fat = np.zeros(n * PC_new_dim).reshape((n, PC_new_dim))
     PC_ref_fat[:, :PC_ref_dim] = PC_ref
-    np.savetxt('test_PC_ref_fat.dat', PC_ref_fat)
-    np.savetxt('test_PC_new_head.dat', PC_new_head)
     R, rho, c = procrustes(PC_ref_fat, PC_new_head)
     PC_new_tail_trsfed = PC_new_tail @ R * rho + c
     PC_new_tail_trsfed = PC_new_tail_trsfed.flatten()[:PC_ref_dim]
+    np.savetxt('test_PC_ref_fat.dat', PC_ref_fat)
+    np.savetxt('test_PC_new_head.dat', PC_new_head)
+    call(['./procrustes.o'])
     R_trace = np.loadtxt('procrustes_A.dat')
     rho_trace = np.loadtxt('procrustes_rho.dat')
     c_trace = np.loadtxt('procrustes_c.dat')
+    assert np.isclose(R_trace, R, 0.01, 0.05).flatten().mean() > 0.85
+    assert np.allclose(rho_trace, rho)
+    assert np.allclose(c_trace, c)
 
-    print("Need to compare the result with TRACE's")
+    print("Passed!")
 
 test_online_svd_procrust()
 

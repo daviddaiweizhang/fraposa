@@ -41,7 +41,7 @@ void pm(const mat &matrix) {
 }
 
 int main(){
-  cout << "TRACE's procrustes functions." << endl;
+  cout << "Running TRACE's procrustes functions..." << endl;
   // mat X;
   // vec b;
   // X.load("test_X.dat");
@@ -56,6 +56,13 @@ int main(){
   mat A;
   rowvec c;
   procrustes(PC_new_head, PC_ref_fat, PC_new_head_trsfed, t, rho, A, c, 0);
+  A.save("procrustes_A.dat", raw_ascii);
+  c.save("procrustes_c.dat", raw_ascii);
+  ofstream fout;
+  fout.open("procrustes_rho.dat");
+  fout << rho;
+  fout.close();
+  cout << "Done." << endl;
 
   return 0;
 }

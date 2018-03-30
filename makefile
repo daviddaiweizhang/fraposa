@@ -37,4 +37,15 @@ trace.rand.o : trace.rand.cpp
 	fi
 
 procrustes.o : procrustes.cpp
-	g++ $(FLAGS) procrustes.cpp -o procrutes.o $(LIBS_LOCAL)
+	@if [ `hostname` = "xps-arch" ]; then \
+	    echo "Compiling with Local libs"; \
+			g++ $(FLAGS) procrustes.cpp -o procrustes.o $(LIBS_LOCAL)
+	elif [ `hostname` = "fantasia" ]; then \
+	    echo "Compiling with CSG libs"; \
+			export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH; \
+			echo ${LD_LIBRARY}; \
+	    g++ $(FLAGS) trace.rand.cpp -o trace.rand.o $(LIBS_CSG); \
+	else \
+	    echo "Compiling with Flux libs"; \
+	    g++ $(FLAGS) trace.rand.cpp -o trace.rand.o $(LIBS_FLUX); \
+	fi

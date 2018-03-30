@@ -19,10 +19,11 @@ if [[ "${host:0:3}" == "nyx" || "${host:0:4}" == "flux" ]]; then
     echo "Done."
 elif [ ${host} == "xps-arch" ]; then
     # Local
-    echo "Using Python virtualenv for local."
-    export WORKON_HOME=$HOME/.virtualenvs
-    source /usr/bin/virtualenvwrapper.sh
-    workon normal
+    echo "Doing nothing for local"
+    #echo "Using Python virtualenv for local."
+    #export WORKON_HOME=$HOME/.virtualenvs
+    #source /usr/bin/virtualenvwrapper.sh
+    #workon normal
 fi
 
 if [ ${sim} == "1" ]; then
