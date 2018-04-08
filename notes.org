@@ -4,12 +4,14 @@ SMARTPCA -*- mode: org -*-
 
 * Tasks
 ** TODO Make software in python
-*** IN-PROGRESS Get reference datasets (0.05 maf or cap_hgdp)
-*** IN-PROGRESS Read PLINK file into python (try dask)
-**** IN-PROGRESS try pandas-plink
+*** DONE Get reference datasets (snps_hgdp)
+    CLOSED: [2018-03-30 Fri 09:47]
+*** DONE Read PLINK file into python (try dask)
+    CLOSED: [2018-03-30 Fri 09:41]
+**** DONE try pandas-plink
+     CLOSED: [2018-03-30 Fri 09:41]
+*** TODO Handle difference in SNPs (SNPs order and allele)
 *** TODO Handle missing data
-*** TODO Handle difference in SNPs
-**** TODO Allel difference in the same SNP
 *** DONE Write onine_svd
     CLOSED: [2018-03-18 Sun 20:35]
 *** IN-PROGRESS Write procrustes
@@ -25,3 +27,4 @@ SMARTPCA -*- mode: org -*-
 *** TODO Make plots look better
 * Questions
 ** Exclude morep related people (not just parents) in kgn?
+   Systemaatic randomized pc parameter evaluation
