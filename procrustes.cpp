@@ -20,8 +20,8 @@ using namespace std;
 extern "C" void openblas_set_num_threads(int num_threads);
 
 void pm(const mat &matrix);
-int procrustes(mat &X, mat &Y, mat &Xnew, double &t, double &rho, mat &A, rowvec &b, int ps);
-double pprocrustes(mat &X, mat &Y, mat &Xnew, double &t, double &rho, mat &A, rowvec &b, int iter, double eps, int ps);
+int procrustes(mat &X, mat &Y, mat &Xnew, double &t, double &rho, mat &A, rowvec &b, int ps=0);
+double pprocrustes(mat &X, mat &Y, mat &Xnew, double &t, double &rho, mat &A, rowvec &b, int iter=10000, double eps=0.000001, int ps=0);
 
 // Use "call pm(X)" in gdb to print matrix
 void pm(const mat &matrix) {
@@ -41,7 +41,6 @@ void pm(const mat &matrix) {
 }
 
 int main(){
-  cout << "Running TRACE's procrustes functions..." << endl;
   // mat X;
   // vec b;
   // X.load("test_X.dat");
@@ -55,6 +54,9 @@ int main(){
   double rho;
   mat A;
   rowvec c;
+
+  // Test procrustes
+  cout << "Testing TRACE's procrustes functions..." << endl;
   procrustes(PC_new_head, PC_ref_fat, PC_new_head_trsfed, t, rho, A, c, 0);
   A.save("procrustes_A.dat", raw_ascii);
   c.save("procrustes_c.dat", raw_ascii);
@@ -64,46 +66,16 @@ int main(){
   fout.close();
   cout << "Done." << endl;
 
+  // Test projection procrustes
+  cout << "Testing TRACE's projection procrustes functions..." << endl;
+  pprocrustes(PC_new_head, PC_ref_fat, PC_new_head_trsfed, t, rho, A, c, 10000, 0.000001, 0);
+  A.save("pprocrustes_A.dat", raw_ascii);
+  c.save("pprocrustes_c.dat", raw_ascii);
+  fout.open("pprocrustes_rho.dat");
+  fout << rho;
+  fout.close();
+  cout << "Done." << endl;
   return 0;
-}
-
-
-int procrustes(mat &X, mat &Y, mat &Xnew, double &t, double &rho, mat &A, rowvec &b, int ps){
-	int NUM = X.n_rows;
-	//======================= Center to mean =======================
-	mat Xm = mean(X);
-	mat Ym = mean(Y);
-	mat Xc = X-repmat(Xm, NUM, 1);
-	mat Yc = Y-repmat(Ym, NUM, 1);
-	//======================  SVD =====================
-	mat C = Yc.t()*Xc;
-	mat U;
-	vec s;
-	mat V;
-	bool bflag = svd(U, s, V, C, "dc");	// use "divide & conquer" algorithm
-	//bool bflag = svd(U, s, V, C);
-	if(!bflag){
-		cout << "Error: singular value decomposition in procrustes() fails." << endl;
-		return 0;
-	}
-	//===================== Transformation ===================
-	double trXX = trace(Xc.t()*Xc);
-	double trYY = trace(Yc.t()*Yc);
-	double trS = sum(s);
-	A = V*U.t(); 
-	if(ps==1){     // Orthogonal Procrustes analysis, match variance between X and Y
-		rho = sqrt(trYY/trXX);
-	}else{ 
-		rho = trS/trXX;
-	}
-	b = Ym-rho*Xm*A;
-	//============= New coordinates and similarity score ========
-	Xnew = rho*X*A+repmat(b, NUM, 1);	
-	mat Z = Y-Xnew;
-	double d = trace(Z.t()*Z);
-	double D = d/trYY;
-	t = sqrt(1-D);
-	return 1;
 }
 
 //######################### Projection Procrustes Analysis ##########################
@@ -148,3 +120,43 @@ double pprocrustes(mat &X, mat &Y, mat &Xnew, double &t, double &rho, mat &A, ro
 		return epsilon; 
 	}
 }
+
+int procrustes(mat &X, mat &Y, mat &Xnew, double &t, double &rho, mat &A, rowvec &b, int ps){
+	int NUM = X.n_rows;
+	//======================= Center to mean =======================
+	mat Xm = mean(X);
+	mat Ym = mean(Y);
+	mat Xc = X-repmat(Xm, NUM, 1);
+	mat Yc = Y-repmat(Ym, NUM, 1);
+	//======================  SVD =====================
+	mat C = Yc.t()*Xc;
+	mat U;
+	vec s;
+	mat V;
+	bool bflag = svd(U, s, V, C, "dc");	// use "divide & conquer" algorithm
+	//bool bflag = svd(U, s, V, C);
+	if(!bflag){
+		cout << "Error: singular value decomposition in procrustes() fails." << endl;
+		return 0;
+	}
+	//===================== Transformation ===================
+	double trXX = trace(Xc.t()*Xc);
+	double trYY = trace(Yc.t()*Yc);
+	double trS = sum(s);
+	A = V*U.t(); 
+	if(ps==1){     // Orthogonal Procrustes analysis, match variance between X and Y
+		rho = sqrt(trYY/trXX);
+	}else{ 
+		rho = trS/trXX;
+	}
+	b = Ym-rho*Xm*A;
+	//============= New coordinates and similarity score ========
+	Xnew = rho*X*A+repmat(b, NUM, 1);	
+	mat Z = Y-Xnew;
+	double d = trace(Z.t()*Z);
+	double D = d/trYY;
+	t = sqrt(1-D);
+	return 1;
+}
+
+
