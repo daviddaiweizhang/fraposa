@@ -11,6 +11,41 @@ from subprocess import call
 import os.path
 
 
+# def procrustes_old(data1, data2):
+#     mtx1 = np.array(data1, dtype=np.double, copy=True)
+#     mtx2 = np.array(data2, dtype=np.double, copy=True)
+
+#     if mtx1.ndim != 2 or mtx2.ndim != 2:
+#         raise ValueError("Input matrices must be two-dimensional")
+#     if mtx1.shape != mtx2.shape:
+#         raise ValueError("Input matrices must be of same shape")
+#     if mtx1.size == 0:
+#         raise ValueError("Input matrices must be >0 rows and >0 cols")
+
+#     # translate all the data to the origin
+#     mtx1_mean = np.mean(mtx1, 0)
+#     mtx1 -= mtx1_mean
+#     mtx2_mean = np.mean(mtx2, 0)
+#     mtx2 -= mtx2_mean
+
+#     # change scaling of data (in rows) such that trace(mtx*mtx') = 1
+#     norm1 = np.linalg.norm(mtx1)
+#     norm2 = np.linalg.norm(mtx2)
+#     if norm1 == 0 or norm2 == 0:
+#         raise ValueError("Input matrices must contain >1 unique points")
+#     mtx1 /= norm1
+#     mtx2 /= norm2
+
+#     # transform mtx2 to minimize disparity
+#     R, s = orthogonal_procrustes(mtx2, mtx1)
+#     # orthogonal_procrustes can only find the best transformation between normalilzed matrices
+#     s *= norm1 / norm2
+#     b = mtx1_mean - mtx2_mean @ R * s
+
+#     return R, s, b
+
+
+
 DIM_REF = 4
 DIM_STUDY = 20
 DIM_STUDY_HIGH = DIM_STUDY * 2
@@ -46,48 +81,6 @@ def svd_online(U1, d1, V1, b, l):
     V_new[k, n] = 1
     V2 = (R_Vt @ V_new).transpose()[:,:l]
     return d2, V2
-
-
-def procrustes(data1, data2):
-    '''
-    Find the best transformation that maps data2 to data1
-    This is a simple modification of scipy.spatial.procrustes.
-    For our purpose, we need to get the rotation matrix and the scaling factor,
-    but these two values are not returned in the original function.
-    '''
-    mtx1 = np.array(data1, dtype=np.double, copy=True)
-    mtx2 = np.array(data2, dtype=np.double, copy=True)
-
-    if mtx1.ndim != 2 or mtx2.ndim != 2:
-        raise ValueError("Input matrices must be two-dimensional")
-    if mtx1.shape != mtx2.shape:
-        raise ValueError("Input matrices must be of same shape")
-    if mtx1.size == 0:
-        raise ValueError("Input matrices must be >0 rows and >0 cols")
-
-    # translate all the data to the origin
-    mtx1_mean = np.mean(mtx1, 0)
-    mtx1 -= mtx1_mean
-    mtx2_mean = np.mean(mtx2, 0)
-    mtx2 -= mtx2_mean
-
-    norm1 = np.linalg.norm(mtx1)
-    norm2 = np.linalg.norm(mtx2)
-
-    if norm1 == 0 or norm2 == 0:
-        raise ValueError("Input matrices must contain >1 unique points")
-
-    # change scaling of data (in rows) such that trace(mtx*mtx') = 1
-    mtx1 /= norm1
-    mtx2 /= norm2
-
-    # transform mtx2 to minimize disparity
-    R, s = orthogonal_procrustes(mtx2, mtx1)
-    # orthogonal_procrustes can only find the best transformation between normalilzed matrices
-    s *= norm1 / norm2
-    b = mtx1_mean - mtx2_mean @ R * s
-
-    return R, s, b
 
 def test_online_svd_procrust():
     # def test_svd_online():
@@ -150,38 +143,79 @@ def test_online_svd_procrust():
     PC_new_head, PC_new_tail = PC_new[:-1, :], PC_new[-1, :].reshape((1,PC_new_dim))
     PC_ref_fat = np.zeros(n * PC_new_dim).reshape((n, PC_new_dim))
     PC_ref_fat[:, :PC_ref_dim] = PC_ref
-    R, rho, c = procrustes(PC_ref_fat, PC_new_head)
-    PC_new_tail_trsfed = PC_new_tail @ R * rho + c
-    PC_new_tail_trsfed = PC_new_tail_trsfed.flatten()[:PC_ref_dim]
+    np.savetxt('test_PC_ref.dat', PC_ref)
     np.savetxt('test_PC_ref_fat.dat', PC_ref_fat)
     np.savetxt('test_PC_new_head.dat', PC_new_head)
+    R, rho, c = procrustes(PC_ref_fat, PC_new_head)
+    R_diffdim, rho_diffdim, c_diffdim = procrustes_diffdim(PC_ref, PC_new_head)
+    # PC_new_tail_trsfed = PC_new_tail @ R * rho + c
+    # PC_new_tail_trsfed = PC_new_tail_trsfed.flatten()[:PC_ref_dim]
     call(['make', 'procrustes.o'])
     call(['./procrustes.o'])
     R_trace = np.loadtxt('procrustes_A.dat')
     rho_trace = np.loadtxt('procrustes_rho.dat')
     c_trace = np.loadtxt('procrustes_c.dat')
-    assert np.isclose(R_trace, R, 0.01, 0.05).flatten().mean() > 0.85
+    R_diffdim_trace = np.loadtxt('pprocrustes_A.dat')
+    rho_diffdim_trace = np.loadtxt('pprocrustes_rho.dat')
+    c_diffdim_trace = np.loadtxt('pprocrustes_c.dat')
+    assert np.allclose(R_trace, R)
     assert np.allclose(rho_trace, rho)
     assert np.allclose(c_trace, c)
+    assert np.allclose(R_diffdim_trace, R_diffdim)
+    assert np.allclose(rho_diffdim_trace, rho_diffdim)
+    assert np.allclose(c_diffdim_trace, c_diffdim)
 
-    procrustes_diffdim(PC_ref, PC_new_head)
 
     print("Passed!")
 
-def procrustes_diffdim(Y, X, n_iter_max=int(1e4), epsilon_min=1e-6):
-    epsilon = 0.0
+def procrustes(Y_mat, X_mat):
+    ''' Find the best transformation from X to Y '''
+    X = np.array(X_mat, dtype=np.double, copy=True)
+    Y = np.array(Y_mat, dtype=np.double, copy=True)
+    n_X = X.shape[0]
+    X_mean = np.mean(X, 0)
+    Y_mean = np.mean(Y, 0)
+    X -= X_mean
+    Y -= Y_mean
+    C = Y.T @ X
+    U, s, VT = np.linalg.svd(C, full_matrices=False)
+    # TODO: Change to np.sum(X**2) for speed
+    # trXX = np.trace(X.T @ X) 
+    # trYY = np.trace(Y.T @ Y)
+    trXX = np.sum(X**2)
+    trYY = np.sum(Y**2)
+    trS = np.sum(s)
+    A = VT.T @ U.T
+    rho = trS / trXX
+    b = Y_mean - rho * X_mean @ A
+    return A, rho, b
+
+
+def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
+    X = np.array(X_mat, dtype=np.double, copy=True)
+    Y = np.array(Y_mat, dtype=np.double, copy=True)
     n_X, p_X = X.shape
     n_Y, p_Y = Y.shape
     assert n_X == n_Y
     assert p_X >= p_Y
     if p_X == p_Y:
-        return procrustes(Y, X)
+        R, rho, c = procrustes(Y, X)
     else:
         Z = np.zeros((n_X, p_X - p_Y))
         for i in range(n_iter_max):
             W = np.hstack((Y, Z))
-
-
+            R, rho, c = procrustes(W, X)
+            X_new = X @ R * rho + c
+            Z_new = X_new[:, p_Y:]
+            Z_new_mean = np.mean(Z_new, 0)
+            Z_new_centered = Z_new - Z_new_mean
+            Z_diff = Z_new - Z
+            epsilon = np.sum(Z_diff**2) / np.sum(Z_new_centered**2)
+            if(epsilon < epsilon_min):
+                break
+            else:
+                Z = Z_new
+    return R, rho, c
 
 test_online_svd_procrust()
 

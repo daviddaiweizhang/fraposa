@@ -19,25 +19,28 @@ using namespace arma;
 using namespace std;
 extern "C" void openblas_set_num_threads(int num_threads);
 
+void pm(const mat &matrix, int cut_p, int cut_q);
 void pm(const mat &matrix);
 int procrustes(mat &X, mat &Y, mat &Xnew, double &t, double &rho, mat &A, rowvec &b, int ps=0);
 double pprocrustes(mat &X, mat &Y, mat &Xnew, double &t, double &rho, mat &A, rowvec &b, int iter=10000, double eps=0.000001, int ps=0);
 
-// Use "call pm(X)" in gdb to print matrix
-void pm(const mat &matrix) {
+// Use "call pm(X)" in gdb to es.cpp
+void pm(const mat &matrix, int cut_p, int cut_q) {
   cout << endl << size(matrix) << endl;
   int p = matrix.n_rows - 1;
   int q = matrix.n_cols - 1;
-  int cut = 4;
-  if(p > cut){
-    p = cut;
+  if(p > cut_p){
+    p = cut_p-1;
   }
-  if (q > cut){
-    q = cut;
+  if (q > cut_q-1){
+    q = cut_q;
   }
   mat submat = matrix.submat(0,0,p,q);
   submat.print();
   cout << endl;
+}
+void pm(const mat &matrix){
+  pm(matrix, 5, 5);
 }
 
 int main(){
@@ -45,8 +48,10 @@ int main(){
   // vec b;
   // X.load("test_X.dat");
   // b.load("test_b.dat");
+  mat PC_ref;
   mat PC_ref_fat;
   mat PC_new_head;
+  PC_ref.load("test_PC_ref.dat");
   PC_ref_fat.load("test_PC_ref_fat.dat");
   PC_new_head.load("test_PC_new_head.dat");
   mat PC_new_head_trsfed;
@@ -68,7 +73,7 @@ int main(){
 
   // Test projection procrustes
   cout << "Testing TRACE's projection procrustes functions..." << endl;
-  pprocrustes(PC_new_head, PC_ref_fat, PC_new_head_trsfed, t, rho, A, c, 10000, 0.000001, 0);
+  pprocrustes(PC_new_head, PC_ref, PC_new_head_trsfed, t, rho, A, c, 10000, 0.000001, 0);
   A.save("pprocrustes_A.dat", raw_ascii);
   c.save("pprocrustes_c.dat", raw_ascii);
   fout.open("pprocrustes_rho.dat");
