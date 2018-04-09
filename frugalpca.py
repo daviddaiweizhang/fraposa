@@ -363,7 +363,13 @@ for i in range(n_stu):
     pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
     pcs_stu_onl[i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
     if (i + 1) % 100 == 0:
-        print("Finished analyzing " + i + " samples.")
+        print("Finished analyzing " + str(i) + " samples.")
+print("Done.")
+print(datetime.now())
+
+print("Calculating study pc scores with simple projection...")
+print(datetime.now())
+pcs_stu_proj = X.T @ U
 print("Done.")
 print(datetime.now())
 
