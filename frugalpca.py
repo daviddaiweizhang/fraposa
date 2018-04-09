@@ -240,7 +240,6 @@ if 'X' not in locals():
 if 'W' not in locals():
     print("Reading study data...")
     W = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_test')[2]
-    W_save = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_test')[2]
     W = W.compute()
     print("Done.")
 
@@ -313,8 +312,8 @@ else:
         U = X @ (V / s)
     print("Done.")
 
-# if 'XTX' not in locals():
-#     XTX = np.loadtxt('XTX.dat')
+if 'XTX' not in locals():
+    XTX = np.loadtxt('XTX.dat')
 
 # Test result close to TRACE's
 print("Testing reference PC scores are the same as TRACE's...")
@@ -349,7 +348,7 @@ print(datetime.now())
 print("Procrustes analysis...")
 print(datetime.now())
 pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
-R, rho, c = procrustes_diffdim(pcs_ref_fat, pcs_new_head)
+R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
 pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
 pcs_new_tail_trsfed = pcs_new_tail_trsfed.flatten()[:DIM_REF]
 print(datetime.now())
