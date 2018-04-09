@@ -11,23 +11,52 @@ from subprocess import call
 import os.path
 
 
+# print("Calculating pc scores with eigen decomposition...")
+# print(datetime.now())
+# if 'XTX' not in locals():
+#     XTX = np.loadtxt('XTX.dat')
+# pcs_stu_eig = np.zeros((4, DIM_REF))
+# XTX_new = np.zeros((n_ref + 1, n_ref + 1))
+# XTX_new[:-1, :-1] = XTX
+# for i in range(4):
+#     # print("Calculating XTX_new...")
+#     # print(datetime.now())
+#     b = W[:,i]
+#     bX = b @ X
+#     bb = np.sum(b**2)
+#     XTX_new[-1, :-1] = bX
+#     XTX_new[:-1, -1] = bX
+#     XTX_new[-1, -1] = bb
+#     # print("Calculating s_new and V_new...")
+#     # print(datetime.now())
+#     s_new, V_new = eig_sym(XTX_new)
+#     Vs_new = V_new * s_new
+#     pcs_new = Vs_new[:, :DIM_STUDY]
+#     # print("Done.")
+#     # print(datetime.now())
+#     # print("Procrustes analysis...")
+#     # print(datetime.now())
+#     pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
+#     R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
+#     pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
+#     pcs_stu_eig[i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
+# print("Done.")
+# assert np.allclose(pcs_stu_trace[:4,:dim_stu_trace], pcs_stu_eig[:4,:dim_stu_trace], 0.01, 0.05)
+
 # def procrustes_old(data1, data2):
 #     mtx1 = np.array(data1, dtype=np.double, copy=True)
 #     mtx2 = np.array(data2, dtype=np.double, copy=True)
-
 #     if mtx1.ndim != 2 or mtx2.ndim != 2:
 #         raise ValueError("Input matrices must be two-dimensional")
 #     if mtx1.shape != mtx2.shape:
 #         raise ValueError("Input matrices must be of same shape")
 #     if mtx1.size == 0:
 #         raise ValueError("Input matrices must be >0 rows and >0 cols")
-
 #     # translate all the data to the origin
 #     mtx1_mean = np.mean(mtx1, 0)
 #     mtx1 -= mtx1_mean
 #     mtx2_mean = np.mean(mtx2, 0)
 #     mtx2 -= mtx2_mean
-
 #     # change scaling of data (in rows) such that trace(mtx*mtx') = 1
 #     norm1 = np.linalg.norm(mtx1)
 #     norm2 = np.linalg.norm(mtx2)
@@ -35,13 +64,11 @@ import os.path
 #         raise ValueError("Input matrices must contain >1 unique points")
 #     mtx1 /= norm1
 #     mtx2 /= norm2
-
 #     # transform mtx2 to minimize disparity
 #     R, s = orthogonal_procrustes(mtx2, mtx1)
 #     # orthogonal_procrustes can only find the best transformation between normalilzed matrices
 #     s *= norm1 / norm2
 #     b = mtx1_mean - mtx2_mean @ R * s
-
 #     return R, s, b
 
 
@@ -49,9 +76,9 @@ import os.path
 DIM_REF = 4
 DIM_STUDY = 20
 DIM_STUDY_HIGH = DIM_STUDY * 2
-DIM_ONLINESVD = DIM_STUDY * 2
-DIM_RANDSVD = DIM_STUDY * 4
-NITER_RANDSVD = 2
+DIM_SVDONLINE = DIM_STUDY * 2
+DIM_SVDRAND = DIM_STUDY * 4
+NITER_SVDRAND = 2
 
 np.random.seed(21)
 
@@ -139,15 +166,14 @@ def test_online_svd_procrust():
     print("Passed!")
 
     print("Testing procrustes...")
-
     PC_new_head, PC_new_tail = PC_new[:-1, :], PC_new[-1, :].reshape((1,PC_new_dim))
     PC_ref_fat = np.zeros(n * PC_new_dim).reshape((n, PC_new_dim))
     PC_ref_fat[:, :PC_ref_dim] = PC_ref
     np.savetxt('test_PC_ref.dat', PC_ref)
     np.savetxt('test_PC_ref_fat.dat', PC_ref_fat)
     np.savetxt('test_PC_new_head.dat', PC_new_head)
+    # Test procrustes with the same dimension
     R, rho, c = procrustes(PC_ref_fat, PC_new_head)
-    R_diffdim, rho_diffdim, c_diffdim = procrustes_diffdim(PC_ref, PC_new_head)
     # PC_new_tail_trsfed = PC_new_tail @ R * rho + c
     # PC_new_tail_trsfed = PC_new_tail_trsfed.flatten()[:PC_ref_dim]
     call(['make', 'procrustes.o'])
@@ -155,17 +181,17 @@ def test_online_svd_procrust():
     R_trace = np.loadtxt('procrustes_A.dat')
     rho_trace = np.loadtxt('procrustes_rho.dat')
     c_trace = np.loadtxt('procrustes_c.dat')
-    R_diffdim_trace = np.loadtxt('pprocrustes_A.dat')
-    rho_diffdim_trace = np.loadtxt('pprocrustes_rho.dat')
-    c_diffdim_trace = np.loadtxt('pprocrustes_c.dat')
     assert np.allclose(R_trace, R)
     assert np.allclose(rho_trace, rho)
     assert np.allclose(c_trace, c)
+    # Test procrustes with different dimensions
+    R_diffdim, rho_diffdim, c_diffdim = procrustes_diffdim(PC_ref, PC_new_head)
+    R_diffdim_trace = np.loadtxt('pprocrustes_A.dat')
+    rho_diffdim_trace = np.loadtxt('pprocrustes_rho.dat')
+    c_diffdim_trace = np.loadtxt('pprocrustes_c.dat')
     assert np.allclose(R_diffdim_trace, R_diffdim)
     assert np.allclose(rho_diffdim_trace, rho_diffdim)
     assert np.allclose(c_diffdim_trace, c_diffdim)
-
-
     print("Passed!")
 
 def procrustes(Y_mat, X_mat):
@@ -240,6 +266,7 @@ if 'X' not in locals():
 if 'W' not in locals():
     print("Reading study data...")
     W = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_test')[2]
+    p_stu, n_stu = W.shape
     W = W.compute()
     print("Done.")
 
@@ -263,13 +290,7 @@ if not ('s' in locals() and 'V' in locals()):
         # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
         cache = Chest(path='cache')
 
-        # Direct svd
-        # print("Doing SVD on training data...")
-        # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-        # U, s, Vt = da.linalg.svd(X)
-        # np.savetxt('U.dat', U, fmt='%10.5f')
-
-        # Compressed svd
+        # Compressed (randomized) svd
         # print("Doing randomized SVD on training data...")
         # U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
         # U, s, Vt = compute(U, s, Vt, cache=cache)
@@ -298,7 +319,24 @@ Vs = V * s
 pcs_ref = Vs[:, :DIM_REF]
 print("Done.")
 
-# This should be run only when mult&eigen is used.
+
+# Test result close to TRACE's
+print("Testing reference PC scores are the same as TRACE's...")
+pcs_ref_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.RefPC.coord'
+pcs_ref_trace = pd.read_table(pcs_ref_trace_file)
+pcs_ref_trace = np.array(pcs_ref_trace.iloc[:, 2:])
+ref_dim_trace = pcs_ref_trace.shape[1]
+for i in range(ref_dim_trace):
+    corr = np.corrcoef(pcs_ref_trace[:,i], pcs_ref[:,i])[0,1]
+    assert abs(corr) > 0.99
+    if corr < 0:
+        pcs_ref[:,i] *= -1
+        V[:,i] *= -1
+    assert np.allclose(pcs_ref_trace[:,i], pcs_ref[:,i], 0.01, 0.05)
+print("Passed.")
+
+# This should be run only when mult&eigen is used for decomposing reference data.
+# This must be done after the signs of V are made to be same as TRACE's
 # Calculate PC loading
 print("Checking if PC loadings are calculated...")
 if 'U' in locals():
@@ -312,58 +350,28 @@ else:
         U = X @ (V / s)
     print("Done.")
 
-if 'XTX' not in locals():
-    XTX = np.loadtxt('XTX.dat')
-
-# Test result close to TRACE's
-print("Testing reference PC scores are the same as TRACE's...")
-pcs_ref_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.RefPC.coord'
-pcs_ref_trace = pd.read_table(pcs_ref_trace_file)
-pcs_ref_trace = np.array(pcs_ref_trace.iloc[:, 2:])
-ref_dim_trace = pcs_ref_trace.shape[1]
-for i in range(ref_dim_trace):
-    corr = np.corrcoef(pcs_ref_trace[:,i], pcs_ref[:,i])[0,1]
-    assert abs(corr) > 0.99
-    if corr < 0:
-        pcs_ref[:,i] *= -1
-    if(i < ref_dim_trace // 2):
-        assert np.allclose(pcs_ref_trace[:,i], pcs_ref[:,i], 0.01, 0.05)
-print("Passed.")
-
-print("Testing study reference PC scores are the same as TRACE's...")
-print("Calculating XTX_new...")
+print("Calculating study pc scores with svd_online...")
 print(datetime.now())
-b = W[:,0].reshape((1,-1))
-bX = b @ X
-bb = b @ b.T
-XTX_new = np.vstack((np.hstack((XTX, bX.T)), np.hstack((bX, bb))))
-print("Calculating s_new and V_new...")
-print(datetime.now())
-s_new, V_new = eig_sym(XTX_new)
-Vs_new = V_new * s_new
-pcs_new = Vs_new[:, :DIM_STUDY]
+pcs_stu_onl = np.zeros((n_stu, DIM_REF))
+for i in range(n_stu):
+    b = W[:,i]
+    s_new, V_new = svd_online(U, s, V, b, DIM_SVDONLINE)
+    s_new, V_new = s_new[:DIM_STUDY], V_new[:, :DIM_STUDY]
+    pcs_new = V_new * s_new
+    pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
+    R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
+    pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
+    pcs_stu_onl[i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
+    if (i + 1) % 100 == 0:
+        print("Finished analyzing " + i + " samples.")
 print("Done.")
 print(datetime.now())
 
-print("Procrustes analysis...")
-print(datetime.now())
-pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
-R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
-pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
-pcs_new_tail_trsfed = pcs_new_tail_trsfed.flatten()[:DIM_REF]
-print(datetime.now())
-print("Done.")
+print("Testing study PC scores are the same as TRACE's...")
+pcs_stu_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.ProPC.coord'
+pcs_stu_trace = pd.read_table(pcs_stu_trace_file)
+pcs_stu_trace = np.array(pcs_stu_trace.iloc[:, 6:])
+dim_stu_trace = pcs_stu_trace.shape[1]
+assert np.allclose(pcs_stu_trace[:,:dim_stu_trace], pcs_stu_onl[:, :dim_stu_trace], 0.01, 0.05)
 
-print("Check results.")
-
-# print("Calculating study PC scores with online SVD...")
-# s2, V2 = svd_online(U, s, V, b, DIM_ONLINESVD)
-# V2 = V2[:, :DIM_STUDY]
-# s2 = s2[:DIM_STUDY]
-# Vs2 = V2 * s2
-# Vs2_head = Vs2[:-1, :]
-# Vs2_tail = Vs2[-1, :]
-# pcs_ref_fat = np.concatenate((pcs_ref, np.zeros((n_ref, DIM_STUDY - DIM_REF))), axis=1)
-# R, rho, c = procrustes(pcs_ref_fat, Vs2_head)
-# Vs2_tail_mapped = Vs2_tail @ R * rho + c
 

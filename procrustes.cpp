@@ -1,20 +1,7 @@
 #include <iostream>
-#include <iomanip>
 #include <fstream>
-#include <string>
-#include <map>
-#include <vector>
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_randist.h>
-#include <gsl/gsl_statistics_double.h>
-#include <cmath>
-#include <algorithm>
-#include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
 #define  ARMA_DONT_USE_WRAPPER
 #include "armadillo"
-#include <list>
 using namespace arma;
 using namespace std;
 extern "C" void openblas_set_num_threads(int num_threads);
