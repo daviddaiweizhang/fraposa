@@ -15,7 +15,7 @@ if [[ "${host:0:3}" == "nyx" || "${host:0:4}" == "flux" ]]; then
     module load gcc/5.4.0 # Dependency for armadillo
     module load armadillo
     module load R
-    export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH;
+    # export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH;
     echo "Done."
 elif [ ${host} == "xps-arch" ]; then
     # Local
