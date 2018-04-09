@@ -17,7 +17,8 @@ SMARTPCA -*- mode: org -*-
 *** IN-PROGRESS Write procrustes
 **** DONE Same dimension
      CLOSED: [2018-03-18 Sun 20:40]
-**** TODO Different dimensions
+**** DONE Different dimensions
+     CLOSED: [2018-04-08 Sun 23:30]
 *** TODO Write simple projection
 *** TODO Write a fun to run hdpca in python
 *** TODO Compare runtimes and accuracy

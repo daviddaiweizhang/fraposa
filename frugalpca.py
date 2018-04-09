@@ -219,154 +219,152 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
 
 test_online_svd_procrust()
 
-# # Read data
-# if 'X' not in locals():
-#     print("Reading reference data...")
-#     X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_train')[2]
-#     X = X.astype(np.float32)
-#     X = X.compute()
-#     p_ref, n_ref = X.shape
-#     print("Done.")
+# Read data
+if 'X' not in locals():
+    print("Reading reference data...")
+    X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_train')[2]
+    X = X.astype(np.float32)
+    X = X.compute()
+    p_ref, n_ref = X.shape
+    print("Done.")
 
-#     # Center and nomralize reference data
-#     print("Centering and normalizing reference data...")
-#     X_mean = np.nanmean(X, axis = 1).reshape((-1, 1))
-#     X_std = np.nanstd(X, axis = 1).reshape((-1,1))
-#     X_std[X_std == 0] = 1
-#     X -= X_mean
-#     X /= X_std
-#     print("Done")
+    # Center and nomralize reference data
+    print("Centering and normalizing reference data...")
+    X_mean = np.nanmean(X, axis = 1).reshape((-1, 1))
+    X_std = np.nanstd(X, axis = 1).reshape((-1,1))
+    X_std[X_std == 0] = 1
+    X -= X_mean
+    X /= X_std
+    print("Done")
 
-# if 'W' not in locals():
-#     print("Reading study data...")
-#     W = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_test')[2]
-#     W_save = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_test')[2]
-#     W = W.compute()
-#     print("Done.")
+if 'W' not in locals():
+    print("Reading study data...")
+    W = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_test')[2]
+    W_save = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_test')[2]
+    W = W.compute()
+    print("Done.")
 
-#     # Center and nomralize study data
-#     print("Centering and normalizing study data...")
-#     W -= X_mean
-#     W /= X_std
-#     print("Done.")
+    # Center and nomralize study data
+    print("Centering and normalizing study data...")
+    W -= X_mean
+    W /= X_std
+    print("Done.")
 
-# # PCA on the reference data
-# if not ('s' in locals() and 'V' in locals()):
-#     sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
-#     if sV_file_all_exists:
-#         print("Reading existing s.dat and V.dat...")
-#         s = np.loadtxt('s.dat')
-#         V = np.loadtxt('V.dat')
-#         print("Done.")
-#     else:
-#         print(datetime.now())
-#         start_time = time.time()
-#         # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-#         cache = Chest(path='cache')
+# PCA on the reference data
+if not ('s' in locals() and 'V' in locals()):
+    sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
+    if sV_file_all_exists:
+        print("Reading existing s.dat and V.dat...")
+        s = np.loadtxt('s.dat')
+        V = np.loadtxt('V.dat')
+        print("Done.")
+    else:
+        print(datetime.now())
+        start_time = time.time()
+        # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+        cache = Chest(path='cache')
 
-#         # Direct svd
-#         # print("Doing SVD on training data...")
-#         # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-#         # U, s, Vt = da.linalg.svd(X)
-#         # np.savetxt('U.dat', U, fmt='%10.5f')
+        # Direct svd
+        # print("Doing SVD on training data...")
+        # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+        # U, s, Vt = da.linalg.svd(X)
+        # np.savetxt('U.dat', U, fmt='%10.5f')
 
-#         # Compressed svd
-#         # print("Doing randomized SVD on training data...")
-#         # U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
-#         # U, s, Vt = compute(U, s, Vt, cache=cache)
-#         # V = Vt.T
-#         # np.savetxt('U.dat', U, fmt='%10.5f')
+        # Compressed svd
+        # print("Doing randomized SVD on training data...")
+        # U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
+        # U, s, Vt = compute(U, s, Vt, cache=cache)
+        # V = Vt.T
+        # np.savetxt('U.dat', U, fmt='%10.5f')
 
-#         # Multiplication and eigendecomposition
-#         print("Doing multiplication and eigendecomposition on training data...")
-#         XTX = X.T @ X
-#         np.savetxt('XTX.dat', XTX, fmt='%10.5f')
-#         s, V = eig_sym(XTX)
+        # Multiplication and eigendecomposition
+        print("Doing multiplication and eigendecomposition on training data...")
+        XTX = X.T @ X
+        np.savetxt('XTX.dat', XTX, fmt='%10.5f')
+        s, V = eig_sym(XTX)
 
-#         elapse = time.time() - start_time
-#         print(datetime.now())
-#         print(elapse)
-#         print("Saving training SVD result...")
-#         np.savetxt('s.dat', s, fmt='%10.5f')
-#         np.savetxt('V.dat', V, fmt='%10.5f')
-#         print("Done.")
+        elapse = time.time() - start_time
+        print(datetime.now())
+        print(elapse)
+        print("Saving training SVD result...")
+        np.savetxt('s.dat', s, fmt='%10.5f')
+        np.savetxt('V.dat', V, fmt='%10.5f')
+        print("Done.")
 
-# # Subset and whiten PC scores
-# print("Subsetting and whitening PC scores...")
-# V = V[:, :DIM_STUDY_HIGH]
-# s = s[:DIM_STUDY_HIGH]
-# Vs = V * s
-# pcs_ref = Vs[:, :DIM_REF]
-# print("Done.")
+# Subset and whiten PC scores
+print("Subsetting and whitening PC scores...")
+V = V[:, :DIM_STUDY_HIGH]
+s = s[:DIM_STUDY_HIGH]
+Vs = V * s
+pcs_ref = Vs[:, :DIM_REF]
+print("Done.")
 
-# # This should be run only when mult&eigen is used.
-# # Calculate PC loading
-# print("Checking if PC loadings are calculated...")
-# if 'U' in locals():
-#     print("PC loadings matrix exists in memory.")
-# else:
-#     if os.path.isfile('U.dat'):
-#         print("Reading existing U.dat...")
-#         U = np.loadtxt('U.dat')
-#     else:
-#         print("Calculating PC loadings...")
-#         U = X @ (V / s)
-#     print("Done.")
+# This should be run only when mult&eigen is used.
+# Calculate PC loading
+print("Checking if PC loadings are calculated...")
+if 'U' in locals():
+    print("PC loadings matrix exists in memory.")
+else:
+    if os.path.isfile('U.dat'):
+        print("Reading existing U.dat...")
+        U = np.loadtxt('U.dat')
+    else:
+        print("Calculating PC loadings...")
+        U = X @ (V / s)
+    print("Done.")
 
-# # if 'XTX' not in locals():
-# #     XTX = np.loadtxt('XTX.dat')
+# if 'XTX' not in locals():
+#     XTX = np.loadtxt('XTX.dat')
 
-# # Test result close to TRACE's
-# print("Testing reference PC scores are the same as TRACE's...")
-# pcs_ref_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.RefPC.coord'
-# pcs_ref_trace = pd.read_table(pcs_ref_trace_file)
-# pcs_ref_trace = np.array(pcs_ref_trace.iloc[:, 2:])
-# ref_dim_trace = pcs_ref_trace.shape[1]
-# for i in range(ref_dim_trace):
-#     corr = np.corrcoef(pcs_ref_trace[:,i], pcs_ref[:,i])[0,1]
-#     assert abs(corr) > 0.99
-#     if corr < 0:
-#         pcs_ref[:,i] *= -1
-#     if(i < ref_dim_trace // 2):
-#         assert np.allclose(pcs_ref_trace[:,i], pcs_ref[:,i], 0.01, 0.05)
-# print("Passed.")
+# Test result close to TRACE's
+print("Testing reference PC scores are the same as TRACE's...")
+pcs_ref_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.RefPC.coord'
+pcs_ref_trace = pd.read_table(pcs_ref_trace_file)
+pcs_ref_trace = np.array(pcs_ref_trace.iloc[:, 2:])
+ref_dim_trace = pcs_ref_trace.shape[1]
+for i in range(ref_dim_trace):
+    corr = np.corrcoef(pcs_ref_trace[:,i], pcs_ref[:,i])[0,1]
+    assert abs(corr) > 0.99
+    if corr < 0:
+        pcs_ref[:,i] *= -1
+    if(i < ref_dim_trace // 2):
+        assert np.allclose(pcs_ref_trace[:,i], pcs_ref[:,i], 0.01, 0.05)
+print("Passed.")
 
-# print("Testing study reference PC scores are the same as TRACE's...")
-# print("Calculating XTX_new...")
-# print(datetime.now())
-# b = W[:,0].reshape((1,-1))
-# bX = b @ X
-# bb = b @ b.T
-# XTX_new = np.vstack((np.hstack((XTX, bX.T)), np.hstack((bX, bb))))
-# print("Calculating s_new and V_new...")
-# print(datetime.now())
-# s_new, V_new = eig_sym(XTX_new)
-# Vs_new = V_new * s_new
-# pcs_new = Vs_new[:, :DIM_STUDY]
-# print("Done.")
-# print(datetime.now())
+print("Testing study reference PC scores are the same as TRACE's...")
+print("Calculating XTX_new...")
+print(datetime.now())
+b = W[:,0].reshape((1,-1))
+bX = b @ X
+bb = b @ b.T
+XTX_new = np.vstack((np.hstack((XTX, bX.T)), np.hstack((bX, bb))))
+print("Calculating s_new and V_new...")
+print(datetime.now())
+s_new, V_new = eig_sym(XTX_new)
+Vs_new = V_new * s_new
+pcs_new = Vs_new[:, :DIM_STUDY]
+print("Done.")
+print(datetime.now())
 
-# print("Procrustes analysis...")
-# print(datetime.now())
-# pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
-# pcs_ref_fat = np.zeros((n_ref, DIM_STUDY))
-# pcs_ref_fat[:, :DIM_REF] = pcs_ref
-# R, rho, c = procrustes(pcs_ref_fat, pcs_new_head)
-# pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
-# pcs_new_tail_trsfed = pcs_new_tail_trsfed.flatten()[:DIM_REF]
-# print(datetime.now())
-# print("Done.")
+print("Procrustes analysis...")
+print(datetime.now())
+pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
+R, rho, c = procrustes_diffdim(pcs_ref_fat, pcs_new_head)
+pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
+pcs_new_tail_trsfed = pcs_new_tail_trsfed.flatten()[:DIM_REF]
+print(datetime.now())
+print("Done.")
 
-# print("Check results.")
+print("Check results.")
 
-# # print("Calculating study PC scores with online SVD...")
-# # s2, V2 = svd_online(U, s, V, b, DIM_ONLINESVD)
-# # V2 = V2[:, :DIM_STUDY]
-# # s2 = s2[:DIM_STUDY]
-# # Vs2 = V2 * s2
-# # Vs2_head = Vs2[:-1, :]
-# # Vs2_tail = Vs2[-1, :]
-# # pcs_ref_fat = np.concatenate((pcs_ref, np.zeros((n_ref, DIM_STUDY - DIM_REF))), axis=1)
-# # R, rho, c = procrustes(pcs_ref_fat, Vs2_head)
-# # Vs2_tail_mapped = Vs2_tail @ R * rho + c
+# print("Calculating study PC scores with online SVD...")
+# s2, V2 = svd_online(U, s, V, b, DIM_ONLINESVD)
+# V2 = V2[:, :DIM_STUDY]
+# s2 = s2[:DIM_STUDY]
+# Vs2 = V2 * s2
+# Vs2_head = Vs2[:-1, :]
+# Vs2_tail = Vs2[-1, :]
+# pcs_ref_fat = np.concatenate((pcs_ref, np.zeros((n_ref, DIM_STUDY - DIM_REF))), axis=1)
+# R, rho, c = procrustes(pcs_ref_fat, Vs2_head)
+# Vs2_tail_mapped = Vs2_tail @ R * rho + c
 
