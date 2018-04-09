@@ -363,13 +363,13 @@ for i in range(n_stu):
     pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
     pcs_stu_onl[i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
     if (i + 1) % 100 == 0:
-        print("Finished analyzing " + str(i) + " samples.")
+        print("Finished analyzing " + str(i+1) + " samples.")
 print("Done.")
 print(datetime.now())
 
 print("Calculating study pc scores with simple projection...")
 print(datetime.now())
-pcs_stu_proj = X.T @ U
+pcs_stu_proj = W.T @ U[:, :DIM_REF]
 print("Done.")
 print(datetime.now())
 
@@ -379,5 +379,6 @@ pcs_stu_trace = pd.read_table(pcs_stu_trace_file)
 pcs_stu_trace = np.array(pcs_stu_trace.iloc[:, 6:])
 dim_stu_trace = pcs_stu_trace.shape[1]
 assert np.allclose(pcs_stu_trace[:,:dim_stu_trace], pcs_stu_onl[:, :dim_stu_trace], 0.01, 0.05)
+print("Passed.")
 
 
