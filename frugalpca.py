@@ -5,6 +5,9 @@ from pandas_plink import read_plink
 import dask.array as da
 from dask import compute
 from chest import Chest
+import rpy2.robjects as robjects
+from rpy2.robjects.packages import importr
+from rpy2.robjects import numpy2ri
 import time
 from datetime import datetime
 from subprocess import call
@@ -79,6 +82,7 @@ DIM_STUDY_HIGH = DIM_STUDY * 2
 DIM_SVDONLINE = DIM_STUDY * 2
 DIM_SVDRAND = DIM_STUDY * 4
 NITER_SVDRAND = 2
+NP_OUTPUT_FMT = '%.4f'
 
 np.random.seed(21)
 
@@ -243,6 +247,7 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
                 Z = Z_new
     return R, rho, c
 
+print(datetime.now())
 test_online_svd_procrust()
 
 # Read data
@@ -277,48 +282,44 @@ if 'W' not in locals():
     print("Done.")
 
 # PCA on the reference data
-if not ('s' in locals() and 'V' in locals()):
-    sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
-    if sV_file_all_exists:
-        print("Reading existing s.dat and V.dat...")
-        s = np.loadtxt('s.dat')
-        V = np.loadtxt('V.dat')
-        print("Done.")
-    else:
-        print(datetime.now())
-        start_time = time.time()
-        # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-        cache = Chest(path='cache')
+sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
+if sV_file_all_exists:
+    print("Reading existing s.dat and V.dat...")
+    s = np.loadtxt('s.dat')
+    V = np.loadtxt('V.dat')
+    print("Done.")
+else:
+    print(datetime.now())
+    start_time = time.time()
+    # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+    cache = Chest(path='cache')
 
-        # Compressed (randomized) svd
-        # print("Doing randomized SVD on training data...")
-        # U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
-        # U, s, Vt = compute(U, s, Vt, cache=cache)
-        # V = Vt.T
-        # np.savetxt('U.dat', U, fmt='%10.5f')
+    # Compressed (randomized) svd
+    # print("Doing randomized SVD on training data...")
+    # U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
+    # U, s, Vt = compute(U, s, Vt, cache=cache)
+    # V = Vt.T
+    # np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
 
-        # Multiplication and eigendecomposition
-        print("Doing multiplication and eigendecomposition on training data...")
-        XTX = X.T @ X
-        np.savetxt('XTX.dat', XTX, fmt='%10.5f')
-        s, V = eig_sym(XTX)
+    # Multiplication and eigendecomposition
+    print("Doing multiplication and eigendecomposition on training data...")
+    XTX = X.T @ X
+    np.savetxt('XTX.dat', XTX, fmt=NP_OUTPUT_FMT)
+    s, V = eig_sym(XTX)
 
-        elapse = time.time() - start_time
-        print(datetime.now())
-        print(elapse)
-        print("Saving training SVD result...")
-        np.savetxt('s.dat', s, fmt='%10.5f')
-        np.savetxt('V.dat', V, fmt='%10.5f')
-        print("Done.")
+    elapse = time.time() - start_time
+    print(datetime.now())
+    print(elapse)
+    print("Saving training SVD result...")
+    np.savetxt('s.dat', s, fmt=NP_OUTPUT_FMT)
+    np.savetxt('V.dat', V, fmt=NP_OUTPUT_FMT)
+    print("Done.")
 
 # Subset and whiten PC scores
 print("Subsetting and whitening PC scores...")
-V = V[:, :DIM_STUDY_HIGH]
-s = s[:DIM_STUDY_HIGH]
-Vs = V * s
-pcs_ref = Vs[:, :DIM_REF]
+pcs_ref = V[:, :DIM_REF] * s[:DIM_REF]
+np.savetxt('pcs_ref.dat', pcs_ref, fmt=NP_OUTPUT_FMT)
 print("Done.")
-
 
 # Test result close to TRACE's
 print("Testing reference PC scores are the same as TRACE's...")
@@ -338,24 +339,40 @@ print("Passed.")
 # This should be run only when mult&eigen is used for decomposing reference data.
 # This must be done after the signs of V are made to be same as TRACE's
 # Calculate PC loading
-print("Checking if PC loadings are calculated...")
-if 'U' in locals():
-    print("PC loadings matrix exists in memory.")
+if os.path.isfile('U.dat'):
+    print("Reading existing U.dat...")
+    U = np.loadtxt('U.dat')
 else:
-    if os.path.isfile('U.dat'):
-        print("Reading existing U.dat...")
-        U = np.loadtxt('U.dat')
-    else:
-        print("Calculating PC loadings...")
-        U = X @ (V / s)
-    print("Done.")
+    print("Calculating PC loadings...")
+    U = X @ (V[:,:DIM_STUDY_HIGH] / s[:DIM_STUDY_HIGH])
+    np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
+print("Done.")
+
+print("Calculating study pc scores with simple projection...")
+print(datetime.now())
+pcs_stu_proj = W.T @ U[:,:DIM_REF]
+print("Done.")
+print(datetime.now())
+np.savetxt('pcs_stu_proj.dat', pcs_stu_proj, fmt=NP_OUTPUT_FMT, delimiter='\t')
+
+print("Adjusting simple projection pcs with hdpca...")
+print(datetime.now())
+r = robjects.r
+robjects.numpy2ri.activate()
+importr('hdpca')
+pc_adjust = r['pc_adjust']
+pcs_stu_hdpca = pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj, n_spikes_max=20)
+pcs_stu_hdpca = np.array(pcs_stu_hdpca)
+print("Done.")
+print(datetime.now())
+np.savetxt('pcs_stu_hdpca.dat', pcs_stu_hdpca, fmt=NP_OUTPUT_FMT, delimiter='\t')
 
 print("Calculating study pc scores with svd_online...")
 print(datetime.now())
 pcs_stu_onl = np.zeros((n_stu, DIM_REF))
 for i in range(n_stu):
     b = W[:,i]
-    s_new, V_new = svd_online(U, s, V, b, DIM_SVDONLINE)
+    s_new, V_new = svd_online(U[:,:DIM_STUDY_HIGH], s[:DIM_STUDY_HIGH], V[:,:DIM_STUDY_HIGH], b, DIM_SVDONLINE)
     s_new, V_new = s_new[:DIM_STUDY], V_new[:, :DIM_STUDY]
     pcs_new = V_new * s_new
     pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
@@ -366,19 +383,14 @@ for i in range(n_stu):
         print("Finished analyzing " + str(i+1) + " samples.")
 print("Done.")
 print(datetime.now())
-
-print("Calculating study pc scores with simple projection...")
-print(datetime.now())
-pcs_stu_proj = W.T @ U[:, :DIM_REF]
-print("Done.")
-print(datetime.now())
+np.savetxt('pcs_stu_onl.dat', pcs_stu_onl, fmt=NP_OUTPUT_FMT, delimiter='\t')
 
 print("Testing study PC scores are the same as TRACE's...")
 pcs_stu_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.ProPC.coord'
 pcs_stu_trace = pd.read_table(pcs_stu_trace_file)
 pcs_stu_trace = np.array(pcs_stu_trace.iloc[:, 6:])
 dim_stu_trace = pcs_stu_trace.shape[1]
-assert np.allclose(pcs_stu_trace[:,:dim_stu_trace], pcs_stu_onl[:, :dim_stu_trace], 0.01, 0.05)
+assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
+assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
+np.savetxt('pcs_stu_trace.dat', pcs_stu_trace, fmt=NP_OUTPUT_FMT, delimiter='\t')
 print("Passed.")
-
-
