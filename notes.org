@@ -3,18 +3,17 @@ SMARTPCA -*- mode: org -*-
 #+TODO: TODO IN-PROGRESS WAITING DONE
 
 * Tasks
-** TODO Make software in python
+** Make software in python
 *** DONE Get reference datasets (snps_hgdp)
     CLOSED: [2018-03-30 Fri 09:47]
 *** DONE Read PLINK file into python (try dask)
     CLOSED: [2018-03-30 Fri 09:41]
-**** DONE try pandas-plink
-     CLOSED: [2018-03-30 Fri 09:41]
 *** TODO Handle difference in SNPs (SNPs order and allele)
 *** TODO Handle missing data
+*** TODO Use all samples in ukbiobank
 *** DONE Write onine_svd
     CLOSED: [2018-03-18 Sun 20:35]
-*** IN-PROGRESS Write procrustes
+*** Write procrustes
 **** DONE Same dimension
      CLOSED: [2018-03-18 Sun 20:40]
 **** DONE Different dimensions
@@ -22,10 +21,10 @@ SMARTPCA -*- mode: org -*-
 *** TODO Write simple projection
 *** TODO Write a fun to run hdpca in python
 *** TODO Compare runtimes and accuracy
-** TODO Review deep learning in biolog
-** TODO Write manuscript
+** Write manuscript
 *** TODO Results and discussion
 *** TODO Make plots look better
+** TODO Review deep learning in biolog
 * Questions
 ** Exclude morep related people (not just parents) in kgn?
    Systemaatic randomized pc parameter evaluation
