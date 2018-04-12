@@ -253,33 +253,58 @@ test_online_svd_procrust()
 # Read data
 if 'X' not in locals():
     print("Reading reference data...")
-    X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_train')[2]
+    X_bim, X_fam, X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_train')
     X = X.astype(np.float32)
-    X = X.compute()
+    # X = X.compute()
     p_ref, n_ref = X.shape
     print("Done.")
 
-    # Center and nomralize reference data
-    print("Centering and normalizing reference data...")
-    X_mean = np.nanmean(X, axis = 1).reshape((-1, 1))
-    X_std = np.nanstd(X, axis = 1).reshape((-1,1))
-    X_std[X_std == 0] = 1
-    X -= X_mean
-    X /= X_std
-    print("Done")
-
 if 'W' not in locals():
     print("Reading study data...")
-    W = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_test')[2]
+    W_bim, W_fam, W = read_plink('../data/ukb/ukb.bed')
     p_stu, n_stu = W.shape
-    W = W.compute()
+    # W = W.compute()
     print("Done.")
 
-    # Center and nomralize study data
-    print("Centering and normalizing study data...")
-    W -= X_mean
-    W /= X_std
+if not ('X_snp_isshared' in locals()) and ('W_snp_isshared' in locals()):
+    print("Intersecting snps...")
+    print(datetime.now())
+    snp_intersect = np.intersect1d(X_bim['snp'], W_bim['snp'], assume_unique=True)
+    print("Filtering reference snps...")
+    print(datetime.now())
+    X_snp_isshared = np.isin(X_bim['snp'], snp_intersect, assume_unique=True)
+    print("Filtering study snps...")
+    print(datetime.now())
+    W_snp_isshared = np.isin(W_bim['snp'], snp_intersect, assume_unique=True)
+    print("Creating filtered reference set...")
+    print(datetime.now())
+    X = X[X_snp_isshared]
+    X_bim = X_bim[X_snp_isshared]
+    print("Creating filtered study set...")
+    print(datetime.now())
+    W = W[W_snp_isshared]
+    W_bim = W_bim[W_snp_isshared]
+    assert list(W_bim['snp']) == list(X_bim['snp'])
     print("Done.")
+    print(datetime.now())
+
+# Center and nomralize reference data
+print("Centering and normalizing reference data...")
+print(datetime.now())
+X_mean = np.nanmean(X, axis = 1).reshape((-1, 1))
+X_std = np.nanstd(X, axis = 1).reshape((-1,1))
+X_std[X_std == 0] = 1
+X -= X_mean
+X /= X_std
+print("Done")
+
+# Center and nomralize study data
+print("Centering and normalizing study data...")
+print(datetime.now())
+W -= X_mean
+W /= X_std
+print("Done.")
+print(datetime.now())
 
 # PCA on the reference data
 sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
@@ -321,20 +346,20 @@ pcs_ref = V[:, :DIM_REF] * s[:DIM_REF]
 np.savetxt('pcs_ref.dat', pcs_ref, fmt=NP_OUTPUT_FMT)
 print("Done.")
 
-# Test result close to TRACE's
-print("Testing reference PC scores are the same as TRACE's...")
-pcs_ref_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.RefPC.coord'
-pcs_ref_trace = pd.read_table(pcs_ref_trace_file)
-pcs_ref_trace = np.array(pcs_ref_trace.iloc[:, 2:])
-ref_dim_trace = pcs_ref_trace.shape[1]
-for i in range(ref_dim_trace):
-    corr = np.corrcoef(pcs_ref_trace[:,i], pcs_ref[:,i])[0,1]
-    assert abs(corr) > 0.99
-    if corr < 0:
-        pcs_ref[:,i] *= -1
-        V[:,i] *= -1
-    assert np.allclose(pcs_ref_trace[:,i], pcs_ref[:,i], 0.01, 0.05)
-print("Passed.")
+# # Test result close to TRACE's
+# print("Testing reference PC scores are the same as TRACE's...")
+# pcs_ref_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.RefPC.coord'
+# pcs_ref_trace = pd.read_table(pcs_ref_trace_file)
+# pcs_ref_trace = np.array(pcs_ref_trace.iloc[:, 2:])
+# ref_dim_trace = pcs_ref_trace.shape[1]
+# for i in range(ref_dim_trace):
+#     corr = np.corrcoef(pcs_ref_trace[:,i], pcs_ref[:,i])[0,1]
+#     assert abs(corr) > 0.99
+#     if corr < 0:
+#         pcs_ref[:,i] *= -1
+#         V[:,i] *= -1
+#     assert np.allclose(pcs_ref_trace[:,i], pcs_ref[:,i], 0.01, 0.05)
+# print("Passed.")
 
 # This should be run only when mult&eigen is used for decomposing reference data.
 # This must be done after the signs of V are made to be same as TRACE's
@@ -385,12 +410,12 @@ print("Done.")
 print(datetime.now())
 np.savetxt('pcs_stu_onl.dat', pcs_stu_onl, fmt=NP_OUTPUT_FMT, delimiter='\t')
 
-print("Testing study PC scores are the same as TRACE's...")
-pcs_stu_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.ProPC.coord'
-pcs_stu_trace = pd.read_table(pcs_stu_trace_file)
-pcs_stu_trace = np.array(pcs_stu_trace.iloc[:, 6:])
-dim_stu_trace = pcs_stu_trace.shape[1]
-assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
-assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
-np.savetxt('pcs_stu_trace.dat', pcs_stu_trace, fmt=NP_OUTPUT_FMT, delimiter='\t')
-print("Passed.")
+# print("Testing study PC scores are the same as TRACE's...")
+# pcs_stu_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.ProPC.coord'
+# pcs_stu_trace = pd.read_table(pcs_stu_trace_file)
+# pcs_stu_trace = np.array(pcs_stu_trace.iloc[:, 6:])
+# dim_stu_trace = pcs_stu_trace.shape[1]
+# assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
+# assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
+# np.savetxt('pcs_stu_trace.dat', pcs_stu_trace, fmt=NP_OUTPUT_FMT, delimiter='\t')
+# print("Passed.")

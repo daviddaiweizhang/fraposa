@@ -20,3 +20,4 @@ unused/*
 *.swp
 cache/
 *.o28*
+*.py~
