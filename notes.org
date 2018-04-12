@@ -9,7 +9,9 @@ SMARTPCA -*- mode: org -*-
 *** DONE Read PLINK file into python (try dask)
     CLOSED: [2018-03-30 Fri 09:41]
 *** TODO Handle difference in SNPs (SNPs order and allele)
-*** TODO Handle missing data
+*** Handle missing data
+**** TODO Impute missing data in reference set with means
+**** TODO Handle missing data in study set
 *** TODO Use all samples in ukbiobank
 *** DONE Write onine_svd
     CLOSED: [2018-03-18 Sun 20:35]
