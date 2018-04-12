@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from scipy.linalg import orthogonal_procrustes
 from pandas_plink import read_plink
 import dask.array as da
 from dask import compute
@@ -8,6 +7,9 @@ from chest import Chest
 import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr
 from rpy2.robjects import numpy2ri
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import time
 from datetime import datetime
 from subprocess import call
@@ -252,39 +254,52 @@ test_online_svd_procrust()
 
 # Read data
 print("Reading reference data...")
-X_bim, X_fam, X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_train')
-X = X.astype(np.float32)
-X = X.compute()
-p_ref, n_ref = X.shape
+print(datetime.now())
+X_bim_full, X_fam_full, X_full = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_train')
+X_full = X_full.astype(np.float32)
+X_full = X_full.compute()
 print("Done.")
 
 print("Reading study data...")
-W_bim, W_fam, W = read_plink('../data/ukb/ukb.bed')
-p_stu, n_stu = W.shape
-# W = W.compute()
+print(datetime.now())
+W_bim_full, W_fam_full, W_full = read_plink('../data/ukb/ukb_5k_rand.bed')
+# W_full = W_full.T # TODO: Add checking for ind-major vs snp-major
+W_full = W_full.compute()
 print("Done.")
 
 print("Intersecting snps...")
 print(datetime.now())
-snp_intersect = np.intersect1d(X_bim['snp'], W_bim['snp'], assume_unique=True)
+snp_intersect = np.intersect1d(X_bim_full['snp'], W_bim_full['snp'], assume_unique=True)
 print("Filtering reference snps...")
 print(datetime.now())
-X_snp_isshared = np.isin(X_bim['snp'], snp_intersect, assume_unique=True)
+X_snp_isshared = np.isin(X_bim_full['snp'], snp_intersect, assume_unique=True)
 print("Filtering study snps...")
 print(datetime.now())
-W_snp_isshared = np.isin(W_bim['snp'], snp_intersect, assume_unique=True)
+W_snp_isshared = np.isin(W_bim_full['snp'], snp_intersect, assume_unique=True)
 print("Creating filtered reference set...")
 print(datetime.now())
-X = X[X_snp_isshared]
-X_bim = X_bim[X_snp_isshared]
+X = X_full[X_snp_isshared]
+X_bim = X_bim_full[X_snp_isshared]
 print("Creating filtered study set...")
 print(datetime.now())
-W = W[W_snp_isshared]
-W_bim = W_bim[W_snp_isshared]
+W = W_full[W_snp_isshared]
+W_bim = W_bim_full[W_snp_isshared]
 assert list(W_bim['snp']) == list(X_bim['snp'])
+
+print("Handling alleles...")
+allele_isdiff = np.array(W_bim['a0']) != np.array(X_bim['a0'])
+# allele_isswapped = np.logical_and(np.array(W_bim['a0']) == np.array(X_bim['a1']), np.array(W_bim['a0']) == np.array(X_bim['a1']))
+W[allele_isdiff, :] = 2 - W[allele_isdiff, :] # The bim file is not corrected
+# W_bim_a0_diff = W_bim['a0'][allele_isdiff]
+# W_bim['a0'][allele_isdiff] = W_bim['a1'][allele_isdiff].astype('object')values
+# W_bim['a1'][allele_isdiff] = W_bim_a0_diff
+# assert list(W_bim['a0']) == list(X_bim['a0'])
+# assert list(W_bim['a1']) == list(X_bim['a1']
 print("Done.")
 print(datetime.now())
 
+p_ref, n_ref = X.shape
+p_stu, n_stu = W.shape
 # Center and nomralize reference data
 print("Centering and normalizing reference data...")
 print(datetime.now())
@@ -319,7 +334,7 @@ print(datetime.now())
 print(datetime.now())
 start_time = time.time()
 # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-cache = Chest(path='cache')
+# cache = Chest(path='cache')
 
 # Compressed (randomized) svd
 # print("Doing randomized SVD on training data...")
@@ -420,3 +435,16 @@ np.savetxt('pcs_stu_onl.dat', pcs_stu_onl, fmt=NP_OUTPUT_FMT, delimiter='\t')
 # assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
 # np.savetxt('pcs_stu_trace.dat', pcs_stu_trace, fmt=NP_OUTPUT_FMT, delimiter='\t')
 # print("Passed.")
+
+PLOT_ALPHA=0.2
+fig, ax = plt.subplots()
+ax.plot(pcs_ref[:, 0], pcs_ref[:, 1], 'o', alpha=PLOT_ALPHA, label='ref')
+ax.plot(pcs_stu_proj[:, 0], pcs_stu_proj[:, 1], 'o', alpha=PLOT_ALPHA, label='projection')
+ax.plot(pcs_stu_hdpca[:, 0], pcs_stu_hdpca[:, 1], 'o', alpha=PLOT_ALPHA, label='hdpca')
+ax.plot(pcs_stu_onl[:, 0], pcs_stu_onl[:, 1], 'o', alpha=PLOT_ALPHA, label='online')
+# plt.plot(pcs_stu_trace[:, 0], pcs_stu_trace[:, 1], 'o', alpha=PLOT_ALPHA, label='trace')
+ax.set_aspect('equal')
+ax.axhline(y=0, color='grey')
+ax.axvline(x=0, color='grey')
+ax.legend()
+plt.savefig('pcs.png', dpi=300)

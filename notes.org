@@ -10,6 +10,7 @@ SMARTPCA -*- mode: org -*-
     CLOSED: [2018-03-30 Fri 09:41]
 *** TODO Handle difference in SNPs (SNPs order and allele)
 *** Handle missing data
+**** TODO Make sure ref and stu snps are in the same order
 **** TODO Impute missing data in reference set with means
 **** TODO Handle missing data in study set
 *** TODO Use all samples in ukbiobank

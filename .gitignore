@@ -21,3 +21,5 @@ unused/*
 cache/
 *.o28*
 *.py~
+*.org~
+*.png
