@@ -251,42 +251,39 @@ print(datetime.now())
 test_online_svd_procrust()
 
 # Read data
-if 'X' not in locals():
-    print("Reading reference data...")
-    X_bim, X_fam, X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_train')
-    X = X.astype(np.float32)
-    # X = X.compute()
-    p_ref, n_ref = X.shape
-    print("Done.")
+print("Reading reference data...")
+X_bim, X_fam, X = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_train')
+X = X.astype(np.float32)
+X = X.compute()
+p_ref, n_ref = X.shape
+print("Done.")
 
-if 'W' not in locals():
-    print("Reading study data...")
-    W_bim, W_fam, W = read_plink('../data/ukb/ukb.bed')
-    p_stu, n_stu = W.shape
-    # W = W.compute()
-    print("Done.")
+print("Reading study data...")
+W_bim, W_fam, W = read_plink('../data/ukb/ukb.bed')
+p_stu, n_stu = W.shape
+# W = W.compute()
+print("Done.")
 
-if not ('X_snp_isshared' in locals()) and ('W_snp_isshared' in locals()):
-    print("Intersecting snps...")
-    print(datetime.now())
-    snp_intersect = np.intersect1d(X_bim['snp'], W_bim['snp'], assume_unique=True)
-    print("Filtering reference snps...")
-    print(datetime.now())
-    X_snp_isshared = np.isin(X_bim['snp'], snp_intersect, assume_unique=True)
-    print("Filtering study snps...")
-    print(datetime.now())
-    W_snp_isshared = np.isin(W_bim['snp'], snp_intersect, assume_unique=True)
-    print("Creating filtered reference set...")
-    print(datetime.now())
-    X = X[X_snp_isshared]
-    X_bim = X_bim[X_snp_isshared]
-    print("Creating filtered study set...")
-    print(datetime.now())
-    W = W[W_snp_isshared]
-    W_bim = W_bim[W_snp_isshared]
-    assert list(W_bim['snp']) == list(X_bim['snp'])
-    print("Done.")
-    print(datetime.now())
+print("Intersecting snps...")
+print(datetime.now())
+snp_intersect = np.intersect1d(X_bim['snp'], W_bim['snp'], assume_unique=True)
+print("Filtering reference snps...")
+print(datetime.now())
+X_snp_isshared = np.isin(X_bim['snp'], snp_intersect, assume_unique=True)
+print("Filtering study snps...")
+print(datetime.now())
+W_snp_isshared = np.isin(W_bim['snp'], snp_intersect, assume_unique=True)
+print("Creating filtered reference set...")
+print(datetime.now())
+X = X[X_snp_isshared]
+X_bim = X_bim[X_snp_isshared]
+print("Creating filtered study set...")
+print(datetime.now())
+W = W[W_snp_isshared]
+W_bim = W_bim[W_snp_isshared]
+assert list(W_bim['snp']) == list(X_bim['snp'])
+print("Done.")
+print(datetime.now())
 
 # Center and nomralize reference data
 print("Centering and normalizing reference data...")
@@ -298,47 +295,52 @@ X -= X_mean
 X /= X_std
 print("Done")
 
+print("Replacing missing data with SNP mean...")
+print(datetime.now())
+X[np.isnan(X)] = 0
+print("Done")
+
 # Center and nomralize study data
 print("Centering and normalizing study data...")
 print(datetime.now())
 W -= X_mean
 W /= X_std
+W[da.isnan(W)] = 0
 print("Done.")
 print(datetime.now())
 
 # PCA on the reference data
-sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
-if sV_file_all_exists:
-    print("Reading existing s.dat and V.dat...")
-    s = np.loadtxt('s.dat')
-    V = np.loadtxt('V.dat')
-    print("Done.")
-else:
-    print(datetime.now())
-    start_time = time.time()
-    # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-    cache = Chest(path='cache')
+# sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
+# if sV_file_all_exists:
+#     print("Reading existing s.dat and V.dat...")
+#     s = np.loadtxt('s.dat')
+#     V = np.loadtxt('V.dat')
+#     print("Done.")
+print(datetime.now())
+start_time = time.time()
+# X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+cache = Chest(path='cache')
 
-    # Compressed (randomized) svd
-    # print("Doing randomized SVD on training data...")
-    # U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
-    # U, s, Vt = compute(U, s, Vt, cache=cache)
-    # V = Vt.T
-    # np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
+# Compressed (randomized) svd
+# print("Doing randomized SVD on training data...")
+# U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
+# U, s, Vt = compute(U, s, Vt, cache=cache)
+# V = Vt.T
+# np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
 
-    # Multiplication and eigendecomposition
-    print("Doing multiplication and eigendecomposition on training data...")
-    XTX = X.T @ X
-    np.savetxt('XTX.dat', XTX, fmt=NP_OUTPUT_FMT)
-    s, V = eig_sym(XTX)
+# Multiplication and eigendecomposition
+print("Doing multiplication and eigendecomposition on training data...")
+XTX = X.T @ X
+np.savetxt('XTX.dat', XTX, fmt=NP_OUTPUT_FMT)
+s, V = eig_sym(XTX)
 
-    elapse = time.time() - start_time
-    print(datetime.now())
-    print(elapse)
-    print("Saving training SVD result...")
-    np.savetxt('s.dat', s, fmt=NP_OUTPUT_FMT)
-    np.savetxt('V.dat', V, fmt=NP_OUTPUT_FMT)
-    print("Done.")
+elapse = time.time() - start_time
+print(datetime.now())
+print(elapse)
+print("Saving training SVD result...")
+np.savetxt('s.dat', s, fmt=NP_OUTPUT_FMT)
+np.savetxt('V.dat', V, fmt=NP_OUTPUT_FMT)
+print("Done.")
 
 # Subset and whiten PC scores
 print("Subsetting and whitening PC scores...")
@@ -364,13 +366,12 @@ print("Done.")
 # This should be run only when mult&eigen is used for decomposing reference data.
 # This must be done after the signs of V are made to be same as TRACE's
 # Calculate PC loading
-if os.path.isfile('U.dat'):
-    print("Reading existing U.dat...")
-    U = np.loadtxt('U.dat')
-else:
-    print("Calculating PC loadings...")
-    U = X @ (V[:,:DIM_STUDY_HIGH] / s[:DIM_STUDY_HIGH])
-    np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
+# if os.path.isfile('U.dat'):
+#     print("Reading existing U.dat...")
+#     U = np.loadtxt('U.dat')
+print("Calculating PC loadings...")
+U = X @ (V[:,:DIM_STUDY_HIGH] / s[:DIM_STUDY_HIGH])
+np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
 print("Done.")
 
 print("Calculating study pc scores with simple projection...")
