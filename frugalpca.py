@@ -8,13 +8,59 @@ import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr
 from rpy2.robjects import numpy2ri
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('Agg') # For outputting plots in png on servers
 import matplotlib.pyplot as plt
 import time
 from datetime import datetime
 from subprocess import call
 import os.path
+from tempfile import mkdtemp
+import subprocess
 
+# print("Sorting ref snps by chrom and pos...")
+# print(datetime.now())
+# X_bim_full['chrom'] = X_bim_full['chrom'].astype(np.int64)
+# W_bim_full['chrom'] = W_bim_full['chrom'].astype(np.int64)
+# # X_bim_full = X_bim_full.sort_values(by=['chrom', 'pos'])
+# print("Sorting stu snps by chrom and pos...")
+# print(datetime.now())
+# # W_bim_full = W_bim_full.sort_values(by=['chrom', 'pos'])
+# print("Intersecting snps...")
+# print(datetime.now())
+# snp_intersect = np.intersect1d(X_bim_full['snp'], W_bim_full['snp'], assume_unique=True)
+# print("Filtering reference snps...")
+# print(datetime.now())
+# X_snp_isshared = np.isin(X_bim_full['snp'], snp_intersect, assume_unique=True)
+# print("Filtering study snps...")
+# print(datetime.now())
+# W_snp_isshared = np.isin(W_bim_full['snp'], snp_intersect, assume_unique=True)
+# print("Creating filtered reference set...")
+# print(datetime.now())
+# X = X_full[X_snp_isshared].compute()
+# X_bim = X_bim_full[X_snp_isshared]
+# print("Creating filtered study set...")
+# print(datetime.now())
+# W_dask = W_full[W_snp_isshared]
+# W_memmap_filename = os.path.join(mkdtemp(), 'W_memmap.dat')
+# W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
+# W[:] = W_dask
+# W_bim = W_bim_full[W_snp_isshared]
+
+# print("Handling alleles...")
+# allele_isdiff = np.array(W_bim['a0']) != np.array(X_bim['a0'])
+# # allele_isswapped = np.logical_and(np.array(W_bim['a0']) == np.array(X_bim['a1']), np.array(W_bim['a0']) == np.array(X_bim['a1']))
+# c0 = np.zeros((p, 1))
+# c0[allele_isdiff] = 2
+# c1 = np.ones((p, 1))
+# c1[allele_isdiff] = -1
+# W *= c1
+# W += c0
+# # TODO: Change the bim file, too
+# # W_bim_a0_diff = W_bim['a0'][allele_isdiff]
+# # W_bim['a0'][allele_isdiff] = W_bim['a1'][allele_isdiff].astype('object').values
+# # W_bim['a1'][allele_isdiff] = W_bim_a0_diff
+# print("Done.")
+# print(datetime.now())
 
 # print("Calculating pc scores with eigen decomposition...")
 # print(datetime.now())
@@ -76,8 +122,6 @@ import os.path
 #     b = mtx1_mean - mtx2_mean @ R * s
 #     return R, s, b
 
-
-
 DIM_REF = 4
 DIM_STUDY = 20
 DIM_STUDY_HIGH = DIM_STUDY * 2
@@ -85,6 +129,8 @@ DIM_SVDONLINE = DIM_STUDY * 2
 DIM_SVDRAND = DIM_STUDY * 4
 NITER_SVDRAND = 2
 NP_OUTPUT_FMT = '%.4f'
+REF_PREF = '../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele'
+STU_PREF = '../data/ukb/ukb_5k_rand'
 
 np.random.seed(21)
 
@@ -252,73 +298,40 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
 print(datetime.now())
 test_online_svd_procrust()
 
+
+print("Intersecting .bed files by using bash and plink...")
+print(datetime.now())
+bashout = subprocess.run(['bash', 'intersect_bed.sh', REF_PREF, STU_PREF], stdout=subprocess.PIPE)
+ref_pref_commsnpsrefal, stu_pref_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
+assert len(ref_pref_commsnpsrefal) > 0
+assert len(stu_pref_commsnpsrefal) > 0
+print("Done.")
+
 # Read data
 print("Reading reference data...")
 print(datetime.now())
-X_bim_full, X_fam_full, X_full = read_plink('../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele_train')
-X_full = X_full.astype(np.float32)
-# X_full = X_full.compute()
-print("Done.")
+X_bim, X_fam, X_dask = read_plink(ref_pref_commsnpsrefal)
+X_dask = X_dask.astype(np.float32)
+X_memmap_filename = os.path.join(mkdtemp(), 'X_memmap.dat')
+X = np.memmap(X_memmap_filename, dtype=np.float32, mode='w+', shape=X_dask.shape)
+X[:] = X_dask
 
-print("Reading study data...")
 print(datetime.now())
-W_bim_full, W_fam_full, W_full_dask = read_plink('../data/ukb/ukb_5k_rand.bed')
-W_full = np.memmap('W_full.memmap', dtype=np.float32, mode='w+', shape=W_full_dask.shape)
-W_full[:] = W_full_dask
+W_bim, W_fam, W_dask = read_plink(stu_pref_commsnpsrefal)
+W_dask = W_dask.astype(np.float32)
+W_memmap_filename = os.path.join(mkdtemp(), 'W_memmap.dat')
+W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
+W[:] = W_dask
 # TODO: Add checking for ind-major vs snp-major
-# W_full = W_full.T 
-# W_full = W_full.compute()
 print("Done.")
 
-
-print("Sorting ref snps by chrom and pos...")
-print(datetime.now())
-X_bim_full['chrom'] = X_bim_full['chrom'].astype(np.int64)
-W_bim_full['chrom'] = W_bim_full['chrom'].astype(np.int64)
-# X_bim_full = X_bim_full.sort_values(by=['chrom', 'pos'])
-print("Sorting stu snps by chrom and pos...")
-print(datetime.now())
-# W_bim_full = W_bim_full.sort_values(by=['chrom', 'pos'])
-print("Intersecting snps...")
-print(datetime.now())
-snp_intersect = np.intersect1d(X_bim_full['snp'], W_bim_full['snp'], assume_unique=True)
-print("Filtering reference snps...")
-print(datetime.now())
-X_snp_isshared = np.isin(X_bim_full['snp'], snp_intersect, assume_unique=True)
-print("Filtering study snps...")
-print(datetime.now())
-W_snp_isshared = np.isin(W_bim_full['snp'], snp_intersect, assume_unique=True)
-print("Creating filtered reference set...")
-print(datetime.now())
-X = X_full[X_snp_isshared].compute()
-X_bim = X_bim_full[X_snp_isshared]
-print("Creating filtered study set...")
-print(datetime.now())
-W = W_full[W_snp_isshared]
-W_bim = W_bim_full[W_snp_isshared]
-assert list(W_bim['snp']) == list(X_bim['snp'])
+# Check ref and stu have the same snps and alleles
+assert X_bim.shape == W_bim.shape
+assert all(X_bim[['chrom', 'snp', 'pos', 'a0', 'a1']] == W_bim[['chrom', 'snp', 'pos', 'a0', 'a1']])
 p_ref, n_ref = X.shape
 p_stu, n_stu = W.shape
 assert p_ref == p_stu
 p = p_ref
-
-print("Handling alleles...")
-allele_isdiff = np.array(W_bim['a0']) != np.array(X_bim['a0'])
-# allele_isswapped = np.logical_and(np.array(W_bim['a0']) == np.array(X_bim['a1']), np.array(W_bim['a0']) == np.array(X_bim['a1']))
-c0 = np.zeros((p, 1))
-c0[allele_isdiff] = 2
-c1 = np.ones((p, 1))
-c1[allele_isdiff] = -1
-W *= c1
-W += c0
-# TODO: Change the bim file, too
-# W_bim_a0_diff = W_bim['a0'][allele_isdiff]
-# W_bim['a0'][allele_isdiff] = W_bim['a1'][allele_isdiff].astype('object').values
-# W_bim['a1'][allele_isdiff] = W_bim_a0_diff
-# assert list(W_bim['a0']) == list(X_bim['a0'])
-# assert list(W_bim['a1']) == list(X_bim['a1']
-print("Done.")
-print(datetime.now())
 
 # Center and nomralize reference data
 print("Centering and normalizing reference data...")
@@ -470,4 +483,8 @@ ax.plot(pcs_stu_onl[:, 0], pcs_stu_onl[:, 1], 'o', alpha=PLOT_ALPHA, label='onli
 ax.legend()
 plt.savefig('pcs.png', dpi=300)
 
-del W_full
+del X
+del W
+print("Reference memmap file: " + str(X_memmap_filename))
+print("Study memmap file: " + str(W_memmap_filename))
+

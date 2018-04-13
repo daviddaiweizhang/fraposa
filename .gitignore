@@ -20,7 +20,6 @@ unused/*
 *.swp
 cache/
 *.o28*
-*.py~
-*.org~
+*~
 *.png
 *.memmap
