@@ -17,6 +17,8 @@ import os.path
 from tempfile import mkdtemp
 import subprocess
 
+print("lala")
+
 # print("Sorting ref snps by chrom and pos...")
 # print(datetime.now())
 # X_bim_full['chrom'] = X_bim_full['chrom'].astype(np.int64)
@@ -130,8 +132,8 @@ DIM_SVDRAND = DIM_STUDY * 4
 NITER_SVDRAND = 2
 NP_OUTPUT_FMT = '%.4f'
 REF_PREF = '../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele'
-STU_PREF = '../data/ukb/ukb_5k_rand'
-
+STU_PREF = '../data/ukb/ukb'
+TMP_DIR = mkdtemp()
 np.random.seed(21)
 
 def eig_sym(XTX):
@@ -312,14 +314,14 @@ print("Reading reference data...")
 print(datetime.now())
 X_bim, X_fam, X_dask = read_plink(ref_pref_commsnpsrefal)
 X_dask = X_dask.astype(np.float32)
-X_memmap_filename = os.path.join(mkdtemp(), 'X_memmap.dat')
+X_memmap_filename = os.path.join(TMP_DIR, 'X_memmap.dat')
 X = np.memmap(X_memmap_filename, dtype=np.float32, mode='w+', shape=X_dask.shape)
 X[:] = X_dask
 
 print(datetime.now())
 W_bim, W_fam, W_dask = read_plink(stu_pref_commsnpsrefal)
 W_dask = W_dask.astype(np.float32)
-W_memmap_filename = os.path.join(mkdtemp(), 'W_memmap.dat')
+W_memmap_filename = os.path.join(TMP_DIR, 'W_memmap.dat')
 W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
 W[:] = W_dask
 # TODO: Add checking for ind-major vs snp-major
@@ -487,4 +489,5 @@ del X
 del W
 print("Reference memmap file: " + str(X_memmap_filename))
 print("Study memmap file: " + str(W_memmap_filename))
-
+print("Temporary directory content: ")
+print(subprocess.run(['ls', '-hl', TMP_DIR]))

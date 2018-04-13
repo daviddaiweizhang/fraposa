@@ -48,7 +48,7 @@ int main(){
   rowvec c;
 
   // Test procrustes
-  cout << "Testing TRACE's procrustes functions..." << endl;
+  // cout << "Running TRACE's procrustes functions..." << endl;
   procrustes(PC_new_head, PC_ref_fat, PC_new_head_trsfed, t, rho, A, c, 0);
   A.save("procrustes_A.dat", raw_ascii);
   c.save("procrustes_c.dat", raw_ascii);
@@ -56,17 +56,17 @@ int main(){
   fout.open("procrustes_rho.dat");
   fout << rho;
   fout.close();
-  cout << "Done." << endl;
+  // cout << "Done." << endl;
 
   // Test projection procrustes
-  cout << "Testing TRACE's projection procrustes functions..." << endl;
+  // cout << "Running TRACE's projection procrustes functions..." << endl;
   pprocrustes(PC_new_head, PC_ref, PC_new_head_trsfed, t, rho, A, c, 10000, 0.000001, 0);
   A.save("pprocrustes_A.dat", raw_ascii);
   c.save("pprocrustes_c.dat", raw_ascii);
   fout.open("pprocrustes_rho.dat");
   fout << rho;
   fout.close();
-  cout << "Done." << endl;
+  // cout << "Done." << endl;
   return 0;
 }
 

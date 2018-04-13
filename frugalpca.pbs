@@ -30,6 +30,6 @@ id="${PBS_JOBID:0:8}"
 #  Put your job commands here:
 
 date
-module load mkl/11.3.3 gcc/5.4.0 gsl armadillo python-dev R
-python frugalpca.py
+python frugalpca.py 
+# python frugalpca.py 2>&1 | tee frugalpca.log
 date
