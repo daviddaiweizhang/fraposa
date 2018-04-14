@@ -130,7 +130,7 @@ DIM_SVDRAND = DIM_STUDY * 4
 NITER_SVDRAND = 2
 NP_OUTPUT_FMT = '%.4f'
 REF_PREF = '../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele'
-STU_PREF = '../data/ukb/ukb'
+STU_PREF = '../data/ukb/ukb_5k_rand'
 TMP_DIR = mkdtemp()
 np.random.seed(21)
 
@@ -298,9 +298,10 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
 print(datetime.now())
 test_online_svd_procrust()
 
+print("Temp dir: " + TMP_DIR[1])
 print(datetime.now())
 print("Intersecting .bed files by using bash and plink...")
-bashout = subprocess.run(['bash', 'intersect_bed.sh', REF_PREF, STU_PREF], stdout=subprocess.PIPE)
+bashout = subprocess.run(['bash', 'intersect_bed.sh', REF_PREF, STU_PREF, TMP_DIR[1]], stdout=subprocess.PIPE)
 ref_pref_commsnpsrefal, stu_pref_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
 assert len(ref_pref_commsnpsrefal) > 0
 assert len(stu_pref_commsnpsrefal) > 0
@@ -314,6 +315,7 @@ print(datetime.now())
 print("Loading reference dask array into memmap...")
 X_memmap_filename = os.path.join(TMP_DIR, 'X_memmap.dat')
 X = np.memmap(X_memmap_filename, dtype=np.float32, mode='w+', shape=X_dask.shape)
+# X = np.zeros(dtype=np.float32, shape=X_dask.shape)
 X[:] = X_dask
 
 print(datetime.now())
@@ -325,6 +327,7 @@ print("Loading reference dask array into memmap...")
 W_memmap_filename = os.path.join(TMP_DIR, 'W_memmap.dat')
 W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
 # W[:] = W_dask
+W = np.zeros(dtype=np.float32, shape=W_dask.shape)
 for i in range(len(W_dask.chunks[0])):
     start = sum(W_dask.chunks[0][:i])
     end = sum(W_dask.chunks[0][:i+1])
