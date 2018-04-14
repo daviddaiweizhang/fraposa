@@ -2,7 +2,7 @@
 
 ref=$1
 stu=$2
-tmpdir=`mktemp -d`
+tmpdir=$3
 
 cut -f2 ${ref}.bim > ${ref}.rs
 cut -f2 ${stu}.bim > ${stu}.rs
