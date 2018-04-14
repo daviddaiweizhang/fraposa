@@ -17,8 +17,6 @@ import os.path
 from tempfile import mkdtemp
 import subprocess
 
-print("lala")
-
 # print("Sorting ref snps by chrom and pos...")
 # print(datetime.now())
 # X_bim_full['chrom'] = X_bim_full['chrom'].astype(np.int64)
@@ -300,32 +298,38 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
 print(datetime.now())
 test_online_svd_procrust()
 
-
-print("Intersecting .bed files by using bash and plink...")
 print(datetime.now())
+print("Intersecting .bed files by using bash and plink...")
 bashout = subprocess.run(['bash', 'intersect_bed.sh', REF_PREF, STU_PREF], stdout=subprocess.PIPE)
 ref_pref_commsnpsrefal, stu_pref_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
 assert len(ref_pref_commsnpsrefal) > 0
 assert len(stu_pref_commsnpsrefal) > 0
-print("Done.")
 
 # Read data
-print("Reading reference data...")
 print(datetime.now())
+print("Reading reference data into dask array...")
 X_bim, X_fam, X_dask = read_plink(ref_pref_commsnpsrefal)
 X_dask = X_dask.astype(np.float32)
+print(datetime.now())
+print("Loading reference dask array into memmap...")
 X_memmap_filename = os.path.join(TMP_DIR, 'X_memmap.dat')
 X = np.memmap(X_memmap_filename, dtype=np.float32, mode='w+', shape=X_dask.shape)
 X[:] = X_dask
 
 print(datetime.now())
+print("Reading study data into dask array...")
 W_bim, W_fam, W_dask = read_plink(stu_pref_commsnpsrefal)
 W_dask = W_dask.astype(np.float32)
+print(datetime.now())
+print("Loading reference dask array into memmap...")
 W_memmap_filename = os.path.join(TMP_DIR, 'W_memmap.dat')
 W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
-W[:] = W_dask
+# W[:] = W_dask
+for i in range(len(W_dask.chunks[0])):
+    start = sum(W_dask.chunks[0][:i])
+    end = sum(W_dask.chunks[0][:i+1])
+    W[start:end, :] = W_dask[start:end, :]
 # TODO: Add checking for ind-major vs snp-major
-print("Done.")
 
 # Check ref and stu have the same snps and alleles
 assert X_bim.shape == W_bim.shape
@@ -335,29 +339,20 @@ p_stu, n_stu = W.shape
 assert p_ref == p_stu
 p = p_ref
 
-# Center and nomralize reference data
-print("Centering and normalizing reference data...")
 print(datetime.now())
+print("Centering, normalizing, and imputing reference data...")
 X_mean = np.nanmean(X, axis = 1).reshape((-1, 1))
 X_std = np.nanstd(X, axis = 1).reshape((-1,1))
 X_std[X_std == 0] = 1
 X -= X_mean
 X /= X_std
-print("Done")
-
-print("Replacing missing data with SNP mean...")
-print(datetime.now())
 X[np.isnan(X)] = 0
-print("Done")
 
-# Center and nomralize study data
-print("Centering and normalizing study data...")
 print(datetime.now())
+print("Centering, normalizing, and imputing study data...")
 W -= X_mean
 W /= X_std
 W[da.isnan(W)] = 0
-print("Done.")
-print(datetime.now())
 
 # PCA on the reference data
 # sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
@@ -366,8 +361,6 @@ print(datetime.now())
 #     s = np.loadtxt('s.dat')
 #     V = np.loadtxt('V.dat')
 #     print("Done.")
-print(datetime.now())
-start_time = time.time()
 # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
 # cache = Chest(path='cache')
 
@@ -379,24 +372,15 @@ start_time = time.time()
 # np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
 
 # Multiplication and eigendecomposition
+print(datetime.now())
 print("Doing multiplication and eigendecomposition on training data...")
 XTX = X.T @ X
-np.savetxt('XTX.dat', XTX, fmt=NP_OUTPUT_FMT)
 s, V = eig_sym(XTX)
-
-elapse = time.time() - start_time
-print(datetime.now())
-print(elapse)
-print("Saving training SVD result...")
+pcs_ref = V[:, :DIM_REF] * s[:DIM_REF]
+np.savetxt('XTX.dat', XTX, fmt=NP_OUTPUT_FMT)
 np.savetxt('s.dat', s, fmt=NP_OUTPUT_FMT)
 np.savetxt('V.dat', V, fmt=NP_OUTPUT_FMT)
-print("Done.")
-
-# Subset and whiten PC scores
-print("Subsetting and whitening PC scores...")
-pcs_ref = V[:, :DIM_REF] * s[:DIM_REF]
 np.savetxt('pcs_ref.dat', pcs_ref, fmt=NP_OUTPUT_FMT)
-print("Done.")
 
 # # Test result close to TRACE's
 # print("Testing reference PC scores are the same as TRACE's...")
@@ -423,29 +407,24 @@ print("Calculating PC loadings...")
 print(datetime.now())
 U = X @ (V[:,:DIM_STUDY_HIGH] / s[:DIM_STUDY_HIGH])
 np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
-print("Done.")
 
+print(datetime.now())
 print("Calculating study pc scores with simple projection...")
-print(datetime.now())
 pcs_stu_proj = (W.T @ U[:,:DIM_REF])
-print("Done.")
-print(datetime.now())
 np.savetxt('pcs_stu_proj.dat', pcs_stu_proj, fmt=NP_OUTPUT_FMT, delimiter='\t')
 
-print("Adjusting simple projection pcs with hdpca...")
 print(datetime.now())
+print("Adjusting simple projection pcs with hdpca...")
 r = robjects.r
 robjects.numpy2ri.activate()
 importr('hdpca')
 pc_adjust = r['pc_adjust']
 pcs_stu_hdpca = pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj, n_spikes_max=20)
 pcs_stu_hdpca = np.array(pcs_stu_hdpca)
-print("Done.")
-print(datetime.now())
 np.savetxt('pcs_stu_hdpca.dat', pcs_stu_hdpca, fmt=NP_OUTPUT_FMT, delimiter='\t')
 
-print("Calculating study pc scores with svd_online...")
 print(datetime.now())
+print("Calculating study pc scores with svd_online...")
 pcs_stu_onl = np.zeros((n_stu, DIM_REF))
 for i in range(n_stu):
     b = W[:,i]
@@ -458,8 +437,6 @@ for i in range(n_stu):
     pcs_stu_onl[i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
     if (i + 1) % 100 == 0:
         print("Finished analyzing " + str(i+1) + " samples.")
-print("Done.")
-print(datetime.now())
 np.savetxt('pcs_stu_onl.dat', pcs_stu_onl, fmt=NP_OUTPUT_FMT, delimiter='\t')
 
 # print("Testing study PC scores are the same as TRACE's...")
@@ -472,6 +449,17 @@ np.savetxt('pcs_stu_onl.dat', pcs_stu_onl, fmt=NP_OUTPUT_FMT, delimiter='\t')
 # np.savetxt('pcs_stu_trace.dat', pcs_stu_trace, fmt=NP_OUTPUT_FMT, delimiter='\t')
 # print("Passed.")
 
+print(datetime.now())
+print("Data analysis finished.")
+
+del X
+del W
+print("Reference memmap file: " + str(X_memmap_filename))
+print("Study memmap file: " + str(W_memmap_filename))
+print("Temporary directory content: ")
+print(subprocess.run(['ls', '-hl', TMP_DIR]))
+
+print(datetime.now())
 PLOT_ALPHA=0.2
 fig, ax = plt.subplots()
 ax.plot(pcs_ref[:, 0], pcs_ref[:, 1], 'o', alpha=PLOT_ALPHA, label='ref')
@@ -484,10 +472,3 @@ ax.plot(pcs_stu_onl[:, 0], pcs_stu_onl[:, 1], 'o', alpha=PLOT_ALPHA, label='onli
 # ax.axvline(x=0, color='grey')
 ax.legend()
 plt.savefig('pcs.png', dpi=300)
-
-del X
-del W
-print("Reference memmap file: " + str(X_memmap_filename))
-print("Study memmap file: " + str(W_memmap_filename))
-print("Temporary directory content: ")
-print(subprocess.run(['ls', '-hl', TMP_DIR]))

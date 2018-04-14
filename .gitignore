@@ -20,6 +20,7 @@ unused/*
 *.swp
 cache/
 *.o28*
+*.e28*
 *~
 *.png
 *.memmap
