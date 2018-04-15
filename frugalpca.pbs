@@ -3,7 +3,7 @@
 
 #PBS -N frugalpca
 # Change the number of cores (ppn=1), amount of memory, and walltime:
-#PBS -l nodes=1:ppn=1,mem=16gb,walltime=0:12:00:00
+#PBS -l nodes=1:ppn=1,mem=16gb,walltime=0:30:00:00
 # use this for array: #PBS -t 0-4
 
 #PBS -M daiweiz@umich.edu
