@@ -298,10 +298,10 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
 print(datetime.now())
 test_online_svd_procrust()
 
-print("Temp dir: " + TMP_DIR[1])
+print("Temp dir: " + TMP_DIR)
 print(datetime.now())
 print("Intersecting .bed files by using bash and plink...")
-bashout = subprocess.run(['bash', 'intersect_bed.sh', REF_PREF, STU_PREF, TMP_DIR[1]], stdout=subprocess.PIPE)
+bashout = subprocess.run(['bash', 'intersect_bed.sh', REF_PREF, STU_PREF, TMP_DIR], stdout=subprocess.PIPE)
 ref_pref_commsnpsrefal, stu_pref_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
 assert len(ref_pref_commsnpsrefal) > 0
 assert len(stu_pref_commsnpsrefal) > 0
