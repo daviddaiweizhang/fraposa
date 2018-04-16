@@ -122,6 +122,17 @@ import subprocess
 #     b = mtx1_mean - mtx2_mean @ R * s
 #     return R, s, b
 
+# print("Testing study PC scores are the same as TRACE's...")
+# pcs_stu_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.ProPC.coord'
+# pcs_stu_trace = pd.read_table(pcs_stu_trace_file)
+# pcs_stu_trace = np.array(pcs_stu_trace.iloc[:, 6:])
+# dim_stu_trace = pcs_stu_trace.shape[1]
+# assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
+# assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
+# np.savetxt('pcs_stu_trace.dat', pcs_stu_trace, fmt=NP_OUTPUT_FMT, delimiter='\t')
+# print("Passed.")
+
+
 DIM_REF = 4
 DIM_STUDY = 20
 DIM_STUDY_HIGH = DIM_STUDY * 2
@@ -132,6 +143,7 @@ NP_OUTPUT_FMT = '%.4f'
 REF_PREF = '../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele'
 STU_PREF = '../data/ukb/ukb_5k_rand'
 TMP_DIR = mkdtemp()
+STU_CHUNK_SIZE = 1000
 np.random.seed(21)
 
 def eig_sym(XTX):
@@ -315,23 +327,23 @@ print(datetime.now())
 print("Loading reference dask array into memmap...")
 X_memmap_filename = os.path.join(TMP_DIR, 'X_memmap.dat')
 X = np.memmap(X_memmap_filename, dtype=np.float32, mode='w+', shape=X_dask.shape)
-# X = np.zeros(dtype=np.float32, shape=X_dask.shape)
+X = np.zeros(dtype=np.float32, shape=X_dask.shape)
 X[:] = X_dask
 
 print(datetime.now())
 print("Reading study data into dask array...")
 W_bim, W_fam, W_dask = read_plink(stu_pref_commsnpsrefal)
 W_dask = W_dask.astype(np.float32)
-print(datetime.now())
-print("Loading reference dask array into memmap...")
-W_memmap_filename = os.path.join(TMP_DIR, 'W_memmap.dat')
-W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
-# W[:] = W_dask
-W = np.zeros(dtype=np.float32, shape=W_dask.shape)
-for i in range(len(W_dask.chunks[0])):
-    start = sum(W_dask.chunks[0][:i])
-    end = sum(W_dask.chunks[0][:i+1])
-    W[start:end, :] = W_dask[start:end, :]
+# print(datetime.now())
+# print("Loading reference dask array into memmap...")
+# W_memmap_filename = os.path.join(TMP_DIR, 'W_memmap.dat')
+# W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
+# # W[:] = W_dask
+# W = np.zeros(dtype=np.float32, shape=W_dask.shape)
+# for i in range(len(W_dask.chunks[0])):
+#     start = sum(W_dask.chunks[0][:i])
+#     end = sum(W_dask.chunks[0][:i+1])
+#     W[start:end, :] = W_dask[start:end, :]
 # TODO: Add checking for ind-major vs snp-major
 
 # Check ref and stu have the same snps and alleles
@@ -350,12 +362,6 @@ X_std[X_std == 0] = 1
 X -= X_mean
 X /= X_std
 X[np.isnan(X)] = 0
-
-print(datetime.now())
-print("Centering, normalizing, and imputing study data...")
-W -= X_mean
-W /= X_std
-W[da.isnan(W)] = 0
 
 # PCA on the reference data
 # sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
@@ -411,57 +417,66 @@ print(datetime.now())
 U = X @ (V[:,:DIM_STUDY_HIGH] / s[:DIM_STUDY_HIGH])
 np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
 
-print(datetime.now())
-print("Calculating study pc scores with simple projection...")
-pcs_stu_proj = (W.T @ U[:,:DIM_REF])
-np.savetxt('pcs_stu_proj.dat', pcs_stu_proj, fmt=NP_OUTPUT_FMT, delimiter='\t')
 
+pcs_stu_proj = np.zeros((n_stu, DIM_REF), dtype=np.float32)
+pcs_stu_hdpca = np.zeros((n_stu, DIM_REF), dtype=np.float32)
+pcs_stu_onl = np.zeros((n_stu, DIM_REF), dtype=np.float32)
+stu_chunk_n = n_stu / STU_CHUNK_SIZE
+print("Calculating study PC scores...")
 print(datetime.now())
-print("Adjusting simple projection pcs with hdpca...")
-r = robjects.r
-robjects.numpy2ri.activate()
-importr('hdpca')
-pc_adjust = r['pc_adjust']
-pcs_stu_hdpca = pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj, n_spikes_max=20)
-pcs_stu_hdpca = np.array(pcs_stu_hdpca)
-np.savetxt('pcs_stu_hdpca.dat', pcs_stu_hdpca, fmt=NP_OUTPUT_FMT, delimiter='\t')
+for i in range(stu_chunk_n):
+    sample_start = STU_CHUNK_SIZE * i 
+    sample_end = min(STU_CHUNK_SIZE * (i+1), n_stu)
+    W = W_dask[:, sample_start:sample_end]
 
-print(datetime.now())
-print("Calculating study pc scores with svd_online...")
-pcs_stu_onl = np.zeros((n_stu, DIM_REF))
-for i in range(n_stu):
-    b = W[:,i]
-    s_new, V_new = svd_online(U[:,:DIM_STUDY_HIGH], s[:DIM_STUDY_HIGH], V[:,:DIM_STUDY_HIGH], b, DIM_SVDONLINE)
-    s_new, V_new = s_new[:DIM_STUDY], V_new[:, :DIM_STUDY]
-    pcs_new = V_new * s_new
-    pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
-    R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
-    pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
-    pcs_stu_onl[i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
-    if (i + 1) % 100 == 0:
-        print("Finished analyzing " + str(i+1) + " samples.")
-np.savetxt('pcs_stu_onl.dat', pcs_stu_onl, fmt=NP_OUTPUT_FMT, delimiter='\t')
+    # print(datetime.now())
+    # print("Centering, normalizing, and imputing study data...")
+    W -= X_mean
+    W /= X_std
+    W[da.isnan(W)] = 0
 
-# print("Testing study PC scores are the same as TRACE's...")
-# pcs_stu_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.ProPC.coord'
-# pcs_stu_trace = pd.read_table(pcs_stu_trace_file)
-# pcs_stu_trace = np.array(pcs_stu_trace.iloc[:, 6:])
-# dim_stu_trace = pcs_stu_trace.shape[1]
-# assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
-# assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
-# np.savetxt('pcs_stu_trace.dat', pcs_stu_trace, fmt=NP_OUTPUT_FMT, delimiter='\t')
-# print("Passed.")
+    # print(datetime.now())
+    # print("Calculating study pc scores with simple projection...")
+    pcs_stu_proj[sample_start:sample_end, :] = (W.T @ U[:,:DIM_REF])
+
+    # print(datetime.now())
+    # print("Adjusting simple projection pcs with hdpca...")
+    r = robjects.r
+    robjects.numpy2ri.activate()
+    importr('hdpca')
+    pc_adjust = r['pc_adjust']
+    pcs_stu_hdpca[sample_start:sample_end, :] = pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj, n_spikes_max=20)
+
+    # print(datetime.now())
+    # print("Calculating study pc scores with svd_online...")
+    for i in range(n_stu):
+        b = W[:,i]
+        s_new, V_new = svd_online(U[:,:DIM_STUDY_HIGH], s[:DIM_STUDY_HIGH], V[:,:DIM_STUDY_HIGH], b, DIM_SVDONLINE)
+        s_new, V_new = s_new[:DIM_STUDY], V_new[:, :DIM_STUDY]
+        pcs_new = V_new * s_new
+        pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
+        R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
+        pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
+        pcs_stu_onl[i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
+    print("Finished analyzing " + str(sample_end) + " samples.")
 
 print(datetime.now())
 print("Data analysis finished.")
 
+# Save PC scores
+np.savetxt('pcs_stu_proj.dat', pcs_stu_proj, fmt=NP_OUTPUT_FMT, delimiter='\t')
+np.savetxt('pcs_stu_hdpca.dat', pcs_stu_hdpca, fmt=NP_OUTPUT_FMT, delimiter='\t')
+np.savetxt('pcs_stu_onl.dat', pcs_stu_onl, fmt=NP_OUTPUT_FMT, delimiter='\t')
+
+# Clean temporary variables and files
 del X
 del W
 print("Reference memmap file: " + str(X_memmap_filename))
-print("Study memmap file: " + str(W_memmap_filename))
+# print("Study memmap file: " + str(W_memmap_filename))
 print("Temporary directory content: ")
 print(subprocess.run(['ls', '-hl', TMP_DIR]))
 
+# Plot PC scores
 print(datetime.now())
 PLOT_ALPHA=0.2
 fig, ax = plt.subplots()
