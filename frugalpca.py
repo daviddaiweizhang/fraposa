@@ -143,7 +143,7 @@ NP_OUTPUT_FMT = '%.4f'
 REF_PREF = '../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele'
 STU_PREF = '../data/ukb/ukb_5k_rand'
 TMP_DIR = mkdtemp()
-STU_CHUNK_SIZE = 1000
+CHUNK_SIZE_STUDY = 1000
 np.random.seed(21)
 
 def eig_sym(XTX):
@@ -349,8 +349,8 @@ W_dask = W_dask.astype(np.float32)
 # Check ref and stu have the same snps and alleles
 assert X_bim.shape == W_bim.shape
 assert all(X_bim[['chrom', 'snp', 'pos', 'a0', 'a1']] == W_bim[['chrom', 'snp', 'pos', 'a0', 'a1']])
-p_ref, n_ref = X.shape
-p_stu, n_stu = W.shape
+p_ref, n_ref = X_dask.shape
+p_stu, n_stu = W_dask.shape
 assert p_ref == p_stu
 p = p_ref
 
@@ -421,12 +421,12 @@ np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
 pcs_stu_proj = np.zeros((n_stu, DIM_REF), dtype=np.float32)
 pcs_stu_hdpca = np.zeros((n_stu, DIM_REF), dtype=np.float32)
 pcs_stu_onl = np.zeros((n_stu, DIM_REF), dtype=np.float32)
-stu_chunk_n = n_stu / STU_CHUNK_SIZE
+chunk_n_stu = n_stu // CHUNK_SIZE_STUDY
 print("Calculating study PC scores...")
 print(datetime.now())
-for i in range(stu_chunk_n):
-    sample_start = STU_CHUNK_SIZE * i 
-    sample_end = min(STU_CHUNK_SIZE * (i+1), n_stu)
+for i in range(chunk_n_stu):
+    sample_start = CHUNK_SIZE_STUDY * i 
+    sample_end = min(CHUNK_SIZE_STUY * (i+1), n_stu)
     W = W_dask[:, sample_start:sample_end]
 
     # print(datetime.now())
