@@ -143,19 +143,21 @@ NITER_SVDRAND = 2
 HDPCA_N_SPIKE_MAX = 20
 NP_OUTPUT_FMT = '%.4f'
 REF_PREF = '../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele'
-STU_PREF = '../data/ukb/ukb_5k_rand'
+STU_PREF = '../data/ukb/ukb'
 TMP_DIR = mkdtemp()
 CHUNK_SIZE_STUDY = 1000
 POPU_REF_FILENAME = '../data/kgn/ALL.ped'
 SUPERPOPU_REF_FILENAME = '../data/kgn/kgn_superpopu.table'
+LOG_FILE_PREFIX = 'frugalpca.log'
 np.random.seed(21)
 
-def createLogger(filename):
+def createLogger(prefix):
     log = logging.getLogger()
     log.setLevel(logging.INFO)
     # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(message)s')
     # create file handler which logs even debug messages
+    filename = prefix + str(round(time.time()))
     fh = logging.FileHandler(filename, 'w')
     fh.setLevel(logging.INFO)
     fh.setFormatter(formatter)
@@ -332,7 +334,7 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
                 Z = Z_new
     return R, rho, c
 
-log = createLogger('frugalpca.log')
+log = createLogger(LOG_FILE_PREFIX)
 test_online_svd_procrust()
 
 logging.info("Temp dir: " + TMP_DIR)
@@ -448,6 +450,7 @@ elapse_hdpca = 0.0
 elapse_onl = 0.0
 for i in range(chunk_n_stu):
 
+    logging.info("Subsetting study samples...")
     t0 = time.time()
     sample_start = CHUNK_SIZE_STUDY * i 
     sample_end = min(CHUNK_SIZE_STUDY * (i+1), n_stu)
@@ -456,28 +459,24 @@ for i in range(chunk_n_stu):
 
 
     t0 = time.time()
-    # print(datetime.now())
-    # print("Centering, normalizing, and imputing study data...")
+    logging.info("Centering, normalizing, and imputing study data...")
     W -= X_mean
     W /= X_std
     W[np.isnan(W)] = 0
     elapse_standardize += time.time() - t0
 
     t0 = time.time()
-    # print(datetime.now())
-    # print("Calculating study pc scores with simple projection...")
+    logging.info("Calculating study pc scores with simple projection...")
     pcs_stu_proj_dim_study = W.T @ U[:,:DIM_STUDY]
     pcs_stu_proj[sample_start:sample_end, :] = pcs_stu_proj_dim_study[:, :DIM_REF]
     elapse_proj += time.time() - t0
 
     t0 = time.time()
-    # print(datetime.now())
-    # print("Adjusting simple projection pcs with hdpca...")
+    logging.info("Adjusting simple projection pcs with hdpca...")
     r = robjects.r
     robjects.numpy2ri.activate()
     importr('hdpca')
     pc_adjust = r['pc_adjust']
-
     # Run hdpca but suppress output to stdout
     with open(os.devnull, "w") as devnull:
         old_stdout = sys.stdout
@@ -489,8 +488,7 @@ for i in range(chunk_n_stu):
     elapse_hdpca += time.time() - t0
 
     t0 = time.time()
-    # print(datetime.now())
-    # print("Calculating study pc scores with svd_online...")
+    logging.info("Calculating study pc scores with svd_online...")
     for i in range(W.shape[1]):
         b = W[:,i]
         s_new, V_new = svd_online(U[:,:DIM_STUDY_HIGH], s[:DIM_STUDY_HIGH], V[:,:DIM_STUDY_HIGH], b, DIM_SVDONLINE)
