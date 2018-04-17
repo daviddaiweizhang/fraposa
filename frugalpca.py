@@ -16,6 +16,8 @@ from subprocess import call
 import os.path
 from tempfile import mkdtemp
 import subprocess
+import sys
+import logging
 
 # print("Sorting ref snps by chrom and pos...")
 # print(datetime.now())
@@ -132,19 +134,42 @@ import subprocess
 # np.savetxt('pcs_stu_trace.dat', pcs_stu_trace, fmt=NP_OUTPUT_FMT, delimiter='\t')
 # print("Passed.")
 
-
 DIM_REF = 4
 DIM_STUDY = 20
 DIM_STUDY_HIGH = DIM_STUDY * 2
 DIM_SVDONLINE = DIM_STUDY * 2
 DIM_SVDRAND = DIM_STUDY * 4
 NITER_SVDRAND = 2
+HDPCA_N_SPIKE_MAX = 20
 NP_OUTPUT_FMT = '%.4f'
 REF_PREF = '../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele'
 STU_PREF = '../data/ukb/ukb_5k_rand'
 TMP_DIR = mkdtemp()
 CHUNK_SIZE_STUDY = 1000
+POPU_REF_FILENAME = '../data/kgn/ALL.ped'
+SUPERPOPU_REF_FILENAME = '../data/kgn/kgn_superpopu.table'
 np.random.seed(21)
+
+def createLogger(filename):
+    log = logging.getLogger()
+    log.setLevel(logging.INFO)
+    # create formatter and add it to the handlers
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    # create file handler which logs even debug messages
+    fh = logging.FileHandler(filename, 'w')
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(formatter)
+    log.addHandler(fh)
+    # create console handler with a higher log level
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(formatter)
+    log.addHandler(ch)
+    return log
+
+# Close logger
+def clearLogger(log):
+    log.handlers = []
 
 def eig_sym(XTX):
     ssq, V = np.linalg.eigh(XTX)
@@ -175,7 +200,7 @@ def svd_online(U1, d1, V1, b, l):
 
 def test_online_svd_procrust():
     # def test_svd_online():
-    print("Testing test_svd_online...")
+    logging.info("Testing test_svd_online...")
 
     # # For debugging only
     # # For comparing with the R script written by Shawn
@@ -227,9 +252,9 @@ def test_online_svd_procrust():
         assert \
             abs(np.max(PC_new[:,i] - trueAns[:,i])) < 0.05 or \
             abs(np.max(PC_new[:,i] + trueAns[:,i])) < 0.05 # online_svd can flip the sign of a PC
-    print("Passed!")
+    logging.info("Passed!")
 
-    print("Testing procrustes...")
+    logging.info("Testing procrustes...")
     PC_new_head, PC_new_tail = PC_new[:-1, :], PC_new[-1, :].reshape((1,PC_new_dim))
     PC_ref_fat = np.zeros(n * PC_new_dim).reshape((n, PC_new_dim))
     PC_ref_fat[:, :PC_ref_dim] = PC_ref
@@ -240,8 +265,8 @@ def test_online_svd_procrust():
     R, rho, c = procrustes(PC_ref_fat, PC_new_head)
     # PC_new_tail_trsfed = PC_new_tail @ R * rho + c
     # PC_new_tail_trsfed = PC_new_tail_trsfed.flatten()[:PC_ref_dim]
-    call(['make', 'procrustes.o'])
-    call(['./procrustes.o'])
+    subprocess.run(['make', 'procrustes.o'], stdout=subprocess.PIPE)
+    subprocess.run(['./procrustes.o'], stdout=subprocess.PIPE)
     R_trace = np.loadtxt('procrustes_A.dat')
     rho_trace = np.loadtxt('procrustes_rho.dat')
     c_trace = np.loadtxt('procrustes_c.dat')
@@ -256,7 +281,7 @@ def test_online_svd_procrust():
     assert np.allclose(R_diffdim_trace, R_diffdim)
     assert np.allclose(rho_diffdim_trace, rho_diffdim)
     assert np.allclose(c_diffdim_trace, c_diffdim)
-    print("Passed!")
+    logging.info("Passed!")
 
 def procrustes(Y_mat, X_mat):
     ''' Find the best transformation from X to Y '''
@@ -307,32 +332,28 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
                 Z = Z_new
     return R, rho, c
 
-print(datetime.now())
+log = createLogger('frugalpca.log')
 test_online_svd_procrust()
 
-print("Temp dir: " + TMP_DIR)
-print(datetime.now())
-print("Intersecting .bed files by using bash and plink...")
+logging.info("Temp dir: " + TMP_DIR)
+logging.info("Intersecting .bed files by using bash and plink...")
 bashout = subprocess.run(['bash', 'intersect_bed.sh', REF_PREF, STU_PREF, TMP_DIR], stdout=subprocess.PIPE)
 ref_pref_commsnpsrefal, stu_pref_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
 assert len(ref_pref_commsnpsrefal) > 0
 assert len(stu_pref_commsnpsrefal) > 0
 
 # Read data
-print(datetime.now())
-print("Reading reference data into dask array...")
-X_bim, X_fam, X_dask = read_plink(ref_pref_commsnpsrefal)
+logging.info("Reading reference data into dask array...")
+X_bim, X_fam, X_dask = read_plink(ref_pref_commsnpsrefal, verbose=False)
 X_dask = X_dask.astype(np.float32)
-print(datetime.now())
-print("Loading reference dask array into memmap...")
+logging.info("Loading reference dask array into memmap...")
 X_memmap_filename = os.path.join(TMP_DIR, 'X_memmap.dat')
 X = np.memmap(X_memmap_filename, dtype=np.float32, mode='w+', shape=X_dask.shape)
 X = np.zeros(dtype=np.float32, shape=X_dask.shape)
 X[:] = X_dask
 
-print(datetime.now())
-print("Reading study data into dask array...")
-W_bim, W_fam, W_dask = read_plink(stu_pref_commsnpsrefal)
+logging.info("Reading study data into dask array...")
+W_bim, W_fam, W_dask = read_plink(stu_pref_commsnpsrefal, verbose=False)
 W_dask = W_dask.astype(np.float32)
 # print(datetime.now())
 # print("Loading reference dask array into memmap...")
@@ -354,8 +375,7 @@ p_stu, n_stu = W_dask.shape
 assert p_ref == p_stu
 p = p_ref
 
-print(datetime.now())
-print("Centering, normalizing, and imputing reference data...")
+logging.info("Centering, normalizing, and imputing reference data...")
 X_mean = np.nanmean(X, axis = 1).reshape((-1, 1))
 X_std = np.nanstd(X, axis = 1).reshape((-1,1))
 X_std[X_std == 0] = 1
@@ -381,8 +401,7 @@ X[np.isnan(X)] = 0
 # np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
 
 # Multiplication and eigendecomposition
-print(datetime.now())
-print("Doing multiplication and eigendecomposition on training data...")
+logging.info("Doing multiplication and eigendecomposition on training data...")
 XTX = X.T @ X
 s, V = eig_sym(XTX)
 pcs_ref = V[:, :DIM_REF] * s[:DIM_REF]
@@ -412,8 +431,7 @@ np.savetxt('pcs_ref.dat', pcs_ref, fmt=NP_OUTPUT_FMT)
 # if os.path.isfile('U.dat'):
 #     print("Reading existing U.dat...")
 #     U = np.loadtxt('U.dat')
-print("Calculating PC loadings...")
-print(datetime.now())
+logging.info("Calculating PC loadings...")
 U = X @ (V[:,:DIM_STUDY_HIGH] / s[:DIM_STUDY_HIGH])
 np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
 
@@ -422,34 +440,58 @@ pcs_stu_proj = np.zeros((n_stu, DIM_REF), dtype=np.float32)
 pcs_stu_hdpca = np.zeros((n_stu, DIM_REF), dtype=np.float32)
 pcs_stu_onl = np.zeros((n_stu, DIM_REF), dtype=np.float32)
 chunk_n_stu = n_stu // CHUNK_SIZE_STUDY
-print("Calculating study PC scores...")
-print(datetime.now())
+logging.info("Calculating study PC scores...")
+elapse_subset = 0.0
+elapse_standardize = 0.0
+elapse_proj = 0.0
+elapse_hdpca = 0.0
+elapse_onl = 0.0
 for i in range(chunk_n_stu):
-    sample_start = CHUNK_SIZE_STUDY * i 
-    sample_end = min(CHUNK_SIZE_STUY * (i+1), n_stu)
-    W = W_dask[:, sample_start:sample_end]
 
+    t0 = time.time()
+    sample_start = CHUNK_SIZE_STUDY * i 
+    sample_end = min(CHUNK_SIZE_STUDY * (i+1), n_stu)
+    W = W_dask[:, sample_start:sample_end].compute()
+    elapse_subset += time.time() - t0
+
+
+    t0 = time.time()
     # print(datetime.now())
     # print("Centering, normalizing, and imputing study data...")
     W -= X_mean
     W /= X_std
-    W[da.isnan(W)] = 0
+    W[np.isnan(W)] = 0
+    elapse_standardize += time.time() - t0
 
+    t0 = time.time()
     # print(datetime.now())
     # print("Calculating study pc scores with simple projection...")
-    pcs_stu_proj[sample_start:sample_end, :] = (W.T @ U[:,:DIM_REF])
+    pcs_stu_proj_dim_study = W.T @ U[:,:DIM_STUDY]
+    pcs_stu_proj[sample_start:sample_end, :] = pcs_stu_proj_dim_study[:, :DIM_REF]
+    elapse_proj += time.time() - t0
 
+    t0 = time.time()
     # print(datetime.now())
     # print("Adjusting simple projection pcs with hdpca...")
     r = robjects.r
     robjects.numpy2ri.activate()
     importr('hdpca')
     pc_adjust = r['pc_adjust']
-    pcs_stu_hdpca[sample_start:sample_end, :] = pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj, n_spikes_max=20)
 
+    # Run hdpca but suppress output to stdout
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        sys.stdout = devnull
+        pcs_stu_hdpca_dim_study = np.array(pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj_dim_study, n_spikes_max=HDPCA_N_SPIKE_MAX))
+        sys.stdout = old_stdout
+
+    pcs_stu_hdpca[sample_start:sample_end, :] = pcs_stu_hdpca_dim_study[:, :DIM_REF]
+    elapse_hdpca += time.time() - t0
+
+    t0 = time.time()
     # print(datetime.now())
     # print("Calculating study pc scores with svd_online...")
-    for i in range(n_stu):
+    for i in range(W.shape[1]):
         b = W[:,i]
         s_new, V_new = svd_online(U[:,:DIM_STUDY_HIGH], s[:DIM_STUDY_HIGH], V[:,:DIM_STUDY_HIGH], b, DIM_SVDONLINE)
         s_new, V_new = s_new[:DIM_STUDY], V_new[:, :DIM_STUDY]
@@ -457,36 +499,59 @@ for i in range(chunk_n_stu):
         pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
         R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
         pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
-        pcs_stu_onl[i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
-    print("Finished analyzing " + str(sample_end) + " samples.")
+        pcs_stu_onl[sample_start + i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
+    elapse_onl += time.time() - t0
+    logging.info("Finished analyzing " + str(sample_end) + " samples.")
 
-print(datetime.now())
-print("Data analysis finished.")
+logging.info('Finished analyzing study samples.')
+logging.info('Runtimes: ')
+logging.info('Standardizing: ' + str(elapse_standardize))
+logging.info('Subsetting: ' + str(elapse_subset))
+logging.info('Projection: ' + str(elapse_proj))
+logging.info('HDPCA: ' + str(elapse_hdpca))
+logging.info('Online: ' + str(elapse_onl))
 
-# Save PC scores
+logging.info('Saving study PC scores...')
 np.savetxt('pcs_stu_proj.dat', pcs_stu_proj, fmt=NP_OUTPUT_FMT, delimiter='\t')
 np.savetxt('pcs_stu_hdpca.dat', pcs_stu_hdpca, fmt=NP_OUTPUT_FMT, delimiter='\t')
 np.savetxt('pcs_stu_onl.dat', pcs_stu_onl, fmt=NP_OUTPUT_FMT, delimiter='\t')
 
-# Clean temporary variables and files
+logging.info('Cleaning temporary files...')
 del X
 del W
-print("Reference memmap file: " + str(X_memmap_filename))
+logging.info("Reference memmap file: " + str(X_memmap_filename))
 # print("Study memmap file: " + str(W_memmap_filename))
-print("Temporary directory content: ")
-print(subprocess.run(['ls', '-hl', TMP_DIR]))
+logging.info("Temporary directory content: ")
+logging.info(subprocess.run(['ls', '-hl', TMP_DIR]))
+
+popu_ref_df = pd.read_table(POPU_REF_FILENAME)
+superpopu_ref_df = pd.read_table(SUPERPOPU_REF_FILENAME)
+superpopu_ref_dict = superpopu_ref_df.set_index('Population Code')['Super Population Code'].to_dict()
+superpopu_unique = set(superpopu_ref_dict.values())
+superpopu_n = len(superpopu_unique)
+popu_ref_df['Superpopulation'] = [superpopu_ref_dict[popu_this] for popu_this in popu_ref_df['Population']]
+X_fam = X_fam.rename(index=str, columns={"iid": "Individual ID"})
+indiv_ref_info = pd.merge(X_fam, popu_ref_df, on = 'Individual ID')
+assert indiv_ref_info.shape[0] == pcs_ref.shape[0]
+# pcs_ref[indiv_ref_info['Superpopulation'] == 'EUR']
 
 # Plot PC scores
-print(datetime.now())
-PLOT_ALPHA=0.2
+PLOT_ALPHA_REF=0.5
+PLOT_ALPHA_STU=0.2
+PLOT_COLOR_STU='xkcd:grey'
 fig, ax = plt.subplots()
-ax.plot(pcs_ref[:, 0], pcs_ref[:, 1], 'o', alpha=PLOT_ALPHA, label='ref')
-ax.plot(pcs_stu_proj[:, 0], pcs_stu_proj[:, 1], 'o', alpha=PLOT_ALPHA, label='projection')
-ax.plot(pcs_stu_hdpca[:, 0], pcs_stu_hdpca[:, 1], 'o', alpha=PLOT_ALPHA, label='hdpca')
-ax.plot(pcs_stu_onl[:, 0], pcs_stu_onl[:, 1], 'o', alpha=PLOT_ALPHA, label='online')
+for sp in superpopu_unique:
+    is_this_sp = indiv_ref_info['Superpopulation'] == sp
+    ax.plot(pcs_ref[is_this_sp, 0], pcs_ref[is_this_sp, 1], 'o', label=sp, alpha=PLOT_ALPHA_REF)
+ax.plot(pcs_stu_proj[:, 0], pcs_stu_proj[:, 1], '+', alpha=PLOT_ALPHA_STU, label='projection', color=PLOT_COLOR_STU)
+ax.plot(pcs_stu_hdpca[:, 0], pcs_stu_hdpca[:, 1], 'x', alpha=PLOT_ALPHA_STU, label='hdpca', color=PLOT_COLOR_STU)
+ax.plot(pcs_stu_onl[:, 0], pcs_stu_onl[:, 1], 's', alpha=PLOT_ALPHA_STU, label='online', color=PLOT_COLOR_STU)
 # plt.plot(pcs_stu_trace[:, 0], pcs_stu_trace[:, 1], 'o', alpha=PLOT_ALPHA, label='trace')
 # ax.set_aspect('equal')
 # ax.axhline(y=0, color='grey')
 # ax.axvline(x=0, color='grey')
 ax.legend()
 plt.savefig('pcs.png', dpi=300)
+plt.close()
+
+clearLogger(log)
