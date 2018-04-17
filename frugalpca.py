@@ -19,28 +19,28 @@ import subprocess
 import sys
 import logging
 
-# print("Sorting ref snps by chrom and pos...")
+# print('Sorting ref snps by chrom and pos...')
 # print(datetime.now())
 # X_bim_full['chrom'] = X_bim_full['chrom'].astype(np.int64)
 # W_bim_full['chrom'] = W_bim_full['chrom'].astype(np.int64)
 # # X_bim_full = X_bim_full.sort_values(by=['chrom', 'pos'])
-# print("Sorting stu snps by chrom and pos...")
+# print('Sorting stu snps by chrom and pos...')
 # print(datetime.now())
 # # W_bim_full = W_bim_full.sort_values(by=['chrom', 'pos'])
-# print("Intersecting snps...")
+# print('Intersecting snps...')
 # print(datetime.now())
 # snp_intersect = np.intersect1d(X_bim_full['snp'], W_bim_full['snp'], assume_unique=True)
-# print("Filtering reference snps...")
+# print('Filtering reference snps...')
 # print(datetime.now())
 # X_snp_isshared = np.isin(X_bim_full['snp'], snp_intersect, assume_unique=True)
-# print("Filtering study snps...")
+# print('Filtering study snps...')
 # print(datetime.now())
 # W_snp_isshared = np.isin(W_bim_full['snp'], snp_intersect, assume_unique=True)
-# print("Creating filtered reference set...")
+# print('Creating filtered reference set...')
 # print(datetime.now())
 # X = X_full[X_snp_isshared].compute()
 # X_bim = X_bim_full[X_snp_isshared]
-# print("Creating filtered study set...")
+# print('Creating filtered study set...')
 # print(datetime.now())
 # W_dask = W_full[W_snp_isshared]
 # W_memmap_filename = os.path.join(mkdtemp(), 'W_memmap.dat')
@@ -48,7 +48,7 @@ import logging
 # W[:] = W_dask
 # W_bim = W_bim_full[W_snp_isshared]
 
-# print("Handling alleles...")
+# print('Handling alleles...')
 # allele_isdiff = np.array(W_bim['a0']) != np.array(X_bim['a0'])
 # # allele_isswapped = np.logical_and(np.array(W_bim['a0']) == np.array(X_bim['a1']), np.array(W_bim['a0']) == np.array(X_bim['a1']))
 # c0 = np.zeros((p, 1))
@@ -61,10 +61,10 @@ import logging
 # # W_bim_a0_diff = W_bim['a0'][allele_isdiff]
 # # W_bim['a0'][allele_isdiff] = W_bim['a1'][allele_isdiff].astype('object').values
 # # W_bim['a1'][allele_isdiff] = W_bim_a0_diff
-# print("Done.")
+# print('Done.')
 # print(datetime.now())
 
-# print("Calculating pc scores with eigen decomposition...")
+# print('Calculating pc scores with eigen decomposition...')
 # print(datetime.now())
 # if 'XTX' not in locals():
 #     XTX = np.loadtxt('XTX.dat')
@@ -72,7 +72,7 @@ import logging
 # XTX_new = np.zeros((n_ref + 1, n_ref + 1))
 # XTX_new[:-1, :-1] = XTX
 # for i in range(4):
-#     # print("Calculating XTX_new...")
+#     # print('Calculating XTX_new...')
 #     # print(datetime.now())
 #     b = W[:,i]
 #     bX = b @ X
@@ -80,31 +80,31 @@ import logging
 #     XTX_new[-1, :-1] = bX
 #     XTX_new[:-1, -1] = bX
 #     XTX_new[-1, -1] = bb
-#     # print("Calculating s_new and V_new...")
+#     # print('Calculating s_new and V_new...')
 #     # print(datetime.now())
 #     s_new, V_new = eig_sym(XTX_new)
 #     Vs_new = V_new * s_new
 #     pcs_new = Vs_new[:, :DIM_STUDY]
-#     # print("Done.")
+#     # print('Done.')
 #     # print(datetime.now())
-#     # print("Procrustes analysis...")
+#     # print('Procrustes analysis...')
 #     # print(datetime.now())
 #     pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
 #     R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
 #     pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
 #     pcs_stu_eig[i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
-# print("Done.")
+# print('Done.')
 # assert np.allclose(pcs_stu_trace[:4,:dim_stu_trace], pcs_stu_eig[:4,:dim_stu_trace], 0.01, 0.05)
 
 # def procrustes_old(data1, data2):
 #     mtx1 = np.array(data1, dtype=np.double, copy=True)
 #     mtx2 = np.array(data2, dtype=np.double, copy=True)
 #     if mtx1.ndim != 2 or mtx2.ndim != 2:
-#         raise ValueError("Input matrices must be two-dimensional")
+#         raise ValueError('Input matrices must be two-dimensional')
 #     if mtx1.shape != mtx2.shape:
-#         raise ValueError("Input matrices must be of same shape")
+#         raise ValueError('Input matrices must be of same shape')
 #     if mtx1.size == 0:
-#         raise ValueError("Input matrices must be >0 rows and >0 cols")
+#         raise ValueError('Input matrices must be >0 rows and >0 cols')
 #     # translate all the data to the origin
 #     mtx1_mean = np.mean(mtx1, 0)
 #     mtx1 -= mtx1_mean
@@ -114,7 +114,7 @@ import logging
 #     norm1 = np.linalg.norm(mtx1)
 #     norm2 = np.linalg.norm(mtx2)
 #     if norm1 == 0 or norm2 == 0:
-#         raise ValueError("Input matrices must contain >1 unique points")
+#         raise ValueError('Input matrices must contain >1 unique points')
 #     mtx1 /= norm1
 #     mtx2 /= norm2
 #     # transform mtx2 to minimize disparity
@@ -124,7 +124,7 @@ import logging
 #     b = mtx1_mean - mtx2_mean @ R * s
 #     return R, s, b
 
-# print("Testing study PC scores are the same as TRACE's...")
+# print('Testing study PC scores are the same as TRACE's...')
 # pcs_stu_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.ProPC.coord'
 # pcs_stu_trace = pd.read_table(pcs_stu_trace_file)
 # pcs_stu_trace = np.array(pcs_stu_trace.iloc[:, 6:])
@@ -132,7 +132,7 @@ import logging
 # assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
 # assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
 # np.savetxt('pcs_stu_trace.dat', pcs_stu_trace, fmt=NP_OUTPUT_FMT, delimiter='\t')
-# print("Passed.")
+# print('Passed.')
 
 DIM_REF = 4
 DIM_STUDY = 20
@@ -148,7 +148,7 @@ TMP_DIR = mkdtemp()
 CHUNK_SIZE_STUDY = 1000
 POPU_REF_FILENAME = '../data/kgn/ALL.ped'
 SUPERPOPU_REF_FILENAME = '../data/kgn/kgn_superpopu.table'
-LOG_FILE_PREFIX = 'frugalpca.log'
+LOG_FILE_PREFIX = 'frugalpca'
 np.random.seed(21)
 
 def createLogger(prefix):
@@ -157,7 +157,7 @@ def createLogger(prefix):
     # create formatter and add it to the handlers
     formatter = logging.Formatter('%(asctime)s - %(message)s')
     # create file handler which logs even debug messages
-    filename = prefix + str(round(time.time()))
+    filename = prefix + '.' + str(round(time.time())) + '.log'
     fh = logging.FileHandler(filename, 'w')
     fh.setLevel(logging.INFO)
     fh.setFormatter(formatter)
@@ -202,7 +202,7 @@ def svd_online(U1, d1, V1, b, l):
 
 def test_online_svd_procrust():
     # def test_svd_online():
-    logging.info("Testing test_svd_online...")
+    logging.info('Testing test_svd_online...')
 
     # # For debugging only
     # # For comparing with the R script written by Shawn
@@ -254,9 +254,9 @@ def test_online_svd_procrust():
         assert \
             abs(np.max(PC_new[:,i] - trueAns[:,i])) < 0.05 or \
             abs(np.max(PC_new[:,i] + trueAns[:,i])) < 0.05 # online_svd can flip the sign of a PC
-    logging.info("Passed!")
+    logging.info('Passed!')
 
-    logging.info("Testing procrustes...")
+    logging.info('Testing procrustes...')
     PC_new_head, PC_new_tail = PC_new[:-1, :], PC_new[-1, :].reshape((1,PC_new_dim))
     PC_ref_fat = np.zeros(n * PC_new_dim).reshape((n, PC_new_dim))
     PC_ref_fat[:, :PC_ref_dim] = PC_ref
@@ -283,7 +283,7 @@ def test_online_svd_procrust():
     assert np.allclose(R_diffdim_trace, R_diffdim)
     assert np.allclose(rho_diffdim_trace, rho_diffdim)
     assert np.allclose(c_diffdim_trace, c_diffdim)
-    logging.info("Passed!")
+    logging.info('Passed!')
 
 def procrustes(Y_mat, X_mat):
     ''' Find the best transformation from X to Y '''
@@ -337,28 +337,28 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
 log = createLogger(LOG_FILE_PREFIX)
 test_online_svd_procrust()
 
-logging.info("Temp dir: " + TMP_DIR)
-logging.info("Intersecting .bed files by using bash and plink...")
+logging.info('Temp dir: ' + TMP_DIR)
+logging.info('Intersecting .bed files by using bash and plink...')
 bashout = subprocess.run(['bash', 'intersect_bed.sh', REF_PREF, STU_PREF, TMP_DIR], stdout=subprocess.PIPE)
 ref_pref_commsnpsrefal, stu_pref_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
 assert len(ref_pref_commsnpsrefal) > 0
 assert len(stu_pref_commsnpsrefal) > 0
 
 # Read data
-logging.info("Reading reference data into dask array...")
+logging.info('Reading reference data into dask array...')
 X_bim, X_fam, X_dask = read_plink(ref_pref_commsnpsrefal, verbose=False)
 X_dask = X_dask.astype(np.float32)
-logging.info("Loading reference dask array into memmap...")
+logging.info('Loading reference dask array into memmap...')
 X_memmap_filename = os.path.join(TMP_DIR, 'X_memmap.dat')
 X = np.memmap(X_memmap_filename, dtype=np.float32, mode='w+', shape=X_dask.shape)
 X = np.zeros(dtype=np.float32, shape=X_dask.shape)
 X[:] = X_dask
 
-logging.info("Reading study data into dask array...")
+logging.info('Reading study data into dask array...')
 W_bim, W_fam, W_dask = read_plink(stu_pref_commsnpsrefal, verbose=False)
 W_dask = W_dask.astype(np.float32)
 # print(datetime.now())
-# print("Loading reference dask array into memmap...")
+# print('Loading reference dask array into memmap...')
 # W_memmap_filename = os.path.join(TMP_DIR, 'W_memmap.dat')
 # W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
 # # W[:] = W_dask
@@ -377,7 +377,7 @@ p_stu, n_stu = W_dask.shape
 assert p_ref == p_stu
 p = p_ref
 
-logging.info("Centering, normalizing, and imputing reference data...")
+logging.info('Centering, normalizing, and imputing reference data...')
 X_mean = np.nanmean(X, axis = 1).reshape((-1, 1))
 X_std = np.nanstd(X, axis = 1).reshape((-1,1))
 X_std[X_std == 0] = 1
@@ -388,22 +388,22 @@ X[np.isnan(X)] = 0
 # PCA on the reference data
 # sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
 # if sV_file_all_exists:
-#     print("Reading existing s.dat and V.dat...")
+#     print('Reading existing s.dat and V.dat...')
 #     s = np.loadtxt('s.dat')
 #     V = np.loadtxt('V.dat')
-#     print("Done.")
+#     print('Done.')
 # X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
 # cache = Chest(path='cache')
 
 # Compressed (randomized) svd
-# print("Doing randomized SVD on training data...")
+# print('Doing randomized SVD on training data...')
 # U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
 # U, s, Vt = compute(U, s, Vt, cache=cache)
 # V = Vt.T
 # np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
 
 # Multiplication and eigendecomposition
-logging.info("Doing multiplication and eigendecomposition on training data...")
+logging.info('Doing multiplication and eigendecomposition on training data...')
 XTX = X.T @ X
 s, V = eig_sym(XTX)
 pcs_ref = V[:, :DIM_REF] * s[:DIM_REF]
@@ -413,7 +413,7 @@ np.savetxt('V.dat', V, fmt=NP_OUTPUT_FMT)
 np.savetxt('pcs_ref.dat', pcs_ref, fmt=NP_OUTPUT_FMT)
 
 # # Test result close to TRACE's
-# print("Testing reference PC scores are the same as TRACE's...")
+# print('Testing reference PC scores are the same as TRACE's...')
 # pcs_ref_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.RefPC.coord'
 # pcs_ref_trace = pd.read_table(pcs_ref_trace_file)
 # pcs_ref_trace = np.array(pcs_ref_trace.iloc[:, 2:])
@@ -425,15 +425,15 @@ np.savetxt('pcs_ref.dat', pcs_ref, fmt=NP_OUTPUT_FMT)
 #         pcs_ref[:,i] *= -1
 #         V[:,i] *= -1
 #     assert np.allclose(pcs_ref_trace[:,i], pcs_ref[:,i], 0.01, 0.05)
-# print("Passed.")
+# print('Passed.')
 
 # This should be run only when mult&eigen is used for decomposing reference data.
 # This must be done after the signs of V are made to be same as TRACE's
 # Calculate PC loading
 # if os.path.isfile('U.dat'):
-#     print("Reading existing U.dat...")
+#     print('Reading existing U.dat...')
 #     U = np.loadtxt('U.dat')
-logging.info("Calculating PC loadings...")
+logging.info('Calculating PC loadings...')
 U = X @ (V[:,:DIM_STUDY_HIGH] / s[:DIM_STUDY_HIGH])
 np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
 
@@ -442,7 +442,7 @@ pcs_stu_proj = np.zeros((n_stu, DIM_REF), dtype=np.float32)
 pcs_stu_hdpca = np.zeros((n_stu, DIM_REF), dtype=np.float32)
 pcs_stu_onl = np.zeros((n_stu, DIM_REF), dtype=np.float32)
 chunk_n_stu = n_stu // CHUNK_SIZE_STUDY
-logging.info("Calculating study PC scores...")
+logging.info('Calculating study PC scores...')
 elapse_subset = 0.0
 elapse_standardize = 0.0
 elapse_proj = 0.0
@@ -450,7 +450,7 @@ elapse_hdpca = 0.0
 elapse_onl = 0.0
 for i in range(chunk_n_stu):
 
-    logging.info("Subsetting study samples...")
+    logging.info('Subsetting study samples...')
     t0 = time.time()
     sample_start = CHUNK_SIZE_STUDY * i 
     sample_end = min(CHUNK_SIZE_STUDY * (i+1), n_stu)
@@ -459,26 +459,26 @@ for i in range(chunk_n_stu):
 
 
     t0 = time.time()
-    logging.info("Centering, normalizing, and imputing study data...")
+    logging.info('Centering, normalizing, and imputing study data...')
     W -= X_mean
     W /= X_std
     W[np.isnan(W)] = 0
     elapse_standardize += time.time() - t0
 
     t0 = time.time()
-    logging.info("Calculating study pc scores with simple projection...")
+    logging.info('Calculating study pc scores with simple projection...')
     pcs_stu_proj_dim_study = W.T @ U[:,:DIM_STUDY]
     pcs_stu_proj[sample_start:sample_end, :] = pcs_stu_proj_dim_study[:, :DIM_REF]
     elapse_proj += time.time() - t0
 
     t0 = time.time()
-    logging.info("Adjusting simple projection pcs with hdpca...")
+    logging.info('Adjusting simple projection pcs with hdpca...')
     r = robjects.r
     robjects.numpy2ri.activate()
     importr('hdpca')
     pc_adjust = r['pc_adjust']
     # Run hdpca but suppress output to stdout
-    with open(os.devnull, "w") as devnull:
+    with open(os.devnull, 'w') as devnull:
         old_stdout = sys.stdout
         sys.stdout = devnull
         pcs_stu_hdpca_dim_study = np.array(pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj_dim_study, n_spikes_max=HDPCA_N_SPIKE_MAX))
@@ -488,7 +488,7 @@ for i in range(chunk_n_stu):
     elapse_hdpca += time.time() - t0
 
     t0 = time.time()
-    logging.info("Calculating study pc scores with svd_online...")
+    logging.info('Calculating study pc scores with svd_online...')
     for i in range(W.shape[1]):
         b = W[:,i]
         s_new, V_new = svd_online(U[:,:DIM_STUDY_HIGH], s[:DIM_STUDY_HIGH], V[:,:DIM_STUDY_HIGH], b, DIM_SVDONLINE)
@@ -499,7 +499,7 @@ for i in range(chunk_n_stu):
         pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
         pcs_stu_onl[sample_start + i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
     elapse_onl += time.time() - t0
-    logging.info("Finished analyzing " + str(sample_end) + " samples.")
+    logging.info('Finished analyzing ' + str(sample_end) + ' samples.')
 
 logging.info('Finished analyzing study samples.')
 logging.info('Runtimes: ')
@@ -517,9 +517,9 @@ np.savetxt('pcs_stu_onl.dat', pcs_stu_onl, fmt=NP_OUTPUT_FMT, delimiter='\t')
 logging.info('Cleaning temporary files...')
 del X
 del W
-logging.info("Reference memmap file: " + str(X_memmap_filename))
-# print("Study memmap file: " + str(W_memmap_filename))
-logging.info("Temporary directory content: ")
+logging.info('Reference memmap file: ' + str(X_memmap_filename))
+# print('Study memmap file: ' + str(W_memmap_filename))
+logging.info('Temporary directory content: ')
 logging.info(subprocess.run(['ls', '-hl', TMP_DIR]))
 
 popu_ref_df = pd.read_table(POPU_REF_FILENAME)
@@ -528,7 +528,7 @@ superpopu_ref_dict = superpopu_ref_df.set_index('Population Code')['Super Popula
 superpopu_unique = set(superpopu_ref_dict.values())
 superpopu_n = len(superpopu_unique)
 popu_ref_df['Superpopulation'] = [superpopu_ref_dict[popu_this] for popu_this in popu_ref_df['Population']]
-X_fam = X_fam.rename(index=str, columns={"iid": "Individual ID"})
+X_fam = X_fam.rename(index=str, columns={'iid': 'Individual ID'})
 indiv_ref_info = pd.merge(X_fam, popu_ref_df, on = 'Individual ID')
 assert indiv_ref_info.shape[0] == pcs_ref.shape[0]
 # pcs_ref[indiv_ref_info['Superpopulation'] == 'EUR']
