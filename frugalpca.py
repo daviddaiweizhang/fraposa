@@ -544,19 +544,21 @@ def get_popu_ref_info(X_fam, popu_ref_filename, superpopu_ref_filename):
 
 # Predict superpopulations for study individuals
 def pred_popu_stu(pcs_ref, popu_ref, pcs_stu):
+    logging.info('Predicting populations for study individuals...')
     knn = KNeighborsClassifier(n_neighbors=N_NEIGHBORS)
     knn.fit(pcs_ref, popu_ref)
     popu_stu_pred = knn.predict(pcs_stu) 
     return popu_stu_pred
 
 def load_pcs(pref):
+    logging.info('Loading existing reference and study PC scores...')
     pcs_ref = np.loadtxt(pref+'_ref.dat')
     pcs_stu_proj = np.loadtxt(pref+'_stu_proj.dat')
     pcs_stu_hdpca = np.loadtxt(pref+'_stu_hdpca.dat')
     pcs_stu_onl = np.loadtxt(pref+'_stu_onl.dat')
     return pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl
 
-def plot_pcs(pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl, popu_ref, popu_stu, out_pref):
+def plot_pcs(pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl, popu_ref, popu_stu, out_pref, marker_ref='s', marker_stu='.', alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU):
     popu_unique = set(popu_ref)
     popu_n = len(popu_unique)
     plot_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -568,13 +570,13 @@ def plot_pcs(pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl, popu_ref, popu_s
         plt.ylabel('PC' + str(j*2+2))
         for i,popu in enumerate(popu_unique):
             ref_is_this_popu = popu_ref == popu
-            plt.plot(pcs_ref[ref_is_this_popu, j*2], pcs_ref[ref_is_this_popu, j*2+1], 's', alpha=PLOT_ALPHA_REF, color=plot_colors[i])
+            plt.plot(pcs_ref[ref_is_this_popu, j*2], pcs_ref[ref_is_this_popu, j*2+1], marker_ref, alpha=alpha_ref, color=plot_colors[i])
         for i,popu in enumerate(popu_unique):
             stu_is_this_popu = popu_stu == popu
-            plt.plot(pcs_stu_onl[stu_is_this_popu, j*2], pcs_stu_onl[stu_is_this_popu, j*2+1], '.', label=popu, alpha=PLOT_ALPHA_STU, color=plot_colors[i])
-        # plt.plot(pcs_stu_proj[:, j*2], pcs_stu_proj[:, j*2+1], '+', alpha=PLOT_ALPHA_STU, label='projection', color=PLOT_COLOR_STU)
-        # plt.plot(pcs_stu_hdpca[:, j*2], pcs_stu_hdpca[:, j*2+1], 'x', alpha=PLOT_ALPHA_STU, label='hdpca', color=PLOT_COLOR_STU)
-        # plt.plot(pcs_stu_trace[:, j*2], pcs_stu_trace[:, j*2+1], 'o', alpha=PLOT_ALPHA, label='trace')
+            plt.plot(pcs_stu_onl[stu_is_this_popu, j*2], pcs_stu_onl[stu_is_this_popu, j*2+1], marker_stu, label=popu, alpha=alpha_stu, color=plot_colors[i])
+        # plt.plot(pcs_stu_proj[:, j*2], pcs_stu_proj[:, j*2+1], '+', alpha=alpha_stu, label='projection', color=PLOT_COLOR_STU)
+        # plt.plot(pcs_stu_hdpca[:, j*2], pcs_stu_hdpca[:, j*2+1], 'x', alpha=alpha_stu, label='hdpca', color=PLOT_COLOR_STU)
+        # plt.plot(pcs_stu_trace[:, j*2], pcs_stu_trace[:, j*2+1], 'o', alpha=alpha_stu, label='trace')
     # plt.legend(ncol=2, loc='center left', bbox_to_anchor=(1, 0.5))
     # plt.legend(loc='lower center', bbox_to_anchor=(0.5, 0), bbox_transform=fig.transFigure, fancybox=True, shadow=True, ncol=popu_n*2)
     plt.legend()
