@@ -1,23 +1,41 @@
 import numpy as np
 import pandas as pd
+from sklearn.neighbors import KNeighborsClassifier
 from pandas_plink import read_plink
 import dask.array as da
-from dask import compute
-from chest import Chest
+# from dask import compute
+# from chest import Chest
 import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr
 from rpy2.robjects import numpy2ri
+r = robjects.r
+robjects.numpy2ri.activate()
+importr('hdpca')
+pc_adjust = r['pc_adjust']
 import matplotlib
 matplotlib.use('Agg') # For outputting plots in png on servers
 import matplotlib.pyplot as plt
 import time
 from datetime import datetime
-from subprocess import call
 import os.path
 from tempfile import mkdtemp
 import subprocess
 import sys
 import logging
+
+
+# print(datetime.now())
+# print('Loading reference dask array into memmap...')
+# W_memmap_filename = os.path.join(TMP_DIR, 'W_memmap.dat')
+# W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
+# # W[:] = W_dask
+# W = np.zeros(dtype=np.float32, shape=W_dask.shape)
+# for i in range(len(W_dask.chunks[0])):
+#     start = sum(W_dask.chunks[0][:i])
+#     end = sum(W_dask.chunks[0][:i+1])
+#     W[start:end, :] = W_dask[start:end, :]
+# TODO: Add checking for ind-major vs snp-major
+
 
 # print('Sorting ref snps by chrom and pos...')
 # print(datetime.now())
@@ -82,7 +100,7 @@ import logging
 #     XTX_new[-1, -1] = bb
 #     # print('Calculating s_new and V_new...')
 #     # print(datetime.now())
-#     s_new, V_new = eig_sym(XTX_new)
+#     s_new, V_new = svd_eigcov(XTX_new)
 #     Vs_new = V_new * s_new
 #     pcs_new = Vs_new[:, :DIM_STUDY]
 #     # print('Done.')
@@ -134,25 +152,65 @@ import logging
 # np.savetxt('pcs_stu_trace.dat', pcs_stu_trace, fmt=NP_OUTPUT_FMT, delimiter='\t')
 # print('Passed.')
 
+# PCA on the reference data
+# sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
+# if sV_file_all_exists:
+#     print('Reading existing s.dat and V.dat...')
+#     s = np.loadtxt('s.dat')
+#     V = np.loadtxt('V.dat')
+#     print('Done.')
+# X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
+# cache = Chest(path='cache')
+
+# Compressed (randomized) svd
+# print('Doing randomized SVD on training data...')
+# U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
+# U, s, Vt = compute(U, s, Vt, cache=cache)
+# V = Vt.T
+# np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
+
+# # Test reference pc scores close to TRACE's
+# print('Testing reference PC scores are the same as TRACE's...')
+# pcs_ref_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.RefPC.coord'
+# pcs_ref_trace = pd.read_table(pcs_ref_trace_file)
+# pcs_ref_trace = np.array(pcs_ref_trace.iloc[:, 2:])
+# ref_dim_trace = pcs_ref_trace.shape[1]
+# for i in range(ref_dim_trace):
+#     corr = np.corrcoef(pcs_ref_trace[:,i], pcs_ref[:,i])[0,1]
+#     assert abs(corr) > 0.99
+#     if corr < 0:
+#         pcs_ref[:,i] *= -1
+#         V[:,i] *= -1
+#     assert np.allclose(pcs_ref_trace[:,i], pcs_ref[:,i], 0.01, 0.05)
+# print('Passed.')
+
+# This should be run only when mult&eigen is used for decomposing reference data.
+# This must be done after the signs of V are made to be same as TRACE's
+# Calculate PC loading
+# if os.path.isfile('U.dat'):
+#     print('Reading existing U.dat...')
+#     U = np.loadtxt('U.dat')
+
 DIM_REF = 4
+assert DIM_REF >= 4
 DIM_STUDY = 20
+PLOT_ALPHA_REF=0.05
+PLOT_ALPHA_STU=0.7
+N_NEIGHBORS=5
+
 DIM_STUDY_HIGH = DIM_STUDY * 2
 DIM_SVDONLINE = DIM_STUDY * 2
-DIM_SVDRAND = DIM_STUDY * 4
-NITER_SVDRAND = 2
+# DIM_SVDRAND = DIM_STUDY * 4
+# NITER_SVDRAND = 2
 HDPCA_N_SPIKE_MAX = 20
 NP_OUTPUT_FMT = '%.4f'
-REF_PREF = '../data/kgn/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_a2allele'
-STU_PREF = '../data/ukb/ukb'
+DELIMITER = '\t'
 TMP_DIR = mkdtemp()
 CHUNK_SIZE_STUDY = 1000
-POPU_REF_FILENAME = '../data/kgn/ALL.ped'
-SUPERPOPU_REF_FILENAME = '../data/kgn/kgn_superpopu.table'
-LOG_FILE_PREFIX = 'frugalpca'
-np.random.seed(21)
 
-def createLogger(prefix):
+def create_logger(prefix):
     log = logging.getLogger()
+    log.handlers = [] # Avoid duplicated logs in interactive modes
     log.setLevel(logging.INFO)
     # create formatter and add it to the handlers
     formatter = logging.Formatter('%(asctime)s - %(message)s')
@@ -169,11 +227,8 @@ def createLogger(prefix):
     log.addHandler(ch)
     return log
 
-# Close logger
-def clearLogger(log):
-    log.handlers = []
 
-def eig_sym(XTX):
+def svd_eigcov(XTX):
     ssq, V = np.linalg.eigh(XTX)
     V = np.squeeze(V)
     ssq = np.squeeze(ssq)
@@ -184,16 +239,22 @@ def eig_sym(XTX):
 
 def svd_online(U1, d1, V1, b, l):
     n, k = V1.shape
+    assert U1.shape[1] == k
+    assert len(d1) == k
     assert(l <= k)
     p = U1.shape[0]
     b = b.reshape((p,1)) # Make sure the new sample is a column vec
-    b_tilde = b - U1 @ (U1.transpose() @ b)
+    b_tilde = b - U1 @ (U1.T @ b)
     b_tilde = b_tilde / np.sqrt(sum(np.square(b_tilde)))
     R = np.concatenate((np.diag(d1), U1.transpose() @ b), axis = 1)
     R_tail = np.concatenate((np.zeros((1,k)), b_tilde.transpose() @ b), axis = 1)
     R = np.concatenate((R, R_tail), axis = 0)
-    # TODO:Use eigendecomposition to speedup
     d2, R_Vt = np.linalg.svd(R, full_matrices=False)[1:] 
+    # TODO: Try using chomsky decomposition on R to speed up
+    # Since R is triangular
+    # Eigencomposition's runtime is the same as svd's
+    # d2, R_V = svd_eigcov(R.T @ R)
+    # R_Vt = R_V.T
     V_new = np.zeros((k+1, n+1))
     V_new[:k, :n] = V1.transpose()
     V_new[k, n] = 1
@@ -201,6 +262,7 @@ def svd_online(U1, d1, V1, b, l):
     return d2, V2
 
 def test_online_svd_procrust():
+    np.random.seed(21)
     # def test_svd_online():
     logging.info('Testing test_svd_online...')
 
@@ -217,7 +279,6 @@ def test_online_svd_procrust():
     b = np.random.normal(size = p).reshape((p,1))
     np.savetxt('test_X.dat', X)
     np.savetxt('test_b.dat', b)
-
 
     # Center reference data
     X_mean = np.mean(X, axis = 1).reshape((p,1))
@@ -296,9 +357,6 @@ def procrustes(Y_mat, X_mat):
     Y -= Y_mean
     C = Y.T @ X
     U, s, VT = np.linalg.svd(C, full_matrices=False)
-    # TODO: Change to np.sum(X**2) for speed
-    # trXX = np.trace(X.T @ X) 
-    # trYY = np.trace(Y.T @ Y)
     trXX = np.sum(X**2)
     trYY = np.sum(Y**2)
     trS = np.sum(s)
@@ -306,7 +364,6 @@ def procrustes(Y_mat, X_mat):
     rho = trS / trXX
     b = Y_mean - rho * X_mean @ A
     return A, rho, b
-
 
 def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
     X = np.array(X_mat, dtype=np.double, copy=True)
@@ -334,222 +391,249 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
                 Z = Z_new
     return R, rho, c
 
-log = createLogger(LOG_FILE_PREFIX)
-test_online_svd_procrust()
+def intersect_ref_stu_snps(ref_pref, stu_pref):
+    logging.info('Intersecting .bed files by using bash and plink...')
+    bashout = subprocess.run(['bash', 'intersect_bed.sh', ref_pref, stu_pref, TMP_DIR], stdout=subprocess.PIPE)
+    ref_pref_commsnpsrefal, stu_pref_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
+    assert len(ref_pref_commsnpsrefal) > 0
+    assert len(stu_pref_commsnpsrefal) > 0
+    return ref_pref_commsnpsrefal, stu_pref_commsnpsrefal
 
-logging.info('Temp dir: ' + TMP_DIR)
-logging.info('Intersecting .bed files by using bash and plink...')
-bashout = subprocess.run(['bash', 'intersect_bed.sh', REF_PREF, STU_PREF, TMP_DIR], stdout=subprocess.PIPE)
-ref_pref_commsnpsrefal, stu_pref_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
-assert len(ref_pref_commsnpsrefal) > 0
-assert len(stu_pref_commsnpsrefal) > 0
+def bed2dask(filename, X_dtype=np.float32):
+    logging.info('Reading Plink binary data into dask array...')
+    X_bim, X_fam, X_dask = read_plink(filename, verbose=False)
+    X_dask = X_dask.astype(X_dtype)
+    return X_dask, X_bim, X_fam 
 
-# Read data
-logging.info('Reading reference data into dask array...')
-X_bim, X_fam, X_dask = read_plink(ref_pref_commsnpsrefal, verbose=False)
-X_dask = X_dask.astype(np.float32)
-logging.info('Loading reference dask array into memmap...')
-X_memmap_filename = os.path.join(TMP_DIR, 'X_memmap.dat')
-X = np.memmap(X_memmap_filename, dtype=np.float32, mode='w+', shape=X_dask.shape)
-X = np.zeros(dtype=np.float32, shape=X_dask.shape)
-X[:] = X_dask
+def dask2memmap(X_dask, X_memmap_filename):
+    logging.info('Loading dask array into memmap...')
+    X_memmap_filename = os.path.join(TMP_DIR, X_memmap_filename)
+    X = np.memmap(X_memmap_filename, dtype=np.float32, mode='w+', shape=X_dask.shape)
+    X[:] = X_dask
+    return X
 
-logging.info('Reading study data into dask array...')
-W_bim, W_fam, W_dask = read_plink(stu_pref_commsnpsrefal, verbose=False)
-W_dask = W_dask.astype(np.float32)
-# print(datetime.now())
-# print('Loading reference dask array into memmap...')
-# W_memmap_filename = os.path.join(TMP_DIR, 'W_memmap.dat')
-# W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
-# # W[:] = W_dask
-# W = np.zeros(dtype=np.float32, shape=W_dask.shape)
-# for i in range(len(W_dask.chunks[0])):
-#     start = sum(W_dask.chunks[0][:i])
-#     end = sum(W_dask.chunks[0][:i+1])
-#     W[start:end, :] = W_dask[start:end, :]
-# TODO: Add checking for ind-major vs snp-major
-
-# Check ref and stu have the same snps and alleles
-assert X_bim.shape == W_bim.shape
-assert all(X_bim[['chrom', 'snp', 'pos', 'a0', 'a1']] == W_bim[['chrom', 'snp', 'pos', 'a0', 'a1']])
-p_ref, n_ref = X_dask.shape
-p_stu, n_stu = W_dask.shape
-assert p_ref == p_stu
-p = p_ref
-
-logging.info('Centering, normalizing, and imputing reference data...')
-X_mean = np.nanmean(X, axis = 1).reshape((-1, 1))
-X_std = np.nanstd(X, axis = 1).reshape((-1,1))
-X_std[X_std == 0] = 1
-X -= X_mean
-X /= X_std
-X[np.isnan(X)] = 0
-
-# PCA on the reference data
-# sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
-# if sV_file_all_exists:
-#     print('Reading existing s.dat and V.dat...')
-#     s = np.loadtxt('s.dat')
-#     V = np.loadtxt('V.dat')
-#     print('Done.')
-# X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-# cache = Chest(path='cache')
-
-# Compressed (randomized) svd
-# print('Doing randomized SVD on training data...')
-# U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
-# U, s, Vt = compute(U, s, Vt, cache=cache)
-# V = Vt.T
-# np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
+def standardize_ref(X):
+    logging.info('Centering, normalizing, and imputing reference data...')
+    X_mean = np.nanmean(X, axis = 1).reshape((-1, 1))
+    X_std = np.nanstd(X, axis = 1).reshape((-1,1))
+    X_std[X_std == 0] = 1
+    X -= X_mean
+    X /= X_std
+    X[np.isnan(X)] = 0
+    return X_mean, X_std
 
 # Multiplication and eigendecomposition
-logging.info('Doing multiplication and eigendecomposition on training data...')
-XTX = X.T @ X
-s, V = eig_sym(XTX)
-pcs_ref = V[:, :DIM_REF] * s[:DIM_REF]
-np.savetxt('XTX.dat', XTX, fmt=NP_OUTPUT_FMT)
-np.savetxt('s.dat', s, fmt=NP_OUTPUT_FMT)
-np.savetxt('V.dat', V, fmt=NP_OUTPUT_FMT)
-np.savetxt('pcs_ref.dat', pcs_ref, fmt=NP_OUTPUT_FMT)
+def pca_ref(X, out_pref, dim_ref=DIM_REF, save_XTXsV=False):
+    logging.info('Calculating covariance matrix...')
+    XTX = X.T @ X
+    logging.info('Eigendecomposition on covariance matrix...')
+    s, V = svd_eigcov(XTX)
+    pcs_ref = V[:, :dim_ref] * s[:dim_ref]
+    np.savetxt(out_pref+'_ref.dat', pcs_ref, fmt=NP_OUTPUT_FMT)
+    if save_XTXsV:
+        np.savetxt(out_pref+'_XTX.dat', XTX, fmt=NP_OUTPUT_FMT)
+        np.savetxt(out_pref+'_s.dat', s, fmt=NP_OUTPUT_FMT)
+        np.savetxt(out_pref+'_V.dat', V, fmt=NP_OUTPUT_FMT)
+    return s, V, pcs_ref
 
-# # Test result close to TRACE's
-# print('Testing reference PC scores are the same as TRACE's...')
-# pcs_ref_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.RefPC.coord'
-# pcs_ref_trace = pd.read_table(pcs_ref_trace_file)
-# pcs_ref_trace = np.array(pcs_ref_trace.iloc[:, 2:])
-# ref_dim_trace = pcs_ref_trace.shape[1]
-# for i in range(ref_dim_trace):
-#     corr = np.corrcoef(pcs_ref_trace[:,i], pcs_ref[:,i])[0,1]
-#     assert abs(corr) > 0.99
-#     if corr < 0:
-#         pcs_ref[:,i] *= -1
-#         V[:,i] *= -1
-#     assert np.allclose(pcs_ref_trace[:,i], pcs_ref[:,i], 0.01, 0.05)
-# print('Passed.')
+def get_pc_loading(X, s, V, dim_study_high=DIM_STUDY_HIGH, out_pref=None):
+    logging.info('Calculating PC loadings...')
+    U = X @ (V[:,:dim_study_high] / s[:dim_study_high])
+    if out_pref is not None:
+        np.savetxt(out_pref+'_U.dat', U, fmt=NP_OUTPUT_FMT)
+    return U
 
-# This should be run only when mult&eigen is used for decomposing reference data.
-# This must be done after the signs of V are made to be same as TRACE's
-# Calculate PC loading
-# if os.path.isfile('U.dat'):
-#     print('Reading existing U.dat...')
-#     U = np.loadtxt('U.dat')
-logging.info('Calculating PC loadings...')
-U = X @ (V[:,:DIM_STUDY_HIGH] / s[:DIM_STUDY_HIGH])
-np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
+def online_procrustes(U, s, V, b, pcs_ref, dim_ref=DIM_REF, dim_study=DIM_STUDY, dim_study_high=DIM_STUDY_HIGH, dim_svdonline=DIM_SVDONLINE):
+    s_new, V_new = svd_online(U[:,:dim_study_high], s[:dim_study_high], V[:,:dim_study_high], b, DIM_SVDONLINE)
+    s_new, V_new = s_new[:dim_study], V_new[:, :dim_study]
+    pcs_new = V_new * s_new
+    pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
+    R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
+    pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
+    pcs_stu_onl = pcs_new_tail_trsfed.flatten()
+    return pcs_stu_onl
 
-
-pcs_stu_proj = np.zeros((n_stu, DIM_REF), dtype=np.float32)
-pcs_stu_hdpca = np.zeros((n_stu, DIM_REF), dtype=np.float32)
-pcs_stu_onl = np.zeros((n_stu, DIM_REF), dtype=np.float32)
-chunk_n_stu = n_stu // CHUNK_SIZE_STUDY
-logging.info('Calculating study PC scores...')
-elapse_subset = 0.0
-elapse_standardize = 0.0
-elapse_proj = 0.0
-elapse_hdpca = 0.0
-elapse_onl = 0.0
-for i in range(chunk_n_stu):
-
-    logging.info('Subsetting study samples...')
-    t0 = time.time()
-    sample_start = CHUNK_SIZE_STUDY * i 
-    sample_end = min(CHUNK_SIZE_STUDY * (i+1), n_stu)
-    W = W_dask[:, sample_start:sample_end].compute()
-    elapse_subset += time.time() - t0
-
-
-    t0 = time.time()
-    logging.info('Centering, normalizing, and imputing study data...')
-    W -= X_mean
-    W /= X_std
-    W[np.isnan(W)] = 0
-    elapse_standardize += time.time() - t0
-
-    t0 = time.time()
-    logging.info('Calculating study pc scores with simple projection...')
-    pcs_stu_proj_dim_study = W.T @ U[:,:DIM_STUDY]
-    pcs_stu_proj[sample_start:sample_end, :] = pcs_stu_proj_dim_study[:, :DIM_REF]
-    elapse_proj += time.time() - t0
-
-    t0 = time.time()
-    logging.info('Adjusting simple projection pcs with hdpca...')
-    r = robjects.r
-    robjects.numpy2ri.activate()
-    importr('hdpca')
-    pc_adjust = r['pc_adjust']
+def hdpca_adjust(s, p_ref, n_ref, pcs_stu_proj, hdpca_n_spike_max=HDPCA_N_SPIKE_MAX):
     # Run hdpca but suppress output to stdout
     with open(os.devnull, 'w') as devnull:
         old_stdout = sys.stdout
         sys.stdout = devnull
-        pcs_stu_hdpca_dim_study = np.array(pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj_dim_study, n_spikes_max=HDPCA_N_SPIKE_MAX))
+        pcs_stu_hdpca = np.array(pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj, n_spikes_max=hdpca_n_spike_max))
         sys.stdout = old_stdout
+    return pcs_stu_hdpca
 
-    pcs_stu_hdpca[sample_start:sample_end, :] = pcs_stu_hdpca_dim_study[:, :DIM_REF]
-    elapse_hdpca += time.time() - t0
+def pca_stu(W_dask, X_mean, X_std, U, s, V, pcs_ref, out_pref, dim_ref=DIM_REF, dim_study=DIM_STUDY, dim_study_high=DIM_STUDY_HIGH, chunk_size_study=CHUNK_SIZE_STUDY):
+    p_ref = len(X_mean)
+    n_ref = pcs_ref.shape[0]
+    p_stu, n_stu = W_dask.shape
+    pcs_stu_proj = np.zeros((n_stu, dim_ref), dtype=np.float32)
+    pcs_stu_hdpca = np.zeros((n_stu, dim_ref), dtype=np.float32)
+    pcs_stu_onl = np.zeros((n_stu, dim_ref), dtype=np.float32)
+    chunk_n_stu = int(np.ceil(n_stu / chunk_size_study))
+    logging.info('Calculating study PC scores...')
+    elapse_subset = 0.0
+    elapse_standardize = 0.0
+    elapse_proj = 0.0
+    elapse_hdpca = 0.0
+    elapse_onl = 0.0
 
-    t0 = time.time()
-    logging.info('Calculating study pc scores with svd_online...')
-    for i in range(W.shape[1]):
-        b = W[:,i]
-        s_new, V_new = svd_online(U[:,:DIM_STUDY_HIGH], s[:DIM_STUDY_HIGH], V[:,:DIM_STUDY_HIGH], b, DIM_SVDONLINE)
-        s_new, V_new = s_new[:DIM_STUDY], V_new[:, :DIM_STUDY]
-        pcs_new = V_new * s_new
-        pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
-        R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
-        pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
-        pcs_stu_onl[sample_start + i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
-    elapse_onl += time.time() - t0
-    logging.info('Finished analyzing ' + str(sample_end) + ' samples.')
+    for i in range(chunk_n_stu):
+        logging.debug('Subsetting study samples...')
+        t0 = time.time()
+        sample_start = chunk_size_study * i 
+        sample_end = min(chunk_size_study * (i+1), n_stu)
+        W = W_dask[:, sample_start:sample_end].compute()
+        # If we want to allow W_dask to be numpy array or numpy memmap
+        # W = W_dask[:, sample_start:sample_end]
+        # if type(W) is da.core.Array:
+        #     W = W.compute()
+        elapse_subset += time.time() - t0
 
-logging.info('Finished analyzing study samples.')
-logging.info('Runtimes: ')
-logging.info('Standardizing: ' + str(elapse_standardize))
-logging.info('Subsetting: ' + str(elapse_subset))
-logging.info('Projection: ' + str(elapse_proj))
-logging.info('HDPCA: ' + str(elapse_hdpca))
-logging.info('Online: ' + str(elapse_onl))
+        t0 = time.time()
+        logging.debug('Centering, normalizing, and imputing study data...')
+        W -= X_mean
+        W /= X_std
+        W[np.isnan(W)] = 0
+        elapse_standardize += time.time() - t0
 
-logging.info('Saving study PC scores...')
-np.savetxt('pcs_stu_proj.dat', pcs_stu_proj, fmt=NP_OUTPUT_FMT, delimiter='\t')
-np.savetxt('pcs_stu_hdpca.dat', pcs_stu_hdpca, fmt=NP_OUTPUT_FMT, delimiter='\t')
-np.savetxt('pcs_stu_onl.dat', pcs_stu_onl, fmt=NP_OUTPUT_FMT, delimiter='\t')
+        t0 = time.time()
+        logging.debug('Calculating study pc scores with simple projection...')
+        pcs_stu_proj_dim_study = W.T @ U[:,:dim_study]
+        pcs_stu_proj[sample_start:sample_end, :] = pcs_stu_proj_dim_study[:, :dim_ref]
+        elapse_proj += time.time() - t0
 
-logging.info('Cleaning temporary files...')
-del X
-del W
-logging.info('Reference memmap file: ' + str(X_memmap_filename))
-# print('Study memmap file: ' + str(W_memmap_filename))
-logging.info('Temporary directory content: ')
-logging.info(subprocess.run(['ls', '-hl', TMP_DIR]))
+        t0 = time.time()
+        logging.debug('Adjusting simple projection pcs with hdpca...')
 
-popu_ref_df = pd.read_table(POPU_REF_FILENAME)
-superpopu_ref_df = pd.read_table(SUPERPOPU_REF_FILENAME)
-superpopu_ref_dict = superpopu_ref_df.set_index('Population Code')['Super Population Code'].to_dict()
-superpopu_unique = set(superpopu_ref_dict.values())
-superpopu_n = len(superpopu_unique)
-popu_ref_df['Superpopulation'] = [superpopu_ref_dict[popu_this] for popu_this in popu_ref_df['Population']]
-X_fam = X_fam.rename(index=str, columns={'iid': 'Individual ID'})
-indiv_ref_info = pd.merge(X_fam, popu_ref_df, on = 'Individual ID')
-assert indiv_ref_info.shape[0] == pcs_ref.shape[0]
-# pcs_ref[indiv_ref_info['Superpopulation'] == 'EUR']
+        pcs_stu_hdpca[sample_start:sample_end, :] = hdpca_adjust(s, p_ref, n_ref, pcs_stu_proj_dim_study)[:, :dim_ref]
+        elapse_hdpca += time.time() - t0
 
-# Plot PC scores
-PLOT_ALPHA_REF=0.5
-PLOT_ALPHA_STU=0.2
-PLOT_COLOR_STU='xkcd:grey'
-fig, ax = plt.subplots()
-for sp in superpopu_unique:
-    is_this_sp = indiv_ref_info['Superpopulation'] == sp
-    ax.plot(pcs_ref[is_this_sp, 0], pcs_ref[is_this_sp, 1], 'o', label=sp, alpha=PLOT_ALPHA_REF)
-ax.plot(pcs_stu_proj[:, 0], pcs_stu_proj[:, 1], '+', alpha=PLOT_ALPHA_STU, label='projection', color=PLOT_COLOR_STU)
-ax.plot(pcs_stu_hdpca[:, 0], pcs_stu_hdpca[:, 1], 'x', alpha=PLOT_ALPHA_STU, label='hdpca', color=PLOT_COLOR_STU)
-ax.plot(pcs_stu_onl[:, 0], pcs_stu_onl[:, 1], 's', alpha=PLOT_ALPHA_STU, label='online', color=PLOT_COLOR_STU)
-# plt.plot(pcs_stu_trace[:, 0], pcs_stu_trace[:, 1], 'o', alpha=PLOT_ALPHA, label='trace')
-# ax.set_aspect('equal')
-# ax.axhline(y=0, color='grey')
-# ax.axvline(x=0, color='grey')
-ax.legend()
-plt.savefig('pcs.png', dpi=300)
-plt.close()
+        t0 = time.time()
+        logging.debug('Calculating study pc scores with svd_online...')
+        for i in range(W.shape[1]):
+            b = W[:,i]
+            pcs_stu_onl[sample_start + i, :] = online_procrustes(U, s, V, b, pcs_ref)[:dim_ref]
+        elapse_onl += time.time() - t0
+        logging.info('Finished analyzing ' + str(sample_end) + ' samples.')
 
-clearLogger(log)
+    logging.info('Finished analyzing study samples.')
+    logging.info('Runtimes: ')
+    logging.info('Standardizing: ' + str(elapse_standardize))
+    logging.info('Subsetting: ' + str(elapse_subset))
+    logging.info('Projection: ' + str(elapse_proj))
+    logging.info('HDPCA: ' + str(elapse_hdpca))
+    logging.info('Online: ' + str(elapse_onl))
+
+    logging.info('Saving study PC scores...')
+    np.savetxt(out_pref+'_stu_proj.dat', pcs_stu_proj, fmt=NP_OUTPUT_FMT, delimiter='\t')
+    np.savetxt(out_pref+'_stu_hdpca.dat', pcs_stu_hdpca, fmt=NP_OUTPUT_FMT, delimiter='\t')
+    np.savetxt(out_pref+'_stu_onl.dat', pcs_stu_onl, fmt=NP_OUTPUT_FMT, delimiter='\t')
+    logging.info('Study PC scores saved to ' + out_pref + '_stu_[method].dat')
+    del W
+
+    return pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl
+
+def get_popu_ref_info(X_fam, popu_ref_filename, superpopu_ref_filename):
+    popu_ref_df = pd.read_table(popu_ref_filename)
+    popu_ref_df = popu_ref_df.rename(index=str, columns={'Individual ID' : 'iid'})
+    superpopu_ref_df = pd.read_table(superpopu_ref_filename)
+    superpopu_ref_dict = superpopu_ref_df.set_index('Population Code')['Super Population Code'].to_dict()
+    popu_ref_df['Superpopulation'] = [superpopu_ref_dict[popu_this] for popu_this in popu_ref_df['Population']]
+    indiv_ref_info = pd.merge(X_fam, popu_ref_df, on = 'iid')
+    return indiv_ref_info[['Population', 'Superpopulation']]
+
+# Predict superpopulations for study individuals
+def pred_popu_stu(pcs_ref, popu_ref, pcs_stu):
+    knn = KNeighborsClassifier(n_neighbors=N_NEIGHBORS)
+    knn.fit(pcs_ref, popu_ref)
+    popu_stu_pred = knn.predict(pcs_stu) 
+    return popu_stu_pred
+
+def plot_pcs(pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl, popu_ref, popu_stu, out_pref):
+    popu_unique = set(popu_ref)
+    popu_n = len(popu_unique)
+    plot_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    n_subplot = DIM_REF // 2
+    fig, ax = plt.subplots(ncols=n_subplot)
+    for j in range(n_subplot):
+        plt.subplot(1, n_subplot, j+1)
+        plt.xlabel('PC' + str(j*2+1))
+        plt.ylabel('PC' + str(j*2+2))
+        for i,popu in enumerate(popu_unique):
+            ref_is_this_popu = popu_ref == popu
+            plt.plot(pcs_ref[ref_is_this_popu, j*2], pcs_ref[ref_is_this_popu, j*2+1], 's', alpha=PLOT_ALPHA_REF, color=plot_colors[i])
+        for i,popu in enumerate(popu_unique):
+            stu_is_this_popu = popu_stu == popu
+            plt.plot(pcs_stu_onl[stu_is_this_popu, j*2], pcs_stu_onl[stu_is_this_popu, j*2+1], '.', label=popu, alpha=PLOT_ALPHA_STU, color=plot_colors[i])
+        # plt.plot(pcs_stu_proj[:, j*2], pcs_stu_proj[:, j*2+1], '+', alpha=PLOT_ALPHA_STU, label='projection', color=PLOT_COLOR_STU)
+        # plt.plot(pcs_stu_hdpca[:, j*2], pcs_stu_hdpca[:, j*2+1], 'x', alpha=PLOT_ALPHA_STU, label='hdpca', color=PLOT_COLOR_STU)
+        # plt.plot(pcs_stu_trace[:, j*2], pcs_stu_trace[:, j*2+1], 'o', alpha=PLOT_ALPHA, label='trace')
+    # plt.legend(ncol=2, loc='center left', bbox_to_anchor=(1, 0.5))
+    # plt.legend(loc='lower center', bbox_to_anchor=(0.5, 0), bbox_transform=fig.transFigure, fancybox=True, shadow=True, ncol=popu_n*2)
+    plt.legend()
+    # fig.subplots_adjust(bottom=0.17)
+    plt.tight_layout()
+    plt.savefig(out_pref+'.png', dpi=300)
+    plt.close('all')
+    logging.info('Study PC score plots saved to ' + out_pref +'.png')
+
+def pca(X, W_dask, popu_ref, out_pref):
+    # PCA on ref and stu
+    X_mean, X_std = standardize_ref(X)
+    s, V, pcs_ref = pca_ref(X, out_pref)
+    U = get_pc_loading(X, s, V)
+    pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl = pca_stu(W_dask, X_mean, X_std, U, s, V, pcs_ref, out_pref)
+    return pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl
+
+
+def run_pca(ref_pref, stu_pref, popu_ref_filename, superpopu_ref_filename, popu_col_name):
+    logging.info('Reference data: ' + ref_pref)
+    logging.info('Study data: ' + stu_pref)
+    logging.info('Temp dir: ' + TMP_DIR)
+    # Intersect ref and stu snps
+    ref_pref_commsnpsrefal, stu_pref_commsnpsrefal = intersect_ref_stu_snps(ref_pref, stu_pref)
+    # Load ref
+    X_dask, X_bim, X_fam = bed2dask(ref_pref_commsnpsrefal)
+    X = dask2memmap(X_dask, 'X.memmap')
+    psp_ref = get_popu_ref_info(X_fam, popu_ref_filename, superpopu_ref_filename)
+    # Load stu
+    W_dask, W_bim, W_fam = bed2dask(stu_pref_commsnpsrefal)
+    # Check ref and stu have the same snps and alleles
+    assert X_bim.shape == W_bim.shape
+    assert all(X_bim[['chrom', 'snp', 'pos', 'a0', 'a1']] == W_bim[['chrom', 'snp', 'pos', 'a0', 'a1']])
+    p_ref, n_ref = X.shape
+    p_stu, n_stu = W_dask.shape
+    assert p_ref == p_stu
+    p = p_ref
+
+    # PCA on all individuals
+    popu_ref = psp_ref[popu_col_name]
+    pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl = pca(X, W_dask, popu_ref, stu_pref)
+
+    # Predict stu population
+    popu_stu_pred = pred_popu_stu(pcs_ref, popu_ref, pcs_stu_onl)
+
+    # Plot PC scores
+    plot_pcs(pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl, popu_ref, popu_stu_pred, stu_pref)
+
+    # Finer-level PCA on European individuals
+    # ref_indiv_is_eur = popu_ref == 'EUR'
+    # stu_indiv_is_eur = popu_stu_pred == 'EUR'
+    # X_fam_eur = X_fam[ref_indiv_is_eur]
+    # W_fam_eur = W_fam[stu_indiv_is_eur]
+    # X_fam_eur.to_csv(ref_pref+'_eur.id', sep=DELIMITER, header=False, columns=['fid', 'iid'], index=False)
+    # W_fam_eur.to_csv(stu_pref+'_eur.id', sep=DELIMITER, header=False, columns=['fid', 'iid'], index=False)
+    # X_eur = X[:, ref_indiv_is_eur]
+    # popu_ref_eur = popu_ref[ref_indiv_is_eur]
+    # # The following line actually slows down pca on study samples quite a lot, especially hdpca
+    # # Actually not necessarily. Could be that eur indivs are harder for hdpca to adjust.
+    # W_dask_eur = W_dask[:, stu_indiv_is_eur]
+    # # W_eur = dask2memmap(W_dask_eur, 'W_eur.memmap')
+    # pca(X_eur, W_dask_eur, popu_ref_eur, 'superpopu_eur')
+    # # pcs_ref_eur = pcs_ref[indiv_is_eur,:] * X_std[indiv_is_eur]
+    # # pcs_ref_eur += X_mean[indiv_is_eur]
+
+    del X
+    # logging.info('Temporary directory content: ')
+    # logging.info(subprocess.run(['ls', '-hl', TMP_DIR]))
+
