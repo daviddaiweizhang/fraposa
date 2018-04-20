@@ -549,6 +549,13 @@ def pred_popu_stu(pcs_ref, popu_ref, pcs_stu):
     popu_stu_pred = knn.predict(pcs_stu) 
     return popu_stu_pred
 
+def load_pcs(pref):
+    pcs_ref = np.loadtxt(pref+'_ref.dat')
+    pcs_stu_proj = np.loadtxt(pref+'_stu_proj.dat')
+    pcs_stu_hdpca = np.loadtxt(pref+'_stu_hdpca.dat')
+    pcs_stu_onl = np.loadtxt(pref+'_stu_onl.dat')
+    return pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl
+
 def plot_pcs(pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl, popu_ref, popu_stu, out_pref):
     popu_unique = set(popu_ref)
     popu_n = len(popu_unique)
