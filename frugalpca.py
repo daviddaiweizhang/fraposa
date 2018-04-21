@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.cluster import KMeans
 from pandas_plink import read_plink
 import dask.array as da
 # from dask import compute
@@ -542,7 +543,6 @@ def get_popu_ref_info(X_fam, popu_ref_filename, superpopu_ref_filename):
     indiv_ref_info = pd.merge(X_fam, popu_ref_df, on = 'iid')
     return indiv_ref_info[['Population', 'Superpopulation']]
 
-# Predict superpopulations for study individuals
 def pred_popu_stu(pcs_ref, popu_ref, pcs_stu):
     logging.info('Predicting populations for study individuals...')
     knn = KNeighborsClassifier(n_neighbors=N_NEIGHBORS)
@@ -595,7 +595,7 @@ def pca(X, W_dask, popu_ref, out_pref):
     return pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl
 
 
-def run_pca(ref_pref, stu_pref, popu_ref_filename, superpopu_ref_filename, popu_col_name):
+def run_pca(ref_pref, stu_pref, popu_ref_filename, use_memmap=True):
     logging.info('Reference data: ' + ref_pref)
     logging.info('Study data: ' + stu_pref)
     logging.info('Temp dir: ' + TMP_DIR)
@@ -603,8 +603,12 @@ def run_pca(ref_pref, stu_pref, popu_ref_filename, superpopu_ref_filename, popu_
     ref_pref_commsnpsrefal, stu_pref_commsnpsrefal = intersect_ref_stu_snps(ref_pref, stu_pref)
     # Load ref
     X_dask, X_bim, X_fam = bed2dask(ref_pref_commsnpsrefal)
-    X = dask2memmap(X_dask, 'X.memmap')
-    psp_ref = get_popu_ref_info(X_fam, popu_ref_filename, superpopu_ref_filename)
+    if use_memmap:
+        X = dask2memmap(X_dask, 'X.memmap')
+    else:
+        X = X_dask.compute()
+    # popu_ref = get_popu_ref_info(X_fam, popu_ref_filename, superpopu_ref_filename)[popu_col_name]
+    popu_ref = pd.read_table(popu_ref_filename).iloc[1]
     # Load stu
     W_dask, W_bim, W_fam = bed2dask(stu_pref_commsnpsrefal)
     # Check ref and stu have the same snps and alleles
@@ -615,8 +619,7 @@ def run_pca(ref_pref, stu_pref, popu_ref_filename, superpopu_ref_filename, popu_
     assert p_ref == p_stu
     p = p_ref
 
-    # PCA on all individuals
-    popu_ref = psp_ref[popu_col_name]
+    # PCA on study individuals
     pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl = pca(X, W_dask, popu_ref, stu_pref)
 
     # Predict stu population
