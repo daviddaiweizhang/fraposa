@@ -192,6 +192,15 @@ import logging
 #     print('Reading existing U.dat...')
 #     U = np.loadtxt('U.dat')
 
+# def get_popu_ref_info(X_fam, popu_ref_filename, superpopu_ref_filename):
+#     popu_ref_df = pd.read_table(popu_ref_filename)
+#     popu_ref_df = popu_ref_df.rename(index=str, columns={'Individual ID' : 'iid'})
+#     superpopu_ref_df = pd.read_table(superpopu_ref_filename)
+#     superpopu_ref_dict = superpopu_ref_df.set_index('Population Code')['Super Population Code'].to_dict()
+#     popu_ref_df['Superpopulation'] = [superpopu_ref_dict[popu_this] for popu_this in popu_ref_df['Population']]
+#     indiv_ref_info = pd.merge(X_fam, popu_ref_df, on = 'iid')
+#     return indiv_ref_info[['Population', 'Superpopulation']]
+
 DIM_REF = 4
 assert DIM_REF >= 4
 DIM_STUDY = 20
@@ -463,10 +472,10 @@ def hdpca_adjust(s, p_ref, n_ref, pcs_stu_proj, hdpca_n_spike_max=HDPCA_N_SPIKE_
         sys.stdout = old_stdout
     return pcs_stu_hdpca
 
-def pca_stu(W_dask, X_mean, X_std, U, s, V, pcs_ref, out_pref, dim_ref=DIM_REF, dim_study=DIM_STUDY, dim_study_high=DIM_STUDY_HIGH, chunk_size_study=CHUNK_SIZE_STUDY):
+def pca_stu(W_large, X_mean, X_std, U, s, V, pcs_ref, out_pref, dim_ref=DIM_REF, dim_study=DIM_STUDY, dim_study_high=DIM_STUDY_HIGH, chunk_size_study=CHUNK_SIZE_STUDY):
     p_ref = len(X_mean)
     n_ref = pcs_ref.shape[0]
-    p_stu, n_stu = W_dask.shape
+    p_stu, n_stu = W_large.shape
     pcs_stu_proj = np.zeros((n_stu, dim_ref), dtype=np.float32)
     pcs_stu_hdpca = np.zeros((n_stu, dim_ref), dtype=np.float32)
     pcs_stu_onl = np.zeros((n_stu, dim_ref), dtype=np.float32)
@@ -483,11 +492,9 @@ def pca_stu(W_dask, X_mean, X_std, U, s, V, pcs_ref, out_pref, dim_ref=DIM_REF, 
         t0 = time.time()
         sample_start = chunk_size_study * i 
         sample_end = min(chunk_size_study * (i+1), n_stu)
-        W = W_dask[:, sample_start:sample_end].compute()
-        # If we want to allow W_dask to be numpy array or numpy memmap
-        # W = W_dask[:, sample_start:sample_end]
-        # if type(W) is da.core.Array:
-        #     W = W.compute()
+        W = W_large[:, sample_start:sample_end]
+        if type(W) is da.core.Array:
+            W = W.compute()
         elapse_subset += time.time() - t0
 
         t0 = time.time()
@@ -534,15 +541,6 @@ def pca_stu(W_dask, X_mean, X_std, U, s, V, pcs_ref, out_pref, dim_ref=DIM_REF, 
 
     return pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl
 
-def get_popu_ref_info(X_fam, popu_ref_filename, superpopu_ref_filename):
-    popu_ref_df = pd.read_table(popu_ref_filename)
-    popu_ref_df = popu_ref_df.rename(index=str, columns={'Individual ID' : 'iid'})
-    superpopu_ref_df = pd.read_table(superpopu_ref_filename)
-    superpopu_ref_dict = superpopu_ref_df.set_index('Population Code')['Super Population Code'].to_dict()
-    popu_ref_df['Superpopulation'] = [superpopu_ref_dict[popu_this] for popu_this in popu_ref_df['Population']]
-    indiv_ref_info = pd.merge(X_fam, popu_ref_df, on = 'iid')
-    return indiv_ref_info[['Population', 'Superpopulation']]
-
 def pred_popu_stu(pcs_ref, popu_ref, pcs_stu):
     logging.info('Predicting populations for study individuals...')
     knn = KNeighborsClassifier(n_neighbors=N_NEIGHBORS)
@@ -573,7 +571,7 @@ def plot_pcs(pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl, popu_ref, popu_s
             plt.plot(pcs_ref[ref_is_this_popu, j*2], pcs_ref[ref_is_this_popu, j*2+1], marker_ref, alpha=alpha_ref, color=plot_colors[i])
         for i,popu in enumerate(popu_unique):
             stu_is_this_popu = popu_stu == popu
-            plt.plot(pcs_stu_onl[stu_is_this_popu, j*2], pcs_stu_onl[stu_is_this_popu, j*2+1], marker_stu, label=popu, alpha=alpha_stu, color=plot_colors[i])
+            plt.plot(pcs_stu_onl[stu_is_this_popu, j*2], pcs_stu_onl[stu_is_this_popu, j*2+1], marker_stu, label=str(popu), alpha=alpha_stu, color=plot_colors[i])
         # plt.plot(pcs_stu_proj[:, j*2], pcs_stu_proj[:, j*2+1], '+', alpha=alpha_stu, label='projection', color=PLOT_COLOR_STU)
         # plt.plot(pcs_stu_hdpca[:, j*2], pcs_stu_hdpca[:, j*2+1], 'x', alpha=alpha_stu, label='hdpca', color=PLOT_COLOR_STU)
         # plt.plot(pcs_stu_trace[:, j*2], pcs_stu_trace[:, j*2+1], 'o', alpha=alpha_stu, label='trace')
@@ -586,7 +584,7 @@ def plot_pcs(pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl, popu_ref, popu_s
     plt.close('all')
     logging.info('Study PC score plots saved to ' + out_pref +'.png')
 
-def pca(X, W_dask, popu_ref, out_pref):
+def pca(X, W_dask, out_pref):
     # PCA on ref and stu
     X_mean, X_std = standardize_ref(X)
     s, V, pcs_ref = pca_ref(X, out_pref)
@@ -595,7 +593,8 @@ def pca(X, W_dask, popu_ref, out_pref):
     return pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl
 
 
-def run_pca(ref_pref, stu_pref, popu_ref_filename, use_memmap=True):
+def run_pca(ref_pref, stu_pref, popu_ref_filename=None, popu_ref_k=None, use_memmap=False):
+    assert (popu_ref_filename is None) != (popu_ref_k is None)
     logging.info('Reference data: ' + ref_pref)
     logging.info('Study data: ' + stu_pref)
     logging.info('Temp dir: ' + TMP_DIR)
@@ -608,7 +607,6 @@ def run_pca(ref_pref, stu_pref, popu_ref_filename, use_memmap=True):
     else:
         X = X_dask.compute()
     # popu_ref = get_popu_ref_info(X_fam, popu_ref_filename, superpopu_ref_filename)[popu_col_name]
-    popu_ref = pd.read_table(popu_ref_filename).iloc[1]
     # Load stu
     W_dask, W_bim, W_fam = bed2dask(stu_pref_commsnpsrefal)
     # Check ref and stu have the same snps and alleles
@@ -620,7 +618,15 @@ def run_pca(ref_pref, stu_pref, popu_ref_filename, use_memmap=True):
     p = p_ref
 
     # PCA on study individuals
-    pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl = pca(X, W_dask, popu_ref, stu_pref)
+    pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl = pca(X, W_dask, stu_pref)
+
+    # Read or predict ref populations
+    if popu_ref_filename is not None:
+        popu_ref = pd.read_table(popu_ref_filename, header=None).iloc[:,1]
+    else:
+        popu_ref = KMeans(n_clusters=popu_ref_k).fit_predict(pcs_ref)
+        popu_ref_df = pd.DataFrame({'iid':X_fam['iid'], 'popu':popu_ref})
+        popu_ref_df.to_csv(stu_pref+'_ref_pred.popu', sep=DELIMITER, header=False, index=False)
 
     # Predict stu population
     popu_stu_pred = pred_popu_stu(pcs_ref, popu_ref, pcs_stu_onl)
