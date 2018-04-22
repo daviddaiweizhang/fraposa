@@ -15,7 +15,6 @@ fp.cmp_pcs(pref_stu, ['sp', 'ap', 'oadp'])
 
 # fp.run_pca(pref_ref, pref_stu, popu_ref_k=5, method='sp', use_memmap=False)
 
-
 # pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl = fp.load_pcs('pcs')
 # pcs_stu = pcs_stu_onl
 # popu_ref = pd.read_table(popu_ref_filename)
