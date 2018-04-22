@@ -10,6 +10,8 @@ SMARTPCA -*- mode: org -*-
 *** TODO use only PC1 and PC2 for predicting study sample populations
 *** TODO Run UKbiobank with 1 core for fast method, 8 cores for TRACE
 *** TODO Create functions for loading and comparing TRACE results
+*** TODO Find HDPCA shrinkage once for all
+*** TODO Figure out why HDPCA is slow
 *** DONE Read PLINK file into python (try dask)
     CLOSED: [2018-03-30 Fri 09:41]
 *** TODO Handle difference in SNPs (SNPs order and allele)

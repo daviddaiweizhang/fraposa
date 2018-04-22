@@ -206,7 +206,7 @@ DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
 N_NEIGHBORS=5
 HDPCA_N_SPIKE_MAX = 20
-CHUNK_SIZE_STUDY = 1000
+CHUNK_SIZE_STUDY = 5000
 
 PLOT_ALPHA_REF=0.05
 PLOT_ALPHA_STU=0.7
@@ -454,7 +454,7 @@ def pca_ref(X, dim_ref=DIM_REF, save_XTXsV=False):
     #     np.savetxt(out_pref+'_XTX.dat', XTX, fmt=NP_OUTPUT_FMT)
     #     np.savetxt(out_pref+'_s.dat', s, fmt=NP_OUTPUT_FMT)
     #     np.savetxt(out_pref+'_V.dat', V, fmt=NP_OUTPUT_FMT)
-    return s, V
+    return s, V, XTX
 
 def get_pc_loading(X, s, V, dim_stu_high=DIM_STU_HIGH, out_pref=None):
     logging.info('Calculating PC loadings...')
@@ -463,16 +463,37 @@ def get_pc_loading(X, s, V, dim_stu_high=DIM_STU_HIGH, out_pref=None):
         np.savetxt(out_pref+'_U.dat', U, fmt=NP_OUTPUT_FMT)
     return U
 
-def online_procrustes(U, s, V, b, dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
+def ref_aug_procrustes(pcs_ref, pcs_aug):
+    n_ref, p_ref = pcs_ref.shape
+    n_aug, p_aug = pcs_aug.shape
+    assert n_aug == n_ref + 1
+    assert p_aug >= p_ref
+    pcs_aug_head = pcs_aug[:-1, :] 
+    pcs_aug_tail = pcs_aug[-1, :].reshape((1,-1))
+    R, rho, c = procrustes_diffdim(pcs_ref, pcs_aug_head)
+    pcs_aug_tail_trsfed = pcs_aug_tail @ R * rho + c
+    return pcs_aug_tail_trsfed.flatten()
+
+def oadp(U, s, V, b, dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
     pcs_ref = V[:, :dim_ref] * s[:dim_ref]
-    s_new, V_new = svd_online(U[:,:dim_stu_high], s[:dim_stu_high], V[:,:dim_stu_high], b)
-    s_new, V_new = s_new[:dim_stu], V_new[:, :dim_stu]
-    pcs_new = V_new * s_new
-    pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
-    R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
-    pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
-    pcs_stu_onl = pcs_new_tail_trsfed.flatten()
-    return pcs_stu_onl
+    s_aug, V_aug = svd_online(U[:,:dim_stu_high], s[:dim_stu_high], V[:,:dim_stu_high], b)
+    s_aug, V_aug = s_aug[:dim_stu], V_aug[:, :dim_stu]
+    pcs_aug = V_aug * s_aug
+    pcs_stu = ref_aug_procrustes(pcs_ref, pcs_aug)
+    return pcs_stu[:dim_ref]
+
+def adp(XTX, X, w, pcs_ref, dim_stu=DIM_STU):
+    dim_ref = pcs_ref.shape[1]
+    w = w.reshape((-1,1))
+    XTw = X.T @ w
+    wTw = w.T @ w
+    XTX_aug = np.vstack((np.hstack((XTX, XTw)), np.hstack((XTw.T, wTw))))
+    s_aug, V_aug = svd_eigcov(XTX_aug)
+    s_aug = s_aug[:dim_stu] 
+    V_aug = V_aug[:, :dim_stu]
+    pcs_aug = V_aug * s_aug
+    pcs_stu = ref_aug_procrustes(pcs_ref, pcs_aug)
+    return pcs_stu[:dim_ref]
 
 def hdpca_adjust(s, p_ref, n_ref, pcs_stu_proj, hdpca_n_spike_max=HDPCA_N_SPIKE_MAX):
     # Run hdpca but suppress output to stdout
@@ -483,8 +504,10 @@ def hdpca_adjust(s, p_ref, n_ref, pcs_stu_proj, hdpca_n_spike_max=HDPCA_N_SPIKE_
         sys.stdout = old_stdout
     return pcs_stu_hdpca
 
-def pca_stu(W_large, X_mean, X_std, method='oadp', U=None, s=None, V=None, XTX=None, dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
-    logging.info('Calculating study PC scores by using ' + method + '...')
+def pca_stu(W_large, X_mean, X_std, method='oadp',
+            U=None, s=None, V=None, XTX=None, X=None, pcs_ref=None,
+            dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
+    logging.info('Calculating study PC scores...')
     p_ref = len(X_mean)
     n_ref = len(s)
     p_stu, n_stu = W_large.shape
@@ -513,20 +536,30 @@ def pca_stu(W_large, X_mean, X_std, method='oadp', U=None, s=None, V=None, XTX=N
 
         t0 = time.time()
         if method == 'oadp':
-            assert (U is not None) & (s is not None) and (V is not None)
             logging.debug('Predicting study pc scores with online augment-decompose-procrustes...')
+            assert (U is not None) & (s is not None) and (V is not None)
             for i in range(W.shape[1]):
-                w_this = W[:,i]
-                pcs_stu[sample_start + i, :] = online_procrustes(U, s, V, w_this, dim_ref, dim_stu, dim_stu_high)[:dim_ref]
+                w = W[:,i]
+                pcs_stu_row = oadp(U, s, V, w, dim_ref, dim_stu, dim_stu_high)
+                pcs_stu[sample_start + i, :] = pcs_stu_row
+        elif method == 'adp':
+            logging.debug('Predicting study pc scores with augment-decompose-procrustes...')
+            assert (XTX is not None) and (X is not None)
+            for i in range(W.shape[1]):
+                w = W[:,i]
+                pcs_stu_row = adp(XTX, X, w, pcs_ref, dim_stu=dim_stu)
+                pcs_stu[sample_start + i, :] = pcs_stu_row
         elif method == 'sp':
-            assert U is not None
             logging.debug('Predicting study PC scores with simple projection...')
-            pcs_stu[sample_start:sample_end, :] = W.T @ U[:,:dim_ref]
+            assert U is not None
+            pcs_stu_chunk = W.T @ U[:,:dim_ref]
+            pcs_stu[sample_start:sample_end, :] = pcs_stu_chunk
         elif method == 'ap':
-            assert (U is not None) and (s is not None)
             logging.debug('Predicting study PC scores with adjusted projection...')
-            pcs_stu_proj = W.T @ U[:,:dim_stu]
-            pcs_stu[sample_start:sample_end, :] = hdpca_adjust(s, p_ref, n_ref, pcs_stu_proj)[:, :dim_ref]
+            assert (U is not None) and (s is not None)
+            pcs_stu_chunk_proj = W.T @ U[:,:dim_stu]
+            pcs_stu_chunk = hdpca_adjust(s, p_ref, n_ref, pcs_stu_chunk_proj)[:, :dim_ref]
+            pcs_stu[sample_start:sample_end, :] 
         else:
             logging.error(method + ' is not one of sp, ap, or oadp.')
         elapse_method += time.time() - t0
@@ -537,7 +570,7 @@ def pca_stu(W_large, X_mean, X_std, method='oadp', U=None, s=None, V=None, XTX=N
     logging.info('Runtimes: ')
     logging.info('Standardizing: ' + str(elapse_standardize))
     logging.info('Subsetting: ' + str(elapse_subset))
-    logging.info('Method: ' + str(elapse_method))
+    logging.info(method + ': ' + str(elapse_method))
     del W
     return pcs_stu
 
@@ -607,13 +640,14 @@ def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, out_pref,
 def pca(X, W_dask, out_pref, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
     # PCA on ref and stu
     X_mean, X_std = standardize_ref(X)
-    s, V = pca_ref(X)
+    s, V, XTX = pca_ref(X)
     pcs_ref = V[:, :dim_ref] * s[:dim_ref]
     np.savetxt(out_pref+'_ref.pcs', pcs_ref, fmt=NP_OUTPUT_FMT)
     logging.info('Reference PC scores saved to ' + out_pref + '_ref.pcs')
     U = get_pc_loading(X, s, V)
     pcs_stu = pca_stu(W_dask, X_mean, X_std, method=method, 
-                      U=U, s=s, V=V, dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
+                      U=U, s=s, V=V, XTX=XTX, X=X, pcs_ref=pcs_ref,
+                      dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
     pcs_stu_filename = out_pref + '_stu_' + method +'.pcs'
     np.savetxt(pcs_stu_filename, pcs_stu, fmt=NP_OUTPUT_FMT, delimiter='\t')
     logging.info('Study PC scores saved to ' + pcs_stu_filename)
@@ -621,7 +655,7 @@ def pca(X, W_dask, out_pref, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, di
 
 def run_pca(ref_pref, stu_pref, popu_ref_filename=None, popu_ref_k=None, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False):
     assert 2 <= dim_ref <= dim_stu <= dim_stu_high
-    # log = create_logger(stu_pref)
+    log = create_logger(stu_pref)
     assert (popu_ref_filename is None) != (popu_ref_k is None)
     logging.info('Reference data: ' + ref_pref)
     logging.info('Study data: ' + stu_pref)
