@@ -8,12 +8,10 @@ popu_ref_filename = '../data/kgn/kgn_orphans.superpopu'
 
 fp.test_online_svd_procrust()
 
-# fp.run_pca(pref_ref, pref_stu, popu_ref_filename = popu_ref_filename, method='sp', use_memmap=False)
-# fp.run_pca(pref_ref, pref_stu, popu_ref_filename = popu_ref_filename, method='ap', use_memmap=False)
-# fp.run_pca(pref_ref, pref_stu, popu_ref_filename = popu_ref_filename, method='oadp', use_memmap=False)
+fp.run_pca(pref_ref, pref_stu, popu_ref_filename = popu_ref_filename, method='sp', use_memmap=False)
+fp.run_pca(pref_ref, pref_stu, popu_ref_k=5, method='ap', use_memmap=False)
+fp.run_pca(pref_ref, pref_stu, popu_ref_filename = popu_ref_filename, method='oadp', use_memmap=False)
 fp.cmp_pcs(pref_stu, ['sp', 'ap', 'oadp'])
-
-# fp.run_pca(pref_ref, pref_stu, popu_ref_k=5, method='sp', use_memmap=False)
 
 # pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl = fp.load_pcs('pcs')
 # pcs_stu = pcs_stu_onl
