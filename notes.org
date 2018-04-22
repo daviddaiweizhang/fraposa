@@ -6,6 +6,10 @@ SMARTPCA -*- mode: org -*-
 ** Make software in python
 *** DONE Get reference datasets (snps_hgdp)
     CLOSED: [2018-03-30 Fri 09:47]
+*** TODO Use all snps in kgn for reference
+*** TODO use only PC1 and PC2 for predicting study sample populations
+*** TODO Run UKbiobank with 1 core for fast method, 8 cores for TRACE
+*** TODO Create functions for loading and comparing TRACE results
 *** DONE Read PLINK file into python (try dask)
     CLOSED: [2018-03-30 Fri 09:41]
 *** TODO Handle difference in SNPs (SNPs order and allele)
