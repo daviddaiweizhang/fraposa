@@ -4,15 +4,16 @@ import frugalpca as fp
 ref_pref = '../data/kgn/kgn_snps_ukb'
 stu_pref = '../data/ukb/ukb_snps_kgn_1k'
 popu_ref_filename = '../data/kgn/kgn_orphans.superpopu'
-log = fp.create_logger(stu_pref)
+# log = fp.create_logger(stu_pref)
 
 fp.test_online_svd_procrust()
 
-# fp.run_pca(ref_pref, stu_pref, popu_ref_filename, use_memmap=True)
+fp.run_pca(ref_pref, stu_pref, popu_ref_filename, method='ap', use_memmap=False)
 
-fp.run_pca(ref_pref, stu_pref, popu_ref_k=5, use_memmap=False)
+# fp.run_pca(ref_pref, stu_pref, popu_ref_k=5, use_memmap=False)
 
 # pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl = fp.load_pcs('pcs')
-# popu_ref = pd.read_table(popu_ref_filename)[popu_col_name]
-# popu_stu_pred = fp. pred_popu_stu(pcs_ref, popu_ref, pcs_stu_onl)
+# pcs_stu = pcs_stu_onl
+# popu_ref = pd.read_table(popu_ref_filename)
+# popu_stu_pred = fp.pred_popu_stu(pcs_ref, popu_ref, pcs_stu)
 # fp.plot_pcs(pcs_ref, pcs_stu_proj, pcs_stu_hdpca, pcs_stu_onl, popu_ref, popu_stu_pred, stu_pref, marker_stu='.', alpha_stu=0.3)
