@@ -507,7 +507,7 @@ def hdpca_adjust(s, p_ref, n_ref, pcs_stu_proj, hdpca_n_spike_max=HDPCA_N_SPIKE_
 def pca_stu(W_large, X_mean, X_std, method='oadp',
             U=None, s=None, V=None, XTX=None, X=None, pcs_ref=None,
             dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
-    logging.info('Calculating study PC scores...')
+    logging.info('Calculating study PC scores with ' + method + '...')
     p_ref = len(X_mean)
     n_ref = len(s)
     p_stu, n_stu = W_large.shape
@@ -559,7 +559,7 @@ def pca_stu(W_large, X_mean, X_std, method='oadp',
             assert (U is not None) and (s is not None)
             pcs_stu_chunk_proj = W.T @ U[:,:dim_stu]
             pcs_stu_chunk = hdpca_adjust(s, p_ref, n_ref, pcs_stu_chunk_proj)[:, :dim_ref]
-            pcs_stu[sample_start:sample_end, :] 
+            pcs_stu[sample_start:sample_end, :] = pcs_stu_chunk
         else:
             logging.error(method + ' is not one of sp, ap, or oadp.')
         elapse_method += time.time() - t0
@@ -700,7 +700,7 @@ def run_pca(ref_pref, stu_pref, popu_ref_filename=None, popu_ref_k=None, method=
     logging.info('Study population prediction saved to ' + stu_pref+'_pred.popu')
 
     # Plot PC scores
-    plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu_pred, out_pref=stu_pref)
+    plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu_pred, out_pref=stu_pref+'_'+method)
 
     # Finer-level PCA on European individuals
     # ref_indiv_is_eur = popu_ref == 'EUR'
