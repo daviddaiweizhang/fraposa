@@ -25,199 +25,6 @@ import sys
 import logging
 import filecmp
 
-# print(datetime.now())
-# print('Loading reference dask array into memmap...')
-# W_memmap_filename = os.path.join(TMP_DIR, 'W_memmap.dat')
-# W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
-# # W[:] = W_dask
-# W = np.zeros(dtype=np.float32, shape=W_dask.shape)
-# for i in range(len(W_dask.chunks[0])):
-#     start = sum(W_dask.chunks[0][:i])
-#     end = sum(W_dask.chunks[0][:i+1])
-#     W[start:end, :] = W_dask[start:end, :]
-# TODO: Add checking for ind-major vs snp-major
-
-
-# print('Sorting ref snps by chrom and pos...')
-# print(datetime.now())
-# X_bim_full['chrom'] = X_bim_full['chrom'].astype(np.int64)
-# W_bim_full['chrom'] = W_bim_full['chrom'].astype(np.int64)
-# # X_bim_full = X_bim_full.sort_values(by=['chrom', 'pos'])
-# print('Sorting stu snps by chrom and pos...')
-# print(datetime.now())
-# # W_bim_full = W_bim_full.sort_values(by=['chrom', 'pos'])
-# print('Intersecting snps...')
-# print(datetime.now())
-# snp_intersect = np.intersect1d(X_bim_full['snp'], W_bim_full['snp'], assume_unique=True)
-# print('Filtering reference snps...')
-# print(datetime.now())
-# X_snp_isshared = np.isin(X_bim_full['snp'], snp_intersect, assume_unique=True)
-# print('Filtering study snps...')
-# print(datetime.now())
-# W_snp_isshared = np.isin(W_bim_full['snp'], snp_intersect, assume_unique=True)
-# print('Creating filtered reference set...')
-# print(datetime.now())
-# X = X_full[X_snp_isshared].compute()
-# X_bim = X_bim_full[X_snp_isshared]
-# print('Creating filtered study set...')
-# print(datetime.now())
-# W_dask = W_full[W_snp_isshared]
-# W_memmap_filename = os.path.join(mkdtemp(), 'W_memmap.dat')
-# W = np.memmap(W_memmap_filename, dtype=np.float32, mode='w+', shape=W_dask.shape)
-# W[:] = W_dask
-# W_bim = W_bim_full[W_snp_isshared]
-
-# print('Handling alleles...')
-# allele_isdiff = np.array(W_bim['a0']) != np.array(X_bim['a0'])
-# # allele_isswapped = np.logical_and(np.array(W_bim['a0']) == np.array(X_bim['a1']), np.array(W_bim['a0']) == np.array(X_bim['a1']))
-# c0 = np.zeros((p, 1))
-# c0[allele_isdiff] = 2
-# c1 = np.ones((p, 1))
-# c1[allele_isdiff] = -1
-# W *= c1
-# W += c0
-# # TODO: Change the bim file, too
-# # W_bim_a0_diff = W_bim['a0'][allele_isdiff]
-# # W_bim['a0'][allele_isdiff] = W_bim['a1'][allele_isdiff].astype('object').values
-# # W_bim['a1'][allele_isdiff] = W_bim_a0_diff
-# print('Done.')
-# print(datetime.now())
-
-# print('Calculating pc scores with eigen decomposition...')
-# print(datetime.now())
-# if 'XTX' not in locals():
-#     XTX = np.loadtxt('XTX.dat')
-# pcs_stu_eig = np.zeros((4, DIM_REF))
-# XTX_new = np.zeros((n_ref + 1, n_ref + 1))
-# XTX_new[:-1, :-1] = XTX
-# for i in range(4):
-#     # print('Calculating XTX_new...')
-#     # print(datetime.now())
-#     b = W[:,i]
-#     bX = b @ X
-#     bb = np.sum(b**2)
-#     XTX_new[-1, :-1] = bX
-#     XTX_new[:-1, -1] = bX
-#     XTX_new[-1, -1] = bb
-#     # print('Calculating s_new and V_new...')
-#     # print(datetime.now())
-#     s_new, V_new = svd_eigcov(XTX_new)
-#     Vs_new = V_new * s_new
-#     pcs_new = Vs_new[:, :DIM_STU]
-#     # print('Done.')
-#     # print(datetime.now())
-#     # print('Procrustes analysis...')
-#     # print(datetime.now())
-#     pcs_new_head, pcs_new_tail = pcs_new[:-1, :], pcs_new[-1, :].reshape((1,-1))
-#     R, rho, c = procrustes_diffdim(pcs_ref, pcs_new_head)
-#     pcs_new_tail_trsfed = pcs_new_tail @ R * rho + c
-#     pcs_stu_eig[i, :] = pcs_new_tail_trsfed.flatten()[:DIM_REF]
-# print('Done.')
-# assert np.allclose(pcs_stu_trace[:4,:dim_stu_trace], pcs_stu_eig[:4,:dim_stu_trace], 0.01, 0.05)
-
-# def procrustes_old(data1, data2):
-#     mtx1 = np.array(data1, dtype=np.double, copy=True)
-#     mtx2 = np.array(data2, dtype=np.double, copy=True)
-#     if mtx1.ndim != 2 or mtx2.ndim != 2:
-#         raise ValueError('Input matrices must be two-dimensional')
-#     if mtx1.shape != mtx2.shape:
-#         raise ValueError('Input matrices must be of same shape')
-#     if mtx1.size == 0:
-#         raise ValueError('Input matrices must be >0 rows and >0 cols')
-#     # translate all the data to the origin
-#     mtx1_mean = np.mean(mtx1, 0)
-#     mtx1 -= mtx1_mean
-#     mtx2_mean = np.mean(mtx2, 0)
-#     mtx2 -= mtx2_mean
-#     # change scaling of data (in rows) such that trace(mtx*mtx') = 1
-#     norm1 = np.linalg.norm(mtx1)
-#     norm2 = np.linalg.norm(mtx2)
-#     if norm1 == 0 or norm2 == 0:
-#         raise ValueError('Input matrices must contain >1 unique points')
-#     mtx1 /= norm1
-#     mtx2 /= norm2
-#     # transform mtx2 to minimize disparity
-#     R, s = orthogonal_procrustes(mtx2, mtx1)
-#     # orthogonal_procrustes can only find the best transformation between normalilzed matrices
-#     s *= norm1 / norm2
-#     b = mtx1_mean - mtx2_mean @ R * s
-#     return R, s, b
-
-# print('Testing study PC scores are the same as TRACE's...')
-# pcs_stu_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.ProPC.coord'
-# pcs_stu_trace = pd.read_table(pcs_stu_trace_file)
-# pcs_stu_trace = np.array(pcs_stu_trace.iloc[:, 6:])
-# dim_stu_trace = pcs_stu_trace.shape[1]
-# assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
-# assert np.allclose(pcs_stu_trace, pcs_stu_onl, 0.01, 0.05)
-# np.savetxt('pcs_stu_trace.dat', pcs_stu_trace, fmt=NP_OUTPUT_FMT, delimiter='\t')
-# print('Passed.')
-
-# PCA on the reference data
-# sV_file_all_exists = os.path.isfile('s.dat') and os.path.isfile('V.dat')
-# if sV_file_all_exists:
-#     print('Reading existing s.dat and V.dat...')
-#     s = np.loadtxt('s.dat')
-#     V = np.loadtxt('V.dat')
-#     print('Done.')
-# X = da.rechunk(X, (X.chunks[0], (X.shape[1])))
-# cache = Chest(path='cache')
-
-# Compressed (randomized) svd
-# print('Doing randomized SVD on training data...')
-# U, s, Vt = da.linalg.svd_compressed(X, DIM_RANDSVD, NITER_RANDSVD)
-# U, s, Vt = compute(U, s, Vt, cache=cache)
-# V = Vt.T
-# np.savetxt('U.dat', U, fmt=NP_OUTPUT_FMT)
-
-# # Test reference pc scores close to TRACE's
-# print('Testing reference PC scores are the same as TRACE's...')
-# pcs_ref_trace_file = '../data/kgn_kgn_1/kgn_chr_all_keep_orphans_snp_hgdp_biallelic_train_test.RefPC.coord'
-# pcs_ref_trace = pd.read_table(pcs_ref_trace_file)
-# pcs_ref_trace = np.array(pcs_ref_trace.iloc[:, 2:])
-# ref_dim_trace = pcs_ref_trace.shape[1]
-# for i in range(ref_dim_trace):
-#     corr = np.corrcoef(pcs_ref_trace[:,i], pcs_ref[:,i])[0,1]
-#     assert abs(corr) > 0.99
-#     if corr < 0:
-#         pcs_ref[:,i] *= -1
-#         V[:,i] *= -1
-#     assert np.allclose(pcs_ref_trace[:,i], pcs_ref[:,i], 0.01, 0.05)
-# print('Passed.')
-
-# This should be run only when mult&eigen is used for decomposing reference data.
-# This must be done after the signs of V are made to be same as TRACE's
-# Calculate PC loading
-# if os.path.isfile('U.dat'):
-#     print('Reading existing U.dat...')
-#     U = np.loadtxt('U.dat')
-
-# def get_popu_ref_info(X_fam, popu_ref_filename, superpopu_ref_filename):
-#     popu_ref_df = pd.read_table(popu_ref_filename)
-#     popu_ref_df = popu_ref_df.rename(index=str, columns={'Individual ID' : 'iid'})
-#     superpopu_ref_df = pd.read_table(superpopu_ref_filename)
-#     superpopu_ref_dict = superpopu_ref_df.set_index('Population Code')['Super Population Code'].to_dict()
-#     popu_ref_df['Superpopulation'] = [superpopu_ref_dict[popu_this] for popu_this in popu_ref_df['Population']]
-#     indiv_ref_info = pd.merge(X_fam, popu_ref_df, on = 'iid')
-#     return indiv_ref_info[['Population', 'Superpopulation']]
-
-# def cmp_pcs(pref, methods):
-#     logging.info('Comparing PC scores predicted by different methods...')
-#     pcs_ref, pcs_stu_list = load_pcs(pref, methods)
-#     assert len(methods) <= 4
-#     for i, mth in enumerate(methods):
-#         pcs_stu_this = pcs_stu_list[i]
-#         plt.subplot(121)
-#         plt.plot(pcs_stu_this[:,0], pcs_stu_this[:,1], markers[i], label=mth, alpha=PLOT_ALPHA_STU)
-#         plt.subplot(122)
-#         plt.plot(pcs_stu_this[:,2], pcs_stu_this[:,3], markers[i], label=mth, alpha=PLOT_ALPHA_STU)
-#     out_filename = pref + '_cmp.png'
-#     plt.legend()
-#     plt.tight_layout()
-#     plt.savefig(out_filename, dpi=300)
-#     logging.info('PC comparison plot saved to ' + out_filename)
-#     plt.close()
-
 DIM_REF = 4
 DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
@@ -709,7 +516,10 @@ def run_pca(ref_pref, stu_pref, popu_ref_filename=None, popu_ref_k=None, method=
     # Plot PC scores
     plot_pcs(pcs_ref, [pcs_stu], popu_ref, [popu_stu_pred], method_list=[method], out_pref=stu_pref)
 
-    # Finer-level PCA on European individuals
+    # logging.info('Temporary directory content: ')
+    # logging.info(subprocess.run(['ls', '-hl', TMP_DIR]))
+
+    # Finer-level PCA on a subpopulation
     # ref_indiv_is_eur = popu_ref == 'EUR'
     # stu_indiv_is_eur = popu_stu_pred == 'EUR'
     # X_fam_eur = X_fam[ref_indiv_is_eur]
@@ -727,7 +537,4 @@ def run_pca(ref_pref, stu_pref, popu_ref_filename=None, popu_ref_k=None, method=
     # # pcs_ref_eur += X_mean[indiv_is_eur]
 
     del X
-    # logging.info('Temporary directory content: ')
-    # logging.info(subprocess.run(['ls', '-hl', TMP_DIR]))
-
     return pcs_ref, pcs_stu, popu_ref, popu_stu_pred
