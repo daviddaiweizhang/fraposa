@@ -201,6 +201,23 @@ import filecmp
 #     indiv_ref_info = pd.merge(X_fam, popu_ref_df, on = 'iid')
 #     return indiv_ref_info[['Population', 'Superpopulation']]
 
+# def cmp_pcs(pref, methods):
+#     logging.info('Comparing PC scores predicted by different methods...')
+#     pcs_ref, pcs_stu_list = load_pcs(pref, methods)
+#     assert len(methods) <= 4
+#     for i, mth in enumerate(methods):
+#         pcs_stu_this = pcs_stu_list[i]
+#         plt.subplot(121)
+#         plt.plot(pcs_stu_this[:,0], pcs_stu_this[:,1], markers[i], label=mth, alpha=PLOT_ALPHA_STU)
+#         plt.subplot(122)
+#         plt.plot(pcs_stu_this[:,2], pcs_stu_this[:,3], markers[i], label=mth, alpha=PLOT_ALPHA_STU)
+#     out_filename = pref + '_cmp.png'
+#     plt.legend()
+#     plt.tight_layout()
+#     plt.savefig(out_filename, dpi=300)
+#     logging.info('PC comparison plot saved to ' + out_filename)
+#     plt.close()
+
 DIM_REF = 4
 DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
@@ -208,8 +225,9 @@ N_NEIGHBORS=5
 HDPCA_N_SPIKE_MAX = 20
 CHUNK_SIZE_STUDY = 5000
 
-PLOT_ALPHA_REF=0.05
-PLOT_ALPHA_STU=0.7
+PLOT_ALPHA_REF=0.1
+PLOT_ALPHA_STU=0.99
+PLOT_MARKERS = ['.', '+', 'x', '*', 'd', 's']
 
 # DIM_SVDRAND = DIM_STU * 4
 # NITER_SVDRAND = 2
@@ -591,24 +609,10 @@ def load_pcs(pref, methods):
         pcs_stu_list += [pcs_stu_this]
     return pcs_ref, pcs_stu_list
 
-def cmp_pcs(pref, methods):
-    logging.info('Comparing PC scores predicted by different methods...')
-    pcs_ref, pcs_stu_list = load_pcs(pref, methods)
-    markers = ['+', 'x', '.', '*', 's']
-    assert len(methods) <= 4
-    plt.plot(pcs_ref[:,0], pcs_ref[:,1], markers[-1], label='ref', alpha=PLOT_ALPHA_REF)
-    for i, mth in enumerate(methods):
-        pcs_stu_this = pcs_stu_list[i]
-        plt.plot(pcs_stu_this[:,0], pcs_stu_this[:,1], markers[i], label=mth, alpha=PLOT_ALPHA_STU)
-    out_filename = pref + '_cmp.png'
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(out_filename, dpi=300)
-    logging.info('PC comparison plot saved to ' + out_filename)
-    plt.close()
 
-def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, out_pref,
-             marker_ref='s', marker_stu='.', alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU):
+def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref,
+             markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU):
+    assert len(pcs_stu_list) == len(popu_stu_list) == len(method_list)
     popu_unique = set(popu_ref)
     popu_n = len(popu_unique)
     plot_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -621,21 +625,24 @@ def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, out_pref,
         plt.ylabel('PC' + str(j*2+2))
         for i,popu in enumerate(popu_unique):
             ref_is_this_popu = popu_ref == popu
-            plt.plot(pcs_ref[ref_is_this_popu, j*2], pcs_ref[ref_is_this_popu, j*2+1], marker_ref, alpha=alpha_ref, color=plot_colors[i])
-        for i,popu in enumerate(popu_unique):
-            stu_is_this_popu = popu_stu == popu
-            plt.plot(pcs_stu[stu_is_this_popu, j*2], pcs_stu[stu_is_this_popu, j*2+1], marker_stu, label=str(popu), alpha=alpha_stu, color=plot_colors[i])
-        # plt.plot(pcs_stu_proj[:, j*2], pcs_stu_proj[:, j*2+1], '+', alpha=alpha_stu, label='projection', color=PLOT_COLOR_STU)
-        # plt.plot(pcs_stu_hdpca[:, j*2], pcs_stu_hdpca[:, j*2+1], 'x', alpha=alpha_stu, label='hdpca', color=PLOT_COLOR_STU)
-        # plt.plot(pcs_stu_trace[:, j*2], pcs_stu_trace[:, j*2+1], 'o', alpha=alpha_stu, label='trace')
-    # plt.legend(ncol=2, loc='center left', bbox_to_anchor=(1, 0.5))
-    # plt.legend(loc='lower center', bbox_to_anchor=(0.5, 0), bbox_transform=fig.transFigure, fancybox=True, shadow=True, ncol=popu_n*2)
+            plt.plot(pcs_ref[ref_is_this_popu, j*2], pcs_ref[ref_is_this_popu, j*2+1], markers[-1], alpha=alpha_ref, color=plot_colors[i], label=str(popu))
+        if len(pcs_stu_list) > 0:
+            for k,pcs_stu in enumerate(pcs_stu_list):
+                popu_stu = popu_stu_list[k]
+                method = method_list[k]
+                for i,popu in enumerate(popu_unique):
+                    stu_is_this_popu = popu_stu == popu
+                    if np.sum(stu_is_this_popu) > 0:
+                        plot_label = None
+                        if i == 0:
+                            plot_label = str(method)
+                        plt.plot(pcs_stu[stu_is_this_popu, j*2], pcs_stu[stu_is_this_popu, j*2+1], markers[k], label=plot_label, alpha=alpha_stu, color=plot_colors[i])
     plt.legend()
-    # fig.subplots_adjust(bottom=0.17)
     plt.tight_layout()
-    plt.savefig(out_pref+'.png', dpi=300)
+    fig_filename = out_pref+'_'.join([''] + method_list)+'.png'
+    plt.savefig(fig_filename, dpi=300)
     plt.close('all')
-    logging.info('PC plots saved to ' + out_pref +'.png')
+    logging.info('PC plots saved to ' + fig_filename)
 
 def pca(X, W_dask, out_pref, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
     # PCA on ref and stu
@@ -700,7 +707,7 @@ def run_pca(ref_pref, stu_pref, popu_ref_filename=None, popu_ref_k=None, method=
     logging.info('Study population prediction saved to ' + stu_pref+'_pred.popu')
 
     # Plot PC scores
-    plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu_pred, out_pref=stu_pref+'_'+method)
+    plot_pcs(pcs_ref, [pcs_stu], popu_ref, [popu_stu_pred], method_list=[method], out_pref=stu_pref)
 
     # Finer-level PCA on European individuals
     # ref_indiv_is_eur = popu_ref == 'EUR'
@@ -723,3 +730,4 @@ def run_pca(ref_pref, stu_pref, popu_ref_filename=None, popu_ref_k=None, method=
     # logging.info('Temporary directory content: ')
     # logging.info(subprocess.run(['ls', '-hl', TMP_DIR]))
 
+    return pcs_ref, pcs_stu, popu_ref, popu_stu_pred
