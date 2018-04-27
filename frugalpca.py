@@ -13,6 +13,7 @@ r = robjects.r
 robjects.numpy2ri.activate()
 importr('hdpca')
 pc_adjust = r['pc_adjust']
+hdpc_est = r['hdpc_est']
 import matplotlib
 matplotlib.use('Agg') # For outputting plots in png on servers
 import matplotlib.pyplot as plt
@@ -29,7 +30,7 @@ DIM_REF = 4
 DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
 N_NEIGHBORS=5
-HDPCA_N_SPIKE_MAX = 20
+HDPCA_N_SPIKES_MAX = 20
 CHUNK_SIZE_STUDY = 5000
 
 PLOT_ALPHA_REF=0.1
@@ -41,6 +42,15 @@ PLOT_MARKERS = ['.', '+', 'x', '*', 'd', 's']
 NP_OUTPUT_FMT = '%.4f'
 DELIMITER = '\t'
 TMP_DIR = mkdtemp()
+
+# def hdpca_adjust(s, p_ref, n_ref, pcs_stu_proj, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX):
+#     # Run hdpca but suppress output to stdout
+#     with open(os.devnull, 'w') as devnull:
+#         old_stdout = sys.stdout
+#         sys.stdout = devnull
+#         pcs_stu_hdpca = np.array(pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj, n_spikes_max=hdpca_n_spikes_max))
+#         sys.stdout = old_stdout
+#     return pcs_stu_hdpca
 
 def create_logger(prefix=None, level='info'):
     log = logging.getLogger()
@@ -320,15 +330,6 @@ def adp(XTX, X, w, pcs_ref, dim_stu=DIM_STU):
     pcs_stu = ref_aug_procrustes(pcs_ref, pcs_aug)
     return pcs_stu[:dim_ref]
 
-def hdpca_adjust(s, p_ref, n_ref, pcs_stu_proj, hdpca_n_spike_max=HDPCA_N_SPIKE_MAX):
-    # Run hdpca but suppress output to stdout
-    with open(os.devnull, 'w') as devnull:
-        old_stdout = sys.stdout
-        sys.stdout = devnull
-        pcs_stu_hdpca = np.array(pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj, n_spikes_max=hdpca_n_spike_max))
-        sys.stdout = old_stdout
-    return pcs_stu_hdpca
-
 def pca_stu(W_large, X_mean, X_std, method='oadp',
             U=None, s=None, V=None, XTX=None, X=None, pcs_ref=None,
             dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
@@ -374,19 +375,16 @@ def pca_stu(W_large, X_mean, X_std, method='oadp',
                 w = W[:,i]
                 pcs_stu_row = adp(XTX, X, w, pcs_ref, dim_stu=dim_stu)
                 pcs_stu[sample_start + i, :] = pcs_stu_row
-        elif method == 'sp':
-            logging.debug('Predicting study PC scores with simple projection...')
-            assert U is not None
-            pcs_stu_chunk = W.T @ U[:,:dim_ref]
-            pcs_stu[sample_start:sample_end, :] = pcs_stu_chunk
-        elif method == 'ap':
-            logging.debug('Predicting study PC scores with adjusted projection...')
-            assert (U is not None) and (s is not None)
-            pcs_stu_chunk_proj = W.T @ U[:,:dim_stu]
-            pcs_stu_chunk = hdpca_adjust(s, p_ref, n_ref, pcs_stu_chunk_proj)[:, :dim_ref]
-            pcs_stu[sample_start:sample_end, :] = pcs_stu_chunk
         else:
-            logging.error(method + ' is not one of sp, ap, or oadp.')
+            assert U is not None
+            pcs_stu_chunk = W.T @ (U[:,:dim_ref])
+            pcs_stu[sample_start:sample_end, :] = pcs_stu_chunk
+            if method == 'sp':
+                logging.debug('Predicting study PC scores with simple projection...')
+            elif method == 'ap':
+                logging.debug('Predicting study PC scores with adjusted projection...')
+            else:
+                logging.error(method + ' is not one of sp, ap, adp, or oadp.')
         elapse_method += time.time() - t0
 
         logging.info('Finished analyzing ' + str(sample_end) + ' samples.')
@@ -451,15 +449,29 @@ def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pr
     plt.close('all')
     logging.info('PC plots saved to ' + fig_filename)
 
-def pca(X, W_dask, out_pref, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
+def adj_hdpc_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX, dim_ref=DIM_REF):
+    logging.info('Estimating PC shrinkage and adjusting PC loadings...')
+    hdpc_est_result  = hdpc_est(s**2, p_ref, n_ref, n_spikes_max=hdpca_n_spikes_max)
+    shrinkage = np.array(hdpc_est_result[-1])
+    n_pc_adjusted = min(dim_ref, len(shrinkage))
+    for i in range(n_pc_adjusted):
+        U[:, i] /= shrinkage[i]
+
+def pca(X, W_dask, out_pref, method='oadp',
+        dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX):
     # PCA on ref and stu
+    p_ref, n_ref = X.shape
     X_mean, X_std = standardize_ref(X)
     s, V, XTX = pca_ref(X)
     pcs_ref = V[:, :dim_ref] * s[:dim_ref]
     np.savetxt(out_pref+'_ref.pcs', pcs_ref, fmt=NP_OUTPUT_FMT)
     logging.info('Reference PC scores saved to ' + out_pref + '_ref.pcs')
     U = get_pc_loading(X, s, V)
-    pcs_stu = pca_stu(W_dask, X_mean, X_std, method=method, 
+
+    if method == 'ap':
+        adj_hdpc_shrinkage(U, s, p_ref, n_ref, dim_ref)
+
+    pcs_stu = pca_stu(W_dask, X_mean, X_std, method=method,
                       U=U, s=s, V=V, XTX=XTX, X=X, pcs_ref=pcs_ref,
                       dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
     pcs_stu_filename = out_pref + '_stu_' + method +'.pcs'
