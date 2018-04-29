@@ -30,8 +30,10 @@ DIM_REF = 4
 DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
 N_NEIGHBORS=5
-HDPCA_N_SPIKES_MAX = 20
+HDPCA_N_SPIKES_MAX = 18
 CHUNK_SIZE_STUDY = 5000
+PROCRUSTES_NITER_MAX = 10000
+PROCRUSTES_EPSILON_MIN = 1e-6
 
 PLOT_ALPHA_REF=0.1
 PLOT_ALPHA_STU=0.99
@@ -42,15 +44,6 @@ PLOT_MARKERS = ['.', '+', 'x', '*', 'd', 's']
 NP_OUTPUT_FMT = '%.4f'
 DELIMITER = '\t'
 TMP_DIR = mkdtemp()
-
-# def hdpca_adjust(s, p_ref, n_ref, pcs_stu_proj, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX):
-#     # Run hdpca but suppress output to stdout
-#     with open(os.devnull, 'w') as devnull:
-#         old_stdout = sys.stdout
-#         sys.stdout = devnull
-#         pcs_stu_hdpca = np.array(pc_adjust(s**2, p_ref, n_ref, pcs_stu_proj, n_spikes_max=hdpca_n_spikes_max))
-#         sys.stdout = old_stdout
-#     return pcs_stu_hdpca
 
 def create_logger(prefix=None, level='info'):
     log = logging.getLogger()
@@ -113,92 +106,7 @@ def svd_online(U1, d1, V1, b, l=None):
     V2 = (R_Vt @ V_new).transpose()[:,:l]
     return d2, V2
 
-def test_online_svd_procrust():
-    np.random.seed(21)
-    # def test_svd_online():
-    logging.debug('Testing test_svd_online...')
-
-    # # For debugging only
-    # # For comparing with the R script written by Shawn
-    # X = np.loadtxt('test_X.dat')
-    # b = np.loadtxt('test_b.dat').reshape((-1,1))
-    # p, n = X.shape
-
-    # Generate testing matrices
-    p = 1000
-    n = 200
-    X = np.random.normal(size = p * n).reshape((p,n))
-    b = np.random.normal(size = p).reshape((p,1))
-    np.savetxt('test_X.dat', X)
-    np.savetxt('test_b.dat', b)
-
-    # Center reference data
-    X_mean = np.mean(X, axis = 1).reshape((p,1))
-    X -= X_mean
-    # Nonrmalize referencd data
-    X_norm = np.std(X, axis = 1).reshape((p,1))
-    X_norm[X_norm == 0] = 1
-    X /= X_norm
-
-    # Center study data
-    b -= X_mean
-    b /= X_norm
-
-    # Parameters for onlineSVD
-    svd_online_dim = 100 # Number of PC's calculated by online SVD
-    PC_new_dim = 20 # Number of PC's we want for each new sample
-    PC_ref_dim = 4 # Number of PC's for the reference group
-    assert PC_new_dim <= svd_online_dim
-    assert PC_ref_dim <= PC_new_dim
-
-    # Decompose the training matrix
-    U, d, Vt = np.linalg.svd(X, full_matrices = False)
-    V = Vt.transpose()
-    PC_ref = V[:, :PC_ref_dim]
-    # Subset the PC scores since we only need the first k PC's
-    U1 = U[:, :svd_online_dim]
-    d1 = d[:svd_online_dim]
-    V1 = V[:, :svd_online_dim]
-    d2, PC_new = svd_online(U1, d1, V1, b, PC_new_dim)
-
-    # Test if the result is close enough
-    trueAns = np.linalg.svd(np.concatenate((X,b),axis=1))[2].transpose()[:,:PC_new_dim]
-    for i in range(trueAns.shape[1]):
-        assert \
-            abs(np.max(PC_new[:,i] - trueAns[:,i])) < 0.05 or \
-            abs(np.max(PC_new[:,i] + trueAns[:,i])) < 0.05 # online_svd can flip the sign of a PC
-    logging.debug('Passed!')
-
-    logging.debug('Testing procrustes...')
-    PC_new_head, PC_new_tail = PC_new[:-1, :], PC_new[-1, :].reshape((1,PC_new_dim))
-    PC_ref_fat = np.zeros(n * PC_new_dim).reshape((n, PC_new_dim))
-    PC_ref_fat[:, :PC_ref_dim] = PC_ref
-    np.savetxt('test_PC_ref.dat', PC_ref)
-    np.savetxt('test_PC_ref_fat.dat', PC_ref_fat)
-    np.savetxt('test_PC_new_head.dat', PC_new_head)
-    # Test procrustes with the same dimension
-    R, rho, c = procrustes(PC_ref_fat, PC_new_head)
-    # PC_new_tail_trsfed = PC_new_tail @ R * rho + c
-    # PC_new_tail_trsfed = PC_new_tail_trsfed.flatten()[:PC_ref_dim]
-    subprocess.run(['make', 'procrustes.o'], stdout=subprocess.PIPE)
-    subprocess.run(['./procrustes.o'], stdout=subprocess.PIPE)
-    R_trace = np.loadtxt('procrustes_A.dat')
-    rho_trace = np.loadtxt('procrustes_rho.dat')
-    c_trace = np.loadtxt('procrustes_c.dat')
-    assert np.allclose(R_trace, R)
-    assert np.allclose(rho_trace, rho)
-    assert np.allclose(c_trace, c)
-    # Test procrustes with different dimensions
-    R_diffdim, rho_diffdim, c_diffdim = procrustes_diffdim(PC_ref, PC_new_head)
-    R_diffdim_trace = np.loadtxt('pprocrustes_A.dat')
-    rho_diffdim_trace = np.loadtxt('pprocrustes_rho.dat')
-    c_diffdim_trace = np.loadtxt('pprocrustes_c.dat')
-    assert np.allclose(R_diffdim_trace, R_diffdim)
-    assert np.allclose(rho_diffdim_trace, rho_diffdim)
-    assert np.allclose(c_diffdim_trace, c_diffdim)
-    logging.debug('Passed!')
-
-def procrustes(Y_mat, X_mat):
+def procrustes(Y_mat, X_mat, return_transformed=False):
     ''' Find the best transformation from X to Y '''
     X = np.array(X_mat, dtype=np.double, copy=True)
     Y = np.array(Y_mat, dtype=np.double, copy=True)
@@ -210,14 +118,31 @@ def procrustes(Y_mat, X_mat):
     C = Y.T @ X
     U, s, VT = np.linalg.svd(C, full_matrices=False)
     trXX = np.sum(X**2)
-    trYY = np.sum(Y**2)
     trS = np.sum(s)
-    A = VT.T @ U.T
+    R = VT.T @ U.T
     rho = trS / trXX
-    b = Y_mean - rho * X_mean @ A
-    return A, rho, b
+    c = Y_mean - rho * X_mean @ R
+    if return_transformed:
+        X_new = X_mat @ R * rho + c
+        return R, rho, c, X_new
+    else:
+        return R, rho, c
 
-def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
+def procrustes_similarity(Y_mat, X_mat):
+    X = np.array(X_mat, dtype=np.double, copy=True)
+    Y = np.array(Y_mat, dtype=np.double, copy=True)
+    assert X.shape == Y.shape
+    X_transformed = procrustes(Y, X, return_transformed=True)[-1]
+    Z = Y - X_transformed
+    trZZ = np.sum(Z**2)
+    Y_mean = np.mean(Y, 0)
+    Y -= Y_mean
+    trYY = np.sum(Y**2)
+    similarity = 1 - (trZZ / trYY)
+    assert 0 <= similarity <= 1
+    return similarity
+
+def procrustes_diffdim(Y_mat, X_mat, n_iter_max=PROCRUSTES_NITER_MAX, epsilon_min=PROCRUSTES_EPSILON_MIN, return_transformed=False):
     X = np.array(X_mat, dtype=np.double, copy=True)
     Y = np.array(Y_mat, dtype=np.double, copy=True)
     n_X, p_X = X.shape
@@ -225,7 +150,7 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
     assert n_X == n_Y
     assert p_X >= p_Y
     if p_X == p_Y:
-        R, rho, c = procrustes(Y, X)
+        return procrustes(Y, X, return_transformed)
     else:
         Z = np.zeros((n_X, p_X - p_Y))
         for i in range(n_iter_max):
@@ -241,7 +166,19 @@ def procrustes_diffdim(Y_mat, X_mat, n_iter_max=int(1e4), epsilon_min=1e-6):
                 break
             else:
                 Z = Z_new
-    return R, rho, c
+        if return_transformed:
+            return R, rho, c, X_new
+        else:
+            return R, rho, c
+
+def load_trace(filename, isref=False):
+    trace_df = pd.read_table(filename)
+    if isref:
+        n_col_skip = 2
+    else:
+        n_col_skip = 6
+    trace_pcs = trace_df.iloc[:, n_col_skip:].values
+    return trace_pcs
 
 def intersect_ref_stu_snps(ref_pref, stu_pref):
     snps_are_identical = filecmp.cmp(ref_pref+'.bim', stu_pref+'.bim')
@@ -260,7 +197,7 @@ def bed2dask(filename, X_dtype=np.float32):
     logging.debug('Reading Plink binary data into dask array...')
     X_bim, X_fam, X_dask = read_plink(filename, verbose=False)
     X_dask = X_dask.astype(X_dtype)
-    return X_dask, X_bim, X_fam 
+    return X_dask, X_bim, X_fam
 
 def dask2memmap(X_dask, X_memmap_filename):
     logging.info('Loading dask array into memmap...')
@@ -279,7 +216,6 @@ def standardize_ref(X):
     X[np.isnan(X)] = 0
     return X_mean, X_std
 
-# Multiplication and eigendecomposition
 def pca_ref(X, dim_ref=DIM_REF, save_XTXsV=False):
     logging.info('Calculating covariance matrix...')
     XTX = X.T @ X
