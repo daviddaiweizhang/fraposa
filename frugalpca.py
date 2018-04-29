@@ -187,7 +187,7 @@ def intersect_ref_stu_snps(ref_pref, stu_pref):
         return ref_pref, stu_pref
     else:
         logging.info('Intersecting SNPs in reference and study samples...')
-        bashout = subprocess.run(['bash', 'intersect_bed.sh', ref_pref, stu_pref, TMP_DIR], stdout=subprocess.PIPE)
+        bashout = subprocess.run(['bash', 'intersect_bed.sh', ref_pref, stu_pref], stdout=subprocess.PIPE)
         ref_pref_commsnpsrefal, stu_pref_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
         assert len(ref_pref_commsnpsrefal) > 0
         assert len(stu_pref_commsnpsrefal) > 0
