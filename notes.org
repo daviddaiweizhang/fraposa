@@ -4,8 +4,8 @@ FRUGALPCA -*- mode: org -*-
 
 * Tasks
 ** Make software in python
-*** IN-PROGRESS Use all snps in kgn for reference
-*** TODO use only PC1 and PC2 for predicting study sample populations
+*** DONE Use all snps in kgn for reference
+    CLOSED: [2018-04-29 Sun 21:46]
 *** TODO Run UKbiobank with 1 core for fast method, 8 cores for TRACE
 *** IN-PROGRESS Compare runtimes and accuracy
 *** TODO Systematic randomized pca parameter evaluation

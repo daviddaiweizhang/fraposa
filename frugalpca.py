@@ -45,7 +45,7 @@ NP_OUTPUT_FMT = '%.4f'
 DELIMITER = '\t'
 TMP_DIR = mkdtemp()
 
-def create_logger(prefix=None, level='info'):
+def create_logger(prefix='frugalpca', level='info'):
     log = logging.getLogger()
     if level == 'info':
         log_level = logging.INFO
