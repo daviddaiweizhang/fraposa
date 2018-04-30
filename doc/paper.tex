@@ -14,8 +14,6 @@
 \title{Computational Methods for Principle Component Analysis Applied to
   Genotype Data}
 \date{}
-\author{}
-% an example of a edit
 
 \begin{document}
 
@@ -23,38 +21,29 @@
 
 \section{Introduction}
 
-Ancestral history can be a influential confounder for the association between
-genotypes and phenotypes (\cite{price}).
-Thus stratification is needed to eliminate this bias.
-Principle component analysis (PCA) has been proven to be useful in estimating
-ancestral history (\cite{reich}).
-The standard way of doing PCA is to find the principle components (PC) of the
-reference data and project the data points of the study data onto them.
+Population stratification (PS) is an important confounder for the association  between
+genotypes and phenotypes (\cite{price}). To adjust for PS, we need to accurately estimate the ancestry structure in the study samples. Principle component analysis (PCA) is a multivariate statistical method which finds the direction of the maximum variability. By aggregating information across all genetic markers, PCA can accurate infer the ancestry structure  (\cite{reich}). To adjust for PS, PCA can be applied to study data to calculate PC scores, which are regarded as variables of ancestry direction and can be used as covariates to adjust for. An alternative approach is predicting the PC scores of the study samples using reference genotyped samples with detailed ancestry information.
+This prediction-based approach not only allows to adjust for PS but also to infer ancestry memberships of study samples. 
+
+The standard way of predicting PC scores is to find the PC loadings of the reference data and project the data points of the study samples onto them.
 We call this method simple projection.
-However, when the number of features are greatly larger than the size of the
-reference sample,
-the estimated PC scores by this method are known to be biased and less
-than the populational PC scores.
-One way of solving this issue is presented by \cite{wang}.
+However, when the number of features are greatly larger than the size of the reference sample,
+the predicted PC scores by this method are known to be biased toward null.
+One way of addressing this shrinkage bias is presented by \cite{wang}.
 Their solution is to combine one study individual with the reference set and
 find the PC scores of this augmented data set by singular value decomposition (SVD).
-The study individual's PC scores is then retrieved from the PC score matrix and
-mapped to the reference PC's by a Procrustes transformation.
-We call this method ``augment, decompose, and transform (ADT).
-This method has been shown to be useful in eliminating the shrinking bias of
-study PC scores, but its disadvantage is computational inefficiency.
+The PC scores of the study individuals are then retrieved from the singular vector matrices and mapped to the reference PC space by a Procrustes transformation.
+We call this method ``augment, decompose, and transform'' (ADT).
+This method has been shown to be effective in eliminating the shrinking bias of
+study PC scores.
+However since ADT needs to run SVD for each study samples, ADT is computationally expensive.
 
-Two methods have been developed to solve this dillema of accuracy verses efficiency.
-The magnitude and angle of shrinkage in simple projection has been calculated by
-\cite{dey} and the result is implemented into the High Dimensional Principle
-Component Analysis (HDPCA) package in R.
-We call this method ``adjusted projection'' (AP).
-The computational complexity of AP is significantly lower than that of ADT.
-Moreover, an online SVD algorithm has been developed to speed up SVD by calculating an approximation of the top few PC scores only.
-This is useful for our purpose since in genetic studies usually only the first few PC scores are needed. 
-We call this method ``online augment-decompose-transform'' (OADT). 
+To address the limitations of simple projection approach and ADT, we propose and evaluate two alternative PC score prediction methods.
+The first approach removes the bias in the simple projection method by estimating the asymptotic bias factor, which is calculated based on Random Matrix Theory \cite{dey}.
+The second approach improves the computation efficiency of ADT by using online SVD algorithm. 
+We call the first approach ``adjusted projection'' (AP), and the second approach ``online augment-decompose-transform'' (OADT). 
 
-In addition, we aim at solving a problem with finding the PC's of the reference set.
+In addition, we also address a computation problem with finding the PCs of the reference set when the reference sample sizes are large. 
 The previously mentioned four methods all need to find the SVD of the reference data first.
 This requires loading the covariance matrix of the reference data into the
 computer's memory. 
@@ -64,17 +53,14 @@ computer's memory.
 To solve this issue, a randomized SVD method has been developed that does not
 require finding the covariance matrix.
 
-In this paper, we compare the theoretical and empirical properties of simple
-projection, augment-decompose-transform, adjusted projection, and online augment-decompose-transform. In particular, we are
-interested in their computational complexity as well as empirical speed and
-accuracy.
-Secondly, we compare using standard SVD and randomized SVD for the reference set
-and examine the difference in accuracy and runtimes.
+In this paper, we compare the properties of
+simple projection, augment-decompose-transform, adjusted projection, and online augment-decompose-transform
+in terms of computation time and accuracy.
+We also compare using standard SVD and randomized SVD for the reference set
+and examine the difference in accuracy and computation time.
 We found that HDPCA projection and OADT have both achieved the accuracy of ADT
-and the efficiency of simple projection.
-In addition, randomized SVD gives results similar to standard SVD and only
-increase the computational time for the reference data.
-
+and the computational efficiency of simple projection.
+In addition, randomized SVD gives results similar to standard SVD and only increase the computational time for the reference data.
 
 
 
@@ -84,26 +70,17 @@ increase the computational time for the reference data.
 \subsection{Model}
 
 \subsubsection{Data Format}
-As mentioned previously, there are two datasets: a reference set and a study
-set.
-They are both represented as matrices.
-A data matrix contains the genotypes for the individuals.
-Each row represents a single-nucleotide polymorphism (SNP),
-while each column represents an individual.
-Each entry of the matrix is $0$, $1$, or $2$,
-representing the number of mutations observed at the SNP.
-In our study, we only use the SNPs that are observed in both the reference and
-the study group and have the same alleles.
-Thus we have the same number of SNPs for both groups.
-The genotypes of the reference group are stored in the $p \times n$ matrix $X$,
-and those of the study group are stored in the $p \times m$ matrix $Y$.
-For genotype data, it is common for $p$ to be significantly larger than $n$.
+There are two genotype datasets, reference and study datasets, and both can be represented by matrices.
+Suppose $X$ is a $p \times n$ matrix of reference genotypes and 
+$Y$ is a $p \times m$ matrix of study sample genotypes, where 
+$p$ is the number of genetic markers, $n$ is the number of reference samples and $m$ is the number of study samples. Each entry of $X$ and $Y$ is the number of minor alleles (0,1,2) of single nucleotide polymorphism (SNP). 
+For genotype data, it is common for $p$ to be significantly larger than either $n$ or $m$.
 Thus we assume this to be true except for the part where we discuss the randomized SVD algorithm,
 which is developed to handle datasets with exceedingly large $n$.
 
 \subsubsection{Principle Component Analysis}\label{pca-intro}
-  Given a multi-dimensional data, principle component analysis (PCA) looks for the directions in which the data has the greatest variance.
-These unit vectors are called the principle components (PC's).
+Given a multi-dimensional data, PCA searches for the directions in which the data has the greatest variance.
+These unit vectors are called the principle components (PCs).
 The PC's form an orthonormal basis for the sample space,
 and we can ignore all but the first few PC's to reduce the dimension of the data.
 In particular, let $X=UDV^T$ be the SVD of $X$,
@@ -135,7 +112,7 @@ In \Cref{sec:compu}, we compare the performance of four of them.
 
 \subsubsection{Simple Projection (SP)}
 The standard way for estimating PC scores is by projecting the study
-individuals' data points to the PCs of the reference individuals.
+individuals' data points to the PC space of the reference individuals by using reference sample PC loadings.
 We call this method ``simple projection'' (SP).
 The algorithm goes as follows.
 
@@ -144,10 +121,15 @@ The algorithm goes as follows.
   (Computational complexity: $\bO[n^2p]$.)  
 \item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
   ($\bO[n^3]$.)
-\item Calculate $W = Y^T (X V D_1^{-1})$, where $Y$ is the data matrix for all the study individuals, $D_1$ the first $k_1$ columns of $D$. ($\bO[mpk_1 + pnk_1]$.)
+\item Calculate PC loading matrix $L = X V_1 D_1^{-1}$,
+where $V_1$ and $D_1$ are the the first $k_1$ columns of $V$ and $D$, respectively ($\bO[k_1^2 n + knp]$)
+\item Calculate predicted PC scores $W = Y^T L$, where $Y$ is the data matrix for all the study individuals ($\bO[mpk_1]$.)
 \end{enumerate}
 
-Total computational complexity: $\bO[n^2p + n^3 + mpk_1 + pnk_1)] \approx \bO[n^2p + mk_1p]$,
+Total computational complexity: 
+\[
+    \bO[n^2p + n^3 + k_1^2 n + pnk_1 + pmk_1)] \approx \bO[n^2p + mk_1p]
+\]
 given that $k_1 \ll n \ll p$.
 
 As the reference sample size increases,
@@ -159,7 +141,7 @@ This limits the accuracy of SP for high dimensional data.
 
 \subsubsection{Augment, Decompose, and Transform (ADT)}
 
-One way to solve the shrinking bias of SP is developed by \cite{wang}.
+One way to solve the shrinking bias of SP is the ADT approach developed by \cite{wang}.
 In this method, each study individual's data point is appended to the reference
 data matrix.
 Then SVD is applied to the augmented matrix,
@@ -169,7 +151,7 @@ The the PC scores of the reference individuals in this augmented sample is
 compared with the PC scores of the reference individuals in the reference
 sample,
 which is calculated in the beginning,
-and a linear (Procrustes) map is found to transform the latter into the former
+and a linear (Procrustes) map is constructed to transform the latter into the former
 with the smallest error.
 This transformation is then applied to the PC scores of the study individual in
 the augmented sample.
@@ -216,9 +198,8 @@ The algorithm is summarized as follows:
 
 Total Computational complexity: $\bO[n^2p + m(np + n^3)]$.
 
-Although accurate, ADT is the slowest among the other three computational
-methods.
-Its computational complexity increases cubically as we increase the reference sample size to increase the accuracy of the PC scores.
+Although accurate, ADT is the slowest among the other three computational methods.
+Its computational complexity increases cubically as the reference sample size and linearly as the study sampl sizes.
 The ADT method is has been implemented in the TRACE software by \cite{wang}.
 
 
@@ -245,7 +226,7 @@ The accuracy of adjusted projection will be empirically shown later.
 
 \subsubsection{Online ADT (OADT)}
 
-A remedy for ADT is to reduce the computational complexity withou much sacrifice of the accuracy.
+A remedy for ADT is to reduce the computational complexity without much sacrifice of the accuracy.
 This is achieved by the online ADT (OADT) method.
 Notice that in OADT, only the top $k_2$ PC's are used.
 OADT uses the online SVD method, which calculates a close approximation of the first $k_3$ columns of $\tilde{V}$ for some $k_2 \leq k_3 \ll n$ and keeps everything else the same as in ADT, including Procrustes analysis. 
@@ -294,11 +275,10 @@ The algorithm is
 
 Total computational complexity: $\bO[n^2p + n^3 + k_3np + m(k_3p + k_3^3 + nk_3^2]) \approx \bO[n^2p + m(k_3p + k_3^2n)]$, provided $k_3 \ll n \ll p$.
 
-Here we see that the computational complexity of OADT for the study individuals increases linearly with respect to the reference sample size.
-This makes the runtimes of OADT close to those of SP.
+The computational complexity of OADT for the study individuals increases linearly with respect to the reference sample size, which makes the computation time of OADT close to those of SP.
 The closeness between the results given by OADT and ADT will be empirically shown later.
 
-A comparison of computatinal complexities of the four PCA methods are shown in \Cref{tbl:cplx}.
+A comparison of computational complexities of the four PCA methods are shown in \Cref{tbl:cplx}.
 
 \subsubsection{Randomized SVD}
 
@@ -308,11 +288,10 @@ training data.
 For SP, AP, ADT, and OADT, we need to find the covariance matrix of the training
 data, which has dimension $n \times n$, and conduct eigendecomosition on it.
 However, when $n$ is exceedingly large,
-the covariance matrix cannot be loaded into the memory of an average personal
-computer.
+computation and memory cost of PCA on the reference samples can be enormous.
 A randomized SVD (RSVD) algorithm has been developed to handle this issue.
-RSVD is slower than standard SVD,
-but it does not require loading the whole covariance matrix into the memory.
+When the reference sample size is small, RSVD can be slower than standard SVD,
+but it is scalable to large sample size.
 For the details of the RSVD algorithm, see \cite{halko} and \cite{abraham}.
 
 Notice that the randomized SVD method on the training data
@@ -322,8 +301,6 @@ all the eigenvalues of the training data are required.
 Thus for the missing eigenvalues,
 we predict them by regressing their log-scale values on the ranks
 and using the first $k$ eigenvalues for training the linear regression.
-
-
 
 
 \subsection{Data}
@@ -367,15 +344,13 @@ These are the geographic estimation errors for the study individuals.
 The average of these errors are used to measure the accuracy of the
 computational methods (that is, the square root of the sum of squares divided by the
 study size). 
-Second, since ADT is believed to be the most reliable, we compare the average
+Second, since ADT is a model free approach and believed to be the most reliable, we compare the average
 Euclidean distance between the PC score estimates calculated by another method
 to those calculated by ADT. 
-This golden-standard error and the geographic error both range from zero to infinity.
-
-The comparison of the runtimes and accuracy are conducted by using both the
+The comparison of the runtimes and accuracy are also conducted by using both the
 standard SVD and randomized SVD on the training data matrix.
 
-\subsubsection{Real-Life Datasets}
+\subsubsection{UK Biobank data analysis with 1000 Genomes as reference}
 
 The real-life datasets used in our study are the UKBioBank and 1000 Genomes datasets.
 They contain the genotype readings of individuals from different ethnic groups over the world.
@@ -507,7 +482,7 @@ Chicago
   \centering
   \begin{tabular}{|l|l|l|l|l|}
     \hline
-    Method & Reference Runtimes & Study Runtimes & Golden Standard Error \\ 
+    Method & Reference Runtimes (n=?) & Study Runtimes (m=?)& Golden Standard Error \\ 
     \hline
     ADT & 411 & 29813 & 0.00 \\
     \hline
