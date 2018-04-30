@@ -22,7 +22,8 @@
 \section{Introduction}
 
 Population stratification (PS) is an important confounder for the association  between
-genotypes and phenotypes (\cite{price}). To adjust for PS, we need to accurately estimate the ancestry structure in the study samples. Principle component analysis (PCA) is a multivariate statistical method which finds the direction of the maximum variability. By aggregating information across all genetic markers, PCA can accurate infer the ancestry structure  (\cite{reich}). To adjust for PS, PCA can be applied to study data to calculate PC scores, which are regarded as variables of ancestry direction and can be used as covariates to adjust for. An alternative approach is predicting the PC scores of the study samples using reference genotyped samples with detailed ancestry information.
+genotypes and phenotypes (\cite{price2006principal}).
+To adjust for PS, we need to accurately estimate the ancestry structure in the study samples. Principle component analysis (PCA) is a multivariate statistical method which finds the direction of the maximum variability. By aggregating information across all genetic markers, PCA can accurate infer the ancestry structure  (\cite{reich}). To adjust for PS, PCA can be applied to study data to calculate PC scores, which are regarded as variables of ancestry direction and can be used as covariates to adjust for. An alternative approach is predicting the PC scores of the study samples using reference genotyped samples with detailed ancestry information.
 This prediction-based approach not only allows to adjust for PS but also to infer ancestry memberships of study samples. 
 
 The standard way of predicting PC scores is to find the PC loadings of the reference data and project the data points of the study samples onto them.
@@ -418,33 +419,9 @@ This information can be used to predict the runtime for larger study samples.
 
 \newpage
 
-\begin{thebibliography}{}
+\bibliographystyle{plain}
+\bibliography{main}
 
-\bibitem[Abraham \& Inouye(2014)]{abraham} Abraham, G., \& Inouye, M. (2014). Fast principal component analysis of large-scale genome-wide data. {\it PloS one}, 9(4), e93766.
- 
-\bibitem[Brand(2002)]{brand} Brand, M. (2002). Incremental singular value decomposition of uncertain data with missing values. {\it Computer Vision--ECCV 2002}, 707-720.
-
-\bibitem[Dey \& Lee(2016)]{dey} Dey, R., \& Lee, S. (2016). Asymptotic properties of Principal Component Analysis and shrinkage-bias adjustment under the Generalized Spiked Population model. {\it arXiv preprint arXiv:1607.08647}.
-  
-\bibitem[Jolliffe(2002)]{jolliffe} Jolliffe, I. (2002). {\it Principal component analysis}. John Wiley \& Sons, Ltd.
-Chicago	
-
-\bibitem[Halko et al.(2011)]{halko} Halko, N., Martinsson, P. G., \& Tropp, J. A. (2011). Finding structure with randomness: Probabilistic algorithms for constructing approximate matrix decompositions. {\it SIAM review}, 53(2), 217-288.
-
-
- \bibitem[Wang et al.(2015)]{wang} Wang, C., Zhan, X., Liang, L., Abecasis, G. R., \& Lin, X. (2015). Improved ancestry estimation for both genotyping and sequencing data using projection procrustes analysis and genotype imputation. {\it The American Journal of Human Genetics, 96}(6), 926-937.
-
- \bibitem[Reich et al.(2008)]{reich} Reich, D., Price, A. L., \& Patterson, N.
-   (2008). Principal component analysis of genetic data. {\it Nature genetics}, 40(5), 491.
-   Reich, D., Price, A., Patterson, N (2008).
-   Principle component analysis of genetic data. {\it Nature Genetics}
-
-   \bibitem[Price et al.(2006)]{price} Price, A. L., Patterson, N. J., Plenge,
-     R. M., Weinblatt, M. E., Shadick, N. A., \& Reich, D. (2006).
-     Principal components analysis corrects for stratification in genome-wide association studies.
-     {\it Nature genetics}, 38(8), 904.
-
-\end{thebibliography}
 
 \newpage
 
