@@ -1,7 +1,7 @@
 \documentclass{article}
 
 \usepackage{epsfig} \usepackage[margin=1.5in]{geometry}
-\usepackage[semicolon,authoryear]{natbib} \bibliographystyle{natbib}
+\usepackage[round]{natbib}
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{cleveref}
@@ -22,15 +22,16 @@
 \section{Introduction}
 
 Population stratification (PS) is an important confounder for the association  between
-genotypes and phenotypes (\cite{price2006principal}).
-To adjust for PS, we need to accurately estimate the ancestry structure in the study samples. Principle component analysis (PCA) is a multivariate statistical method which finds the direction of the maximum variability. By aggregating information across all genetic markers, PCA can accurate infer the ancestry structure  (\cite{reich}). To adjust for PS, PCA can be applied to study data to calculate PC scores, which are regarded as variables of ancestry direction and can be used as covariates to adjust for. An alternative approach is predicting the PC scores of the study samples using reference genotyped samples with detailed ancestry information.
+genotypes and phenotypes \citep{price2006principal}.
+To adjust for PS, we need to accurately estimate the ancestry structure in the study samples. Principle component analysis (PCA) is a multivariate statistical method which finds the direction of the maximum variability. By aggregating information across all genetic markers, PCA can accurate infer the ancestry structure \citep{reich2008principal}.
+To adjust for PS, PCA can be applied to study data to calculate PC scores, which are regarded as variables of ancestry direction and can be used as covariates to adjust for. An alternative approach is predicting the PC scores of the study samples using reference genotyped samples with detailed ancestry information.
 This prediction-based approach not only allows to adjust for PS but also to infer ancestry memberships of study samples. 
 
 The standard way of predicting PC scores is to find the PC loadings of the reference data and project the data points of the study samples onto them.
 We call this method simple projection (SP).
 However, when the number of features are greatly larger than the size of the reference sample,
-the predicted PC scores by this method are known to be biased toward null.
-One way of addressing this shrinkage bias is presented by \cite{wang}.
+the predicted PC scores by this method are known to be biased toward null \citep{dey2016asymptotic}.
+One way of addressing this shrinkage bias is presented by \citet{wang2014ancestry, wang2015improved}.
 Their solution is to combine one study individual with the reference set and
 find the PC scores of this augmented data set by singular value decomposition (SVD).
 The PC scores of the study individuals are then retrieved from the singular vector matrices and mapped to the reference PC space by a Procrustes transformation.
@@ -42,9 +43,9 @@ However since ADP needs to run SVD for each study samples, ADP is computationall
 To address the limitations of SP and ADP,
 we propose and evaluate two alternative PC score prediction methods.
 The first approach removes the bias in SP by estimating the asymptotic bias factor,
-which is calculated based on Random Matrix Theory \cite{dey}.
-The second approach improves the computation efficiency of ADP by using online SVD algorithm. 
-We call the first approach ``adjusted projection'' (AP), and the second approach ``online augment, decompose, and and Procrustes transform'' (OADP). 
+which is calculated based on Random Matrix Theory \citep{dey2016asymptotic}.
+The second approach improves the computation efficiency of ADP by using online SVD algorithm \citep{halko2011finding}. 
+We call the first approach ``adjusted projection'' (AP), and the second approach ``online augment, decompose, and Procrustes transform'' (OADP). 
 
 In addition, we also address a computation problem with finding the PCs of the reference set when the reference sample sizes are large. 
 The previously mentioned four methods all need to find the SVD of the reference data first.
@@ -85,7 +86,8 @@ Given a multi-dimensional data, PCA searches for the directions in which the dat
 These unit vectors are called the principle components (PCs).
 The PC's form an orthonormal basis for the sample space,
 and we can ignore all but the first few PC's to reduce the dimension of the data.
-In particular, let $X=UDV^T$ be the SVD of $X$,
+In particular, let $X$ be standardized so that each row (feature) has mean equal to zero and standard deviation equal to one.
+Moreover, Let $X=UDV^T$ be the SVD of $X$,
 where $U$ is a $p \times n$ matrix whose columns are the PC's,
 $D$ is an $n \times n$ diagonal matrix storing the standard deviations of the PC's,
 and $V$ an $n \times n$ matrix such that each row contains the standardized PC scores of an individual.
@@ -97,13 +99,11 @@ columns of $V$ for their PC scores.
 
 \subsubsection{Estimating PC scores}
 
-We assume that the reference data and the study data are generated from the same
 population.
-When the genotypes of all individuals of the population are given (which is very
-unlikely in global genetic studies),
+In the ideal case in which the genotypes of all individuals of the population are given
 we use the method in \Cref{pca-intro} to find the PC scores of the individuals
 we are interested in.
-In practice, we have a reference dataset and a study dataset assumed to be generated from the
+In practice, however, we have a reference dataset and a study dataset assumed to be generated from the
 same population and use the former to estimate the populational PC scores of the latter.
 There are several computational methods one can use to do this estimation.
 In \Cref{sec:compu}, we compare the performance of four of them.
@@ -114,7 +114,9 @@ In \Cref{sec:compu}, we compare the performance of four of them.
 
 \subsubsection{Simple Projection (SP)}
 The standard way for estimating PC scores is by projecting the study
-individuals' data points to the PC space of the reference individuals by using reference sample PC loadings.
+individuals' data points to the PC space of the reference individuals by using reference sample PC loadings,
+which is the matrix $U$ in the eigendecomposition of the (standardized) reference sample matrix $X$.
+The PC loadings are unit vectors pointing toward the directions of the greatest variances in the $p$-dimension sample space.
 We call this method ``simple projection'' (SP).
 The algorithm goes as follows.
 
@@ -137,13 +139,13 @@ given that $k_1 \ll n \ll p$.
 As the reference sample size increases,
 the computational complexity of SP stays as a constant,
 except for decomposing the reference matrix, which is done once for all study individuals.
-However, it is known that the projection method tends to underestimates the magnitude of the PC scores when $n \ll p$,
-which we call the ``shrinking bias''. (See \cite{dey}.)
+However, it is known that the projection method tends to underestimates the magnitude of the PC scores when $n \ll p$ \citep{dey2016asymptotic},
+which we call the ``shrinking bias''.
 This limits the accuracy of SP for high dimensional data.
 
 \subsubsection{Augment, Decompose, and Transform (ADP)}
 
-One way to solve the shrinking bias of SP is the ADP approach developed by \cite{wang}.
+One way to solve the shrinking bias of SP is the ADP approach developed by \citet{wang2014ancestry, wang2015improved}.
 In this method, each study individual's data point is appended to the reference
 data matrix.
 Then SVD is applied to the augmented matrix,
@@ -201,16 +203,16 @@ The algorithm is summarized as follows:
 Total Computational complexity: $\bO[n^2p + m(np + n^3)]$.
 
 Although accurate, ADP is the slowest among the other three computational methods.
-Its computational complexity increases cubically as the reference sample size and linearly as the study sampl sizes.
-The ADP method is has been implemented in the TRACE software by \cite{wang}.
+Its computational complexity increases cubically with respect to the reference sample size and linearly with respect to the study sample size.
+The ADP method is has been implemented in the TRACE software \citep{wang2014ancestry, wang2015improved}.
 
 
 \subsubsection{Adjusted Projection (AP)}
 
 A more efficient way to solve the shrinking bias of SP is to estimate the
 magnitude and angle of the shrinkage and adjust the study individuals' PC scores accordingly.
-This method has been developed by \cite{dey} and implemented in the High
-Dimension Principal Component Analysis (HDPCA) in the R language.
+This method has been developed by \citet{dey2016asymptotic} and implemented in the High
+Dimension Principal Component Analysis (HDPCA) in the R language \citep{hdpca}.
 HDPCA reads the PC scores and variances calculated by projection and estimate the shrinkage factor to restore the unshrinked scores. 
 The algorithm is
 \begin{enumerate}
@@ -294,7 +296,7 @@ computation and memory cost of PCA on the reference samples can be enormous.
 A randomized SVD (RSVD) algorithm has been developed to handle this issue.
 When the reference sample size is small, RSVD can be slower than standard SVD,
 but it is scalable to large sample size.
-For the details of the RSVD algorithm, see \cite{halko} and \cite{abraham}.
+For the details of the RSVD algorithm, see \citet{halko2011finding}.
 
 Notice that the randomized SVD method on the training data
 only calculates the first $k$ eigenvalues.
@@ -305,7 +307,7 @@ we predict them by regressing their log-scale values on the ranks
 and using the first $k$ eigenvalues for training the linear regression.
 
 
-\subsection{Data}
+\section{Data}
 
 In this study, we used both simulated data and real-life data to conduct
 empirical tests of the computational methods for PCA.
@@ -419,8 +421,8 @@ This information can be used to predict the runtime for larger study samples.
 
 \newpage
 
-\bibliographystyle{plain}
-\bibliography{main}
+\bibliographystyle{plainnat}
+\bibliography{frugalpca}
 
 
 \newpage
