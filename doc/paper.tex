@@ -1,7 +1,7 @@
 \documentclass{article}
 
 \usepackage{epsfig} \usepackage[margin=1.5in]{geometry}
-\usepackage[semicolon,authoryear]{natbib} \bibliographystyle{natbib}
+\usepackage[round]{natbib}
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{cleveref}
@@ -22,26 +22,30 @@
 \section{Introduction}
 
 Population stratification (PS) is an important confounder for the association  between
-genotypes and phenotypes (\cite{price}). To adjust for PS, we need to accurately estimate the ancestry structure in the study samples. Principle component analysis (PCA) is a multivariate statistical method which finds the direction of the maximum variability. By aggregating information across all genetic markers, PCA can accurate infer the ancestry structure  (\cite{reich}). To adjust for PS, PCA can be applied to study data to calculate PC scores, which are regarded as variables of ancestry direction and can be used as covariates to adjust for. An alternative approach is predicting the PC scores of the study samples using reference genotyped samples with detailed ancestry information.
+genotypes and phenotypes \citep{price2006principal}.
+To adjust for PS, we need to accurately estimate the ancestry structure in the study samples. Principle component analysis (PCA) is a multivariate statistical method which finds the direction of the maximum variability. By aggregating information across all genetic markers, PCA can accurate infer the ancestry structure \citep{reich2008principal}.
+To adjust for PS, PCA can be applied to study data to calculate PC scores, which are regarded as variables of ancestry direction and can be used as covariates to adjust for. An alternative approach is predicting the PC scores of the study samples using reference genotyped samples with detailed ancestry information.
 This prediction-based approach not only allows to adjust for PS but also to infer ancestry memberships of study samples. 
 
 The standard way of predicting PC scores is to find the PC loadings of the reference data and project the data points of the study samples onto them.
-We call this method simple projection.
+We call this method simple projection (SP).
 However, when the number of features are greatly larger than the size of the reference sample,
-the predicted PC scores by this method are known to be biased toward null.
-One way of addressing this shrinkage bias is presented by \cite{wang}.
+the predicted PC scores by this method are known to be biased toward null \citep{dey2016asymptotic}.
+One way of addressing this shrinkage bias is presented by \citet{wang2014ancestry, wang2015improved}.
 Their solution is to combine one study individual with the reference set and
 find the PC scores of this augmented data set by singular value decomposition (SVD).
 The PC scores of the study individuals are then retrieved from the singular vector matrices and mapped to the reference PC space by a Procrustes transformation.
-We call this method ``augment, decompose, and transform'' (ADT).
+We call this method ``augment, decompose, and Procrustes transform'' (ADP).
 This method has been shown to be effective in eliminating the shrinking bias of
 study PC scores.
-However since ADT needs to run SVD for each study samples, ADT is computationally expensive.
+However since ADP needs to run SVD for each study samples, ADP is computationally expensive.
 
-To address the limitations of simple projection approach and ADT, we propose and evaluate two alternative PC score prediction methods.
-The first approach removes the bias in the simple projection method by estimating the asymptotic bias factor, which is calculated based on Random Matrix Theory \cite{dey}.
-The second approach improves the computation efficiency of ADT by using online SVD algorithm. 
-We call the first approach ``adjusted projection'' (AP), and the second approach ``online augment-decompose-transform'' (OADT). 
+To address the limitations of SP and ADP,
+we propose and evaluate two alternative PC score prediction methods.
+The first approach removes the bias in SP by estimating the asymptotic bias factor,
+which is calculated based on Random Matrix Theory \citep{dey2016asymptotic}.
+The second approach improves the computation efficiency of ADP by using online SVD algorithm \citep{halko2011finding}. 
+We call the first approach ``adjusted projection'' (AP), and the second approach ``online augment, decompose, and Procrustes transform'' (OADP). 
 
 In addition, we also address a computation problem with finding the PCs of the reference set when the reference sample sizes are large. 
 The previously mentioned four methods all need to find the SVD of the reference data first.
@@ -54,12 +58,11 @@ To solve this issue, a randomized SVD method has been developed that does not
 require finding the covariance matrix.
 
 In this paper, we compare the properties of
-simple projection, augment-decompose-transform, adjusted projection, and online augment-decompose-transform
-in terms of computation time and accuracy.
+SP, ADP, AP, and OADP in terms of computation time and accuracy.
 We also compare using standard SVD and randomized SVD for the reference set
 and examine the difference in accuracy and computation time.
-We found that HDPCA projection and OADT have both achieved the accuracy of ADT
-and the computational efficiency of simple projection.
+We found that AP and OADP have both achieved the accuracy of ADP
+and the computational efficiency of SP.
 In addition, randomized SVD gives results similar to standard SVD and only increase the computational time for the reference data.
 
 
@@ -83,7 +86,8 @@ Given a multi-dimensional data, PCA searches for the directions in which the dat
 These unit vectors are called the principle components (PCs).
 The PC's form an orthonormal basis for the sample space,
 and we can ignore all but the first few PC's to reduce the dimension of the data.
-In particular, let $X=UDV^T$ be the SVD of $X$,
+In particular, let $X$ be standardized so that each row (feature) has mean equal to zero and standard deviation equal to one.
+Moreover, Let $X=UDV^T$ be the SVD of $X$,
 where $U$ is a $p \times n$ matrix whose columns are the PC's,
 $D$ is an $n \times n$ diagonal matrix storing the standard deviations of the PC's,
 and $V$ an $n \times n$ matrix such that each row contains the standardized PC scores of an individual.
@@ -95,13 +99,11 @@ columns of $V$ for their PC scores.
 
 \subsubsection{Estimating PC scores}
 
-We assume that the reference data and the study data are generated from the same
 population.
-When the genotypes of all individuals of the population are given (which is very
-unlikely in global genetic studies),
+In the ideal case in which the genotypes of all individuals of the population are given
 we use the method in \Cref{pca-intro} to find the PC scores of the individuals
 we are interested in.
-In practice, we have a reference dataset and a study dataset assumed to be generated from the
+In practice, however, we have a reference dataset and a study dataset assumed to be generated from the
 same population and use the former to estimate the populational PC scores of the latter.
 There are several computational methods one can use to do this estimation.
 In \Cref{sec:compu}, we compare the performance of four of them.
@@ -112,7 +114,9 @@ In \Cref{sec:compu}, we compare the performance of four of them.
 
 \subsubsection{Simple Projection (SP)}
 The standard way for estimating PC scores is by projecting the study
-individuals' data points to the PC space of the reference individuals by using reference sample PC loadings.
+individuals' data points to the PC space of the reference individuals by using reference sample PC loadings,
+which is the matrix $U$ in the eigendecomposition of the (standardized) reference sample matrix $X$.
+The PC loadings are unit vectors pointing toward the directions of the greatest variances in the $p$-dimension sample space.
 We call this method ``simple projection'' (SP).
 The algorithm goes as follows.
 
@@ -135,13 +139,13 @@ given that $k_1 \ll n \ll p$.
 As the reference sample size increases,
 the computational complexity of SP stays as a constant,
 except for decomposing the reference matrix, which is done once for all study individuals.
-However, it is known that the projection method tends to underestimates the magnitude of the PC scores when $n \ll p$,
-which we call the ``shrinking bias''. (See \cite{dey}.)
+However, it is known that the projection method tends to underestimates the magnitude of the PC scores when $n \ll p$ \citep{dey2016asymptotic},
+which we call the ``shrinking bias''.
 This limits the accuracy of SP for high dimensional data.
 
-\subsubsection{Augment, Decompose, and Transform (ADT)}
+\subsubsection{Augment, Decompose, and Transform (ADP)}
 
-One way to solve the shrinking bias of SP is the ADT approach developed by \cite{wang}.
+One way to solve the shrinking bias of SP is the ADP approach developed by \citet{wang2014ancestry, wang2015improved}.
 In this method, each study individual's data point is appended to the reference
 data matrix.
 Then SVD is applied to the augmented matrix,
@@ -198,17 +202,17 @@ The algorithm is summarized as follows:
 
 Total Computational complexity: $\bO[n^2p + m(np + n^3)]$.
 
-Although accurate, ADT is the slowest among the other three computational methods.
-Its computational complexity increases cubically as the reference sample size and linearly as the study sampl sizes.
-The ADT method is has been implemented in the TRACE software by \cite{wang}.
+Although accurate, ADP is the slowest among the other three computational methods.
+Its computational complexity increases cubically with respect to the reference sample size and linearly with respect to the study sample size.
+The ADP method is has been implemented in the TRACE software \citep{wang2014ancestry, wang2015improved}.
 
 
 \subsubsection{Adjusted Projection (AP)}
 
 A more efficient way to solve the shrinking bias of SP is to estimate the
 magnitude and angle of the shrinkage and adjust the study individuals' PC scores accordingly.
-This method has been developed by \cite{dey} and implemented in the High
-Dimension Principal Component Analysis (HDPCA) in the R language.
+This method has been developed by \citet{dey2016asymptotic} and implemented in the High
+Dimension Principal Component Analysis (HDPCA) in the R language \citep{hdpca}.
 HDPCA reads the PC scores and variances calculated by projection and estimate the shrinkage factor to restore the unshrinked scores. 
 The algorithm is
 \begin{enumerate}
@@ -224,12 +228,12 @@ Total computational complexity: $\bO[n^2p + mk_1(p + n) + p + n] \approx \bO[n^2
 given that $m$ or $n$ is large. The computational complexities between simple projection and adjusted projection are the same.
 The accuracy of adjusted projection will be empirically shown later.
 
-\subsubsection{Online ADT (OADT)}
+\subsubsection{Online ADP (OADP)}
 
-A remedy for ADT is to reduce the computational complexity without much sacrifice of the accuracy.
-This is achieved by the online ADT (OADT) method.
-Notice that in OADT, only the top $k_2$ PC's are used.
-OADT uses the online SVD method, which calculates a close approximation of the first $k_3$ columns of $\tilde{V}$ for some $k_2 \leq k_3 \ll n$ and keeps everything else the same as in ADT, including Procrustes analysis. 
+A remedy for ADP is to reduce the computational complexity without much sacrifice of the accuracy.
+This is achieved by the online ADP (OADP) method.
+Notice that in OADP, only the top $k_2$ PC's are used.
+OADP uses the online SVD method, which calculates a close approximation of the first $k_3$ columns of $\tilde{V}$ for some $k_2 \leq k_3 \ll n$ and keeps everything else the same as in ADP, including Procrustes analysis. 
 The algorithm is
 \begin{enumerate}
 \item Compute $X^T X$.
@@ -275,8 +279,8 @@ The algorithm is
 
 Total computational complexity: $\bO[n^2p + n^3 + k_3np + m(k_3p + k_3^3 + nk_3^2]) \approx \bO[n^2p + m(k_3p + k_3^2n)]$, provided $k_3 \ll n \ll p$.
 
-The computational complexity of OADT for the study individuals increases linearly with respect to the reference sample size, which makes the computation time of OADT close to those of SP.
-The closeness between the results given by OADT and ADT will be empirically shown later.
+The computational complexity of OADP for the study individuals increases linearly with respect to the reference sample size, which makes the computation time of OADP close to those of SP.
+The closeness between the results given by OADP and ADP will be empirically shown later.
 
 A comparison of computational complexities of the four PCA methods are shown in \Cref{tbl:cplx}.
 
@@ -285,14 +289,14 @@ A comparison of computational complexities of the four PCA methods are shown in 
 In addition to estimating the PC scores of the study individuals,
 we have another algorithm that aims at improving the decomposition of the
 training data.
-For SP, AP, ADT, and OADT, we need to find the covariance matrix of the training
+For SP, AP, ADP, and OADP, we need to find the covariance matrix of the training
 data, which has dimension $n \times n$, and conduct eigendecomosition on it.
 However, when $n$ is exceedingly large,
 computation and memory cost of PCA on the reference samples can be enormous.
 A randomized SVD (RSVD) algorithm has been developed to handle this issue.
 When the reference sample size is small, RSVD can be slower than standard SVD,
 but it is scalable to large sample size.
-For the details of the RSVD algorithm, see \cite{halko} and \cite{abraham}.
+For the details of the RSVD algorithm, see \citet{halko2011finding}.
 
 Notice that the randomized SVD method on the training data
 only calculates the first $k$ eigenvalues.
@@ -303,7 +307,7 @@ we predict them by regressing their log-scale values on the ranks
 and using the first $k$ eigenvalues for training the linear regression.
 
 
-\subsection{Data}
+\section{Data}
 
 In this study, we used both simulated data and real-life data to conduct
 empirical tests of the computational methods for PCA.
@@ -344,9 +348,9 @@ These are the geographic estimation errors for the study individuals.
 The average of these errors are used to measure the accuracy of the
 computational methods (that is, the square root of the sum of squares divided by the
 study size). 
-Second, since ADT is a model free approach and believed to be the most reliable, we compare the average
+Second, since ADP is a model free approach and believed to be the most reliable, we compare the average
 Euclidean distance between the PC score estimates calculated by another method
-to those calculated by ADT. 
+to those calculated by ADP. 
 The comparison of the runtimes and accuracy are also conducted by using both the
 standard SVD and randomized SVD on the training data matrix.
 
@@ -379,10 +383,10 @@ For comparing the methods for the real-life data, see \Cref{tbl:ukb}.
 \section{Discussion}
 
 For the real-life datasets (\Cref{tbl:ukb} and \Cref{fig:ukb}),
-we see that ADT, which is the most reliable method,
+we see that ADP, which is the most reliable method,
 is the slowest in study runtimes.
 By using the online SVD algorithm,
-OADT achieved the highest accuracy (excluding ADT, which is the golden standard) and the fastest runtime.
+OADP achieved the highest accuracy (excluding ADP, which is the golden standard) and the fastest runtime.
 SP is fast, also,
 but its accuracy is the lowest.
 By using the HDPCA package,
@@ -396,15 +400,15 @@ due to not calculating all the eigenvalues.
 Similar reduction in study runtime is observed for the randomized version of AP,
 but in this case the accuracy is also decreased,
 thought it is still higher than that of SP and RSP.
-Finally, the randomized OADT is disappointing,
+Finally, the randomized OADP is disappointing,
 as its error is almost as high as SP and RSP.
 
 The pattern for accuracy is very similar when we look at the simulated data.
 (\Cref{tbl:nChg-runtimes-ref}, \Cref{tbl:nChg-runtimes-study},
 \Cref{tbl:nChg-accuracy-gold}, \Cref{tbl:nChg-accuracy-ctr},
 \Cref{tbl:mChg-runtimes-study}).
-A noticeable difference in this case is the accuracy of ROADT.
-Here ROADT's accuracy is almost identical to OADT's,
+A noticeable difference in this case is the accuracy of ROADP.
+Here ROADP's accuracy is almost identical to OADP's,
 as measured by both the golden standard error and the geographic center err.
 However, as the reference size increases,
 the accuracies of different methods become closer and closer (\Cref{fig:nChg}).
@@ -417,33 +421,9 @@ This information can be used to predict the runtime for larger study samples.
 
 \newpage
 
-\begin{thebibliography}{}
+\bibliographystyle{plainnat}
+\bibliography{frugalpca}
 
-\bibitem[Abraham \& Inouye(2014)]{abraham} Abraham, G., \& Inouye, M. (2014). Fast principal component analysis of large-scale genome-wide data. {\it PloS one}, 9(4), e93766.
- 
-\bibitem[Brand(2002)]{brand} Brand, M. (2002). Incremental singular value decomposition of uncertain data with missing values. {\it Computer Vision--ECCV 2002}, 707-720.
-
-\bibitem[Dey \& Lee(2016)]{dey} Dey, R., \& Lee, S. (2016). Asymptotic properties of Principal Component Analysis and shrinkage-bias adjustment under the Generalized Spiked Population model. {\it arXiv preprint arXiv:1607.08647}.
-  
-\bibitem[Jolliffe(2002)]{jolliffe} Jolliffe, I. (2002). {\it Principal component analysis}. John Wiley \& Sons, Ltd.
-Chicago	
-
-\bibitem[Halko et al.(2011)]{halko} Halko, N., Martinsson, P. G., \& Tropp, J. A. (2011). Finding structure with randomness: Probabilistic algorithms for constructing approximate matrix decompositions. {\it SIAM review}, 53(2), 217-288.
-
-
- \bibitem[Wang et al.(2015)]{wang} Wang, C., Zhan, X., Liang, L., Abecasis, G. R., \& Lin, X. (2015). Improved ancestry estimation for both genotyping and sequencing data using projection procrustes analysis and genotype imputation. {\it The American Journal of Human Genetics, 96}(6), 926-937.
-
- \bibitem[Reich et al.(2008)]{reich} Reich, D., Price, A. L., \& Patterson, N.
-   (2008). Principal component analysis of genetic data. {\it Nature genetics}, 40(5), 491.
-   Reich, D., Price, A., Patterson, N (2008).
-   Principle component analysis of genetic data. {\it Nature Genetics}
-
-   \bibitem[Price et al.(2006)]{price} Price, A. L., Patterson, N. J., Plenge,
-     R. M., Weinblatt, M. E., Shadick, N. A., \& Reich, D. (2006). Principal
-     components analysis corrects for stratification in genome-wide association
-     studies. {\it Nature genetics}, 38(8), 904.
-
-\end{thebibliography}
 
 \newpage
 
@@ -453,11 +433,11 @@ Chicago
     \hline
     Method & Reference Complexity & Study Complexity \\ 
     \hline
-    ADT & $\bO[n^2 p]$ & $\bO[mn(p + n^2)]$ \\
+    ADP & $\bO[n^2 p]$ & $\bO[mn(p + n^2)]$ \\
     \hline
-    OADT & $\bO[n^2 p]$ & $\bO[mk(p + k n)]$ \\
+    OADP & $\bO[n^2 p]$ & $\bO[mk(p + k n)]$ \\
     \hline
-    ROADT & $\bO[k^2 p]$ & $\bO[mk(p + k n)]$ \\
+    ROADP & $\bO[k^2 p]$ & $\bO[mk(p + k n)]$ \\
     \hline
     SP & $\bO[n^2p]$ & $\bO[mkp]$ \\
     \hline
@@ -484,11 +464,11 @@ Chicago
     \hline
     Method & Reference Runtimes (n=?) & Study Runtimes (m=?)& Golden Standard Error \\ 
     \hline
-    ADT & 411 & 29813 & 0.00 \\
+    ADP & 411 & 29813 & 0.00 \\
     \hline
-    OADT & 2518 & 103 & 0.40 \\
+    OADP & 2518 & 103 & 0.40 \\
     \hline
-    ROADT & 2518 & 103 & 1.93 \\
+    ROADP & 2518 & 103 & 1.93 \\
     \hline
     SP & 411 & 425 & 1.95 \\
     \hline
@@ -504,7 +484,7 @@ Chicago
     The reference individuals are from the 1000 Genomes dataset with 2492 unrelated individuals.
     The study sample contain 1000 individuals from the UKBioBank dataset.
     There are about 125,000 loci shared by the reference and study data.
-    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADT.
+    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADP.
   }
   \label{tbl:ukb}
 \end{table} 
@@ -515,9 +495,9 @@ Chicago
     \hline
     Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
     \hline
-    ADT        &  68  & 1263 & 2871 & 5720 & 9737 \\
-    OADT       &  72  & 18   & 19   & 22   & 24   \\
-    ROADT      & 809  & 18   & 17   & 20   & 21   \\
+    ADP        &  68  & 1263 & 2871 & 5720 & 9737 \\
+    OADP       &  72  & 18   & 19   & 22   & 24   \\
+    ROADP      & 809  & 18   & 17   & 20   & 21   \\
     SP         &  68  & 26   & 42   & 67   & 96   \\
     RSP        & 805  & 23   & 31   & 39   & 46   \\
     AP         &  68  & 69   & 107  & 91   & 119  \\
@@ -538,9 +518,9 @@ Chicago
     \hline
     Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
     \hline
-    ADT        & 391  &  130 &  222 &  339 &  486 \\
-    OADT       & 15   &  136 &  230 &  350 &  499 \\
-    ROADT      & 15   & 1211 & 1633 & 2023 & 2422 \\
+    ADP        & 391  &  130 &  222 &  339 &  486 \\
+    OADP       & 15   &  136 &  230 &  350 &  499 \\
+    ROADP      & 15   & 1211 & 1633 & 2023 & 2422 \\
     SP         & 16   &  130 &  222 &  339 &  486 \\
     RSP        & 15   & 1204 & 1624 & 2012 & 2409 \\
     AP         & 34   &  130 &  222 &  339 &  486 \\
@@ -561,9 +541,9 @@ Chicago
     \hline
     Study Size & 1000  & 1500 & 2000 & 2500 & 3000 \\
     \hline
-    ADT        & 0.00  & 0.00 & 0.00 & 0.00 & 0.00 \\
-    OADT       & 0.23  & 0.15 & 0.11 & 0.08 & 0.07 \\
-    ROADT      & 0.23  & 0.15 & 0.12 & 0.08 & 0.08 \\
+    ADP        & 0.00  & 0.00 & 0.00 & 0.00 & 0.00 \\
+    OADP       & 0.23  & 0.15 & 0.11 & 0.08 & 0.07 \\
+    ROADP      & 0.23  & 0.15 & 0.12 & 0.08 & 0.08 \\
     SP         & 6.00  & 4.34 & 3.43 & 2.75 & 2.34 \\
     RSP        & 6.00  & 4.34 & 3.43 & 2.75 & 2.34 \\
     AP         & 0.46  & 0.37 & 0.31 & 0.26 & 0.22 \\
@@ -584,9 +564,9 @@ Chicago
     \hline
     Reference Size & 1000  & 1500 & 2000 & 2500 & 3000 \\
     \hline
-    ADT        & 4.53  & 4.13 & 3.81 & 3.59 & 3.23 \\
-    OADT       & 4.43  & 4.06 & 3.77 & 3.55 & 3.20 \\
-    ROADT      & 4.44  & 4.06 & 3.76 & 3.55 & 3.20 \\
+    ADP        & 4.53  & 4.13 & 3.81 & 3.59 & 3.23 \\
+    OADP       & 4.43  & 4.06 & 3.77 & 3.55 & 3.20 \\
+    ROADP      & 4.44  & 4.06 & 3.76 & 3.55 & 3.20 \\
     SP         & 5.79  & 4.51 & 3.89 & 3.56 & 3.19 \\
     RSP        & 5.79  & 4.51 & 3.89 & 3.56 & 3.19 \\
     AP         & 4.59  & 4.10 & 3.76 & 3.57 & 3.24 \\
@@ -607,9 +587,9 @@ Chicago
     \hline
     Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
     \hline
-    ADT        & 507  & 758 & 1011 & 1262 & 1549 \\
-    OADT       &  73  & 108 &  156 &  189 &  282 \\
-    ROADT      &  73  & 108 &  159 &  183 &  281 \\
+    ADP        & 507  & 758 & 1011 & 1262 & 1549 \\
+    OADP       &  73  & 108 &  156 &  189 &  282 \\
+    ROADP      &  73  & 108 &  159 &  183 &  281 \\
     SP         &  44  &  64 &   84 &  103 &  131 \\
     RSP        &  43  &  63 &   83 &  101 &  129 \\
     AP         &  66  &  81 &  100 &  117 &  146 \\
@@ -635,7 +615,7 @@ Chicago
     while predicted PC scores for the study individuals are in gray.
     Two measurements of deviations (accuracy) are used.
     The reference center error is the square root of the average squared distance between the study individuals and the population centers, which are the means of the PC scores of the reference individuals by the populations.
-    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADT.
+    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADP.
     The reference size is 1000 and the study size is 200.
     There are 100,000 loci (1000 per genealogy) and the migration rate is 100.
   }
@@ -649,7 +629,7 @@ Chicago
     The reference individuals are from the 1000 Genomes dataset with 2492 unrelated individuals from 5 superpopulations: African, American, East Asian, European, and South Asian. 
     The study sample contain 1000 individuals from the UKBioBank dataset.
     There are about 125,000 loci shared by the reference and study data.
-    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADT.
+    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADP.
   }
   \label{fig:ukb}
 \end{figure}
