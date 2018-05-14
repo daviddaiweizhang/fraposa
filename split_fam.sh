@@ -3,18 +3,20 @@
 
 set -e
 
-bed_file_pref=$1
-tmp_dir=$2
-chunk_name_pref=$3
+bed_filepref=$1
+chunk_n_lines=$2
 
-chunk_n_lines=5000
 chunk_len_suff=4
-chunk_file_pref=${tmp_dir}/${chunk_name_pref}
-fam_file=${bed_file_pref}.fam
+chunk_midf=_chunksize${chunk_n_lines}_
+chunk_filepref=${bed_filepref}${chunk_midf}
+fam_filename=${bed_filepref}.fam
 
-split --lines=${chunk_n_lines} --suffix-length=${chunk_len_suff} -d ${fam_file} ${chunk_file_pref}
-for chunk_file in ${chunk_file_pref}*; do
-    # plink --bfile ${bed_file_pref} --keep ${chunk_file} --out ${chunk_file} --make-bed
-    plink --bfile ${bed_file_pref} --out ${chunk_file} --make-bed
+split -l ${chunk_n_lines} -a ${chunk_len_suff} -d ${fam_filename} ${chunk_filepref}
+chunk_filepref_list=`ls ${chunk_filepref}* | egrep "^${chunk_filepref}[0-9]{${chunk_len_suff}}$"`
+date
+for chunk_filepref_this in ${chunk_filepref_list}; do
+    plink --bfile ${bed_filepref} --keep ${chunk_filepref_this} --out ${chunk_filepref_this} --make-bed
+    rm ${chunk_filepref_this}
     date
 done
+echo ${chunk_filepref_list}

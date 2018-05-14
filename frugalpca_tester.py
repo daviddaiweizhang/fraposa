@@ -91,51 +91,50 @@ def test_online_svd_procrust():
 
 
 def test_pca():
-    # pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb'
-    pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb_snps_comm'
+    pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb'
+    # pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb_snps_comm'
     # pref_stu = '../data/ukb/ukb'
-    pref_stu = '../data/ukb/ukb_snps_comm'
-    # pref_stu = '../data/ukb/ukb_snps_kgn_2c'
+    # pref_stu = '../data/ukb/ukb_snps_comm'
+    pref_stu = '../data/ukb/ukb_snps_kgn_2c'
     # pref_stu = '../data/ukb/ukb_snps_kgn_1k'
     popu_ref_filename = '../data/kgn/kgn_orphans.superpopu'
     pcs_trace_ref_filename = '../data/kgn_ukb_2c/kgn_ukb_2c.RefPC.coord'
     pcs_trace_stu_filename = '../data/kgn_ukb_2c/kgn_ukb_2c.ProPC.coord'
     dim_ref = 4
-    log_level = 'debug'
+    log_level = 'info'
     use_memmap = False
 
     pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp =  fp.run_pca(pref_ref, pref_stu, popu_ref_filename = popu_ref_filename, dim_ref=dim_ref, method='sp', use_memmap=use_memmap, log_level=log_level)
-    return 0
     pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap =  fp.run_pca(pref_ref, pref_stu, popu_ref_filename = popu_ref_filename, dim_ref=dim_ref, method='ap', use_memmap=use_memmap, log_level=log_level)
     pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp =  fp.run_pca(pref_ref, pref_stu, popu_ref_filename = popu_ref_filename, dim_ref=dim_ref, method='oadp', use_memmap=use_memmap, log_level=log_level)
     # pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp =  fp.run_pca(pref_ref, pref_stu, popu_ref_filename = popu_ref_filename, dim_ref=dim_ref, method='adp', use_memmap=True, log_level=log_level)
 
     assert np.allclose(pcs_stu_ap, pcs_stu_oadp, 1e-1, 5e-2)
 
-    # pcs_ref_trace = fp.load_trace(pcs_trace_ref_filename, isref=True)
-    # pcs_stu_trace = fp.load_trace(pcs_trace_stu_filename)
-    # for i in range(dim_ref):
-    #     corr = np.correlate(pcs_ref[:,i], pcs_ref_trace[:,i])
-    #     sign = np.sign(corr)
-    #     pcs_ref_trace[:,i] *= sign
-    #     pcs_stu_trace[:,i] *= sign
-    # assert np.allclose(pcs_ref, pcs_ref_trace, 1e-3, 1e-3)
-    # assert np.allclose(pcs_stu_oadp, pcs_stu_trace, 1e-1, 5e-2)
-    # assert np.allclose(pcs_stu_ap, pcs_stu_trace, 1e-1, 5e-2)
+    pcs_ref_trace = fp.load_trace(pcs_trace_ref_filename, isref=True)
+    pcs_stu_trace = fp.load_trace(pcs_trace_stu_filename)
+    for i in range(dim_ref):
+        corr = np.correlate(pcs_ref[:,i], pcs_ref_trace[:,i])
+        sign = np.sign(corr)
+        pcs_ref_trace[:,i] *= sign
+        pcs_stu_trace[:,i] *= sign
+    assert np.allclose(pcs_ref, pcs_ref_trace, 1e-3, 1e-3)
+    assert np.allclose(pcs_stu_oadp, pcs_stu_trace, 1e-1, 5e-2)
+    assert np.allclose(pcs_stu_ap, pcs_stu_trace, 1e-1, 5e-2)
 
-    # print('Procrustes similarity score (compared to TRACE result):')
-    # print('SP:')
-    # smlr_trace_sp = fp.procrustes_similarity(pcs_stu_trace, pcs_stu_sp)
-    # print(smlr_trace_sp)
-    # print('AP:')
-    # smlr_trace_ap = fp.procrustes_similarity(pcs_stu_trace, pcs_stu_ap)
-    # print(smlr_trace_ap)
-    # print('OADP:')
-    # smlr_trace_oadp = fp.procrustes_similarity(pcs_stu_trace, pcs_stu_oadp)
-    # print(smlr_trace_oadp)
-    # print('Ref:')
-    # smlr_trace_ref = fp.procrustes_similarity(pcs_ref_trace, pcs_ref)
-    # print(smlr_trace_ref)
+    print('Procrustes similarity score (compared to TRACE result):')
+    print('SP:')
+    smlr_trace_sp = fp.procrustes_similarity(pcs_stu_trace, pcs_stu_sp)
+    print(smlr_trace_sp)
+    print('AP:')
+    smlr_trace_ap = fp.procrustes_similarity(pcs_stu_trace, pcs_stu_ap)
+    print(smlr_trace_ap)
+    print('OADP:')
+    smlr_trace_oadp = fp.procrustes_similarity(pcs_stu_trace, pcs_stu_oadp)
+    print(smlr_trace_oadp)
+    print('Ref:')
+    smlr_trace_ref = fp.procrustes_similarity(pcs_ref_trace, pcs_ref)
+    print(smlr_trace_ref)
 
     method_list = ['sp', 'adp', 'oadp']
     pcs_stu_list = [pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp]

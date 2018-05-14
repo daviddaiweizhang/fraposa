@@ -31,6 +31,7 @@ id="${PBS_JOBID:0:8}"
 #  Put your job commands here:
 
 date
-module load python-dev R mkl/11.3.3 gcc/5.4.0 armadillo plink
+module load R mkl/11.3.3 gcc/5.4.0 armadillo plink
+which python
 python frugalpca_tester.py
 date

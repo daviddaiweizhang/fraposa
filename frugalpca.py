@@ -32,7 +32,8 @@ DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
 N_NEIGHBORS=5
 HDPCA_N_SPIKES_MAX = 18
-SAMPLE_CHUNK_SIZE_STU = 10000
+SAMPLE_CHUNK_SIZE_STU = 50
+SAMPLE_SPLIT_PREF_LEN = 4
 PROCRUSTES_NITER_MAX = 10000
 PROCRUSTES_EPSILON_MIN = 1e-6
 
@@ -221,8 +222,6 @@ def read_bed(bed_filepref, out_type='memory', dtype=np.int8):
             logging.error('out_type ' + str(out_type) + ' is not in {memory, memmap, ped}')
             assert False
         for (i, (marker, geno)) in enumerate(ped):
-            if i % 1000 == 0:
-                logging.debug(str(i))
             mat[i,:] = geno
         return mat, bim, fam
 
@@ -294,41 +293,36 @@ def adp(XTX, X, w, pcs_ref, dim_stu=DIM_STU):
     pcs_stu = ref_aug_procrustes(pcs_ref, pcs_aug)
     return pcs_stu[:dim_ref]
 
-def pca_stu(W_large, X_mean, X_std, method, path_tmp,
+def pca_stu(stu_bed_filepref, X_mean, X_std, method, path_tmp,
             U=None, s=None, V=None, XTX=None, X=None, pcs_ref=None,
             dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
-    logging.info('Calculating study PC scores with ' + method + '...')
     p_ref = len(X_mean)
     n_ref = len(s)
-    if type(W_large) is PyPlink:
-        p_stu = W_large.get_nb_markers()
-        n_stu = W_large.get_nb_samples()
-    else:
-        p_stu, n_stu = W_large.shape
+    ped = PyPlink(stu_bed_filepref)
+    p_stu = ped.get_nb_markers()
+    n_stu = ped.get_nb_samples()
     chunk_n_stu = int(np.ceil(n_stu / SAMPLE_CHUNK_SIZE_STU))
-    pcs_stu = np.zeros((n_stu, dim_ref), dtype=np.float32)
-    elapse_subset = 0.0
+    pcs_stu = np.zeros((n_stu, dim_ref))
+
+    logging.info('Spliting study samples...')
+    t0 = time.time()
+    bashout = subprocess.run(['bash', 'split_fam.sh', stu_bed_filepref, str(SAMPLE_CHUNK_SIZE_STU)], stdout=subprocess.PIPE)
+    stu_bed_filepref_chunk_list = bashout.stdout.decode('utf-8').split('\n')[-2].split()
+    assert len(stu_bed_filepref_chunk_list) == chunk_n_stu
+    elapse_split = time.time() - t0
+
+    elapse_load = 0.0
     elapse_standardize = 0.0
     elapse_method = 0.0
 
+    logging.info('Calculating study PC scores with ' + method + '...')
     for i in range(chunk_n_stu):
-        logging.debug('Subsetting study samples...')
+        logging.debug('Reading study samples...')
         t0 = time.time()
         sample_start = SAMPLE_CHUNK_SIZE_STU * i
         sample_end = min(SAMPLE_CHUNK_SIZE_STU * (i+1), n_stu)
-        W = np.zeros(shape=(p_stu, sample_end-sample_start), dtype=np.float64)
-        if type(W_large) is PyPlink:
-            for (i, (marker, geno)) in enumerate(W_large):
-                if i % 1000 == 0:
-                    logging.debug(str(i))
-                W[i,:] = geno[sample_start:sample_end]
-        else:
-            W[:] = W_large[:, sample_start:sample_end]
-        # logging.debug('Before compute()')
-        # if type(W) is da.core.Array:
-        #     W = W.compute()
-        # logging.debug('After compute()')
-        elapse_subset += time.time() - t0
+        W = read_bed(stu_bed_filepref_chunk_list[i], out_type='memory', dtype=np.float32)[0]
+        elapse_load += time.time() - t0
 
         t0 = time.time()
         logging.debug('Centering, normalizing, and imputing study data...')
@@ -371,8 +365,9 @@ def pca_stu(W_large, X_mean, X_std, method, path_tmp,
 
     logging.info('Finished analyzing all study samples.')
     logging.info('Runtimes: ')
+    logging.info('Splitting: ' + str(elapse_split))
+    logging.info('Loading: ' + str(elapse_load))
     logging.info('Standardizing: ' + str(elapse_standardize))
-    logging.info('Subsetting: ' + str(elapse_subset))
     logging.info(method + ': ' + str(elapse_method))
     del W
     return pcs_stu
@@ -381,7 +376,7 @@ def pred_popu_stu(pcs_ref, popu_ref, pcs_stu):
     logging.info('Predicting populations for study individuals...')
     knn = KNeighborsClassifier(n_neighbors=N_NEIGHBORS)
     knn.fit(pcs_ref, popu_ref)
-    popu_stu_pred = knn.predict(pcs_stu) 
+    popu_stu_pred = knn.predict(pcs_stu)
     return popu_stu_pred
 
 def load_pcs(pref, methods):
@@ -437,7 +432,7 @@ def adj_hdpc_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX
     for i in range(n_pc_adjusted):
         U[:, i] /= shrinkage[i]
 
-def pca(X, W_large, out_pref, method, path_tmp,
+def pca(X, W_filepref, out_pref, method, path_tmp,
         dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX):
     # PCA on ref and stu
     p_ref, n_ref = X.shape
@@ -451,7 +446,7 @@ def pca(X, W_large, out_pref, method, path_tmp,
     if method == 'ap':
         adj_hdpc_shrinkage(U, s, p_ref, n_ref, dim_ref)
 
-    pcs_stu = pca_stu(W_large, X_mean, X_std, method=method, path_tmp=path_tmp,
+    pcs_stu = pca_stu(W_filepref, X_mean, X_std, method=method, path_tmp=path_tmp,
                       U=U, s=s, V=V, XTX=XTX, X=X, pcs_ref=pcs_ref,
                       dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
     pcs_stu_filename = out_pref + '_stu_' + method +'.pcs'
@@ -474,17 +469,13 @@ def run_pca(pref_ref, pref_stu, popu_ref_filename=None, popu_ref_k=None, method=
     pref_ref_commsnpsrefal, pref_stu_commsnpsrefal = intersect_ref_stu_snps(pref_ref, pref_stu, path_tmp)
 
     # Load ref
-    X, X_bim, X_fam = read_bed(pref_ref_commsnpsrefal, out_type='memmap_C', dtype=np.float32)
+    logging.info('Reading reference samples...')
+    if use_memmap:
+        mem_out_type = 'memmap_C'
+    else:
+        mem_out_type = 'memory'
+    X, X_bim, X_fam = read_bed(pref_ref_commsnpsrefal, out_type=mem_out_type, dtype=np.float32)
     p_ref, n_ref = X.shape
-    # X_dask, X_bim, X_fam = bed2dask(pref_ref_commsnpsrefal)
-    # if use_memmap:
-    #     X = dask2memmap(X_dask, 'X.memmap', path_tmp)
-    # else:
-    #     X = X_dask.compute()
-
-    # Load stu
-    # W_dask, W_bim, W_fam = bed2dask(pref_stu_commsnpsrefal, dtype=np.int8)
-    # p_stu, n_stu = W_dask.shape
 
     W_ped, W_bim, W_fam = read_bed(pref_stu_commsnpsrefal, out_type='ped')
     p_stu = W_ped.get_nb_markers()
@@ -497,7 +488,7 @@ def run_pca(pref_ref, pref_stu, popu_ref_filename=None, popu_ref_k=None, method=
     assert all(X_bim[['chrom', 'pos', 'a1', 'a2']] == W_bim[['chrom', 'pos', 'a1', 'a2']])
 
     # PCA on study individuals
-    pcs_ref, pcs_stu = pca(X, W_ped, pref_stu, method, path_tmp, dim_ref, dim_stu, dim_stu_high)
+    pcs_ref, pcs_stu = pca(X, pref_stu_commsnpsrefal, pref_stu, method, path_tmp, dim_ref, dim_stu, dim_stu_high)
 
     # Read or predict ref populations
     if popu_ref_filename is not None:
