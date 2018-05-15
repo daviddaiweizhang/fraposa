@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.cluster import KMeans
-# from pandas_plink import read_plink
-from pyplink import PyPlink
+from pandas_plink import read_plink
+# from pyplink import PyPlink
 # import dask.array as da
 # from dask import compute
 # from chest import Chest
@@ -202,16 +202,15 @@ def bed2dask(filename, dtype=np.float32):
     X_dask = X_dask.astype(dtype)
     return X_dask, X_bim, X_fam
 
-def read_bed(bed_filepref, out_type='memory', dtype=np.int8):
+def read_bed(bed_filepref, out_type='memory', dtype=np.float32):
     logging.debug('Reading Plink binary data into Numpy array...')
-    ped = PyPlink(bed_filepref)
-    bim = ped.get_bim()
-    fam = ped.get_fam()
-    if out_type == 'ped':
-        return ped, bim, fam
+    assert issubclass(dtype, np.floating) # int cannot store nan
+    bim, fam, bed_dask = read_plink(bed_filepref, verbose=False)
+    if out_type == 'dask':
+        return bed_dask, bim, fam
     else:
-        p = ped.get_nb_markers()
-        n = ped.get_nb_samples()
+        p = len(bim)
+        n = len(fam)
         if out_type in ['memmap_C', 'memmap_F']:
             memmap_filename = bed_filepref + '.memmap'
             order = out_type[-1]
@@ -219,10 +218,9 @@ def read_bed(bed_filepref, out_type='memory', dtype=np.int8):
         elif out_type == 'memory':
             mat = np.zeros(shape=(p,n), dtype=dtype)
         else:
-            logging.error('out_type ' + str(out_type) + ' is not in {memory, memmap, ped}')
+            logging.error('Invalid output type')
             assert False
-        for (i, (marker, geno)) in enumerate(ped):
-            mat[i,:] = geno
+        mat[:] = bed_dask
         return mat, bim, fam
 
 def dask2memmap(X_dask, X_memmap_filename, path_tmp):
@@ -298,9 +296,8 @@ def pca_stu(stu_bed_filepref, X_mean, X_std, method, path_tmp,
             dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
     p_ref = len(X_mean)
     n_ref = len(s)
-    ped = PyPlink(stu_bed_filepref)
-    p_stu = ped.get_nb_markers()
-    n_stu = ped.get_nb_samples()
+    bed_dask = read_bed(stu_bed_filepref, out_type='dask')[0]
+    p_stu, n_stu = bed_dask.shape
     chunk_n_stu = int(np.ceil(n_stu / SAMPLE_CHUNK_SIZE_STU))
     pcs_stu = np.zeros((n_stu, dim_ref))
 
@@ -477,15 +474,14 @@ def run_pca(pref_ref, pref_stu, popu_ref_filename=None, popu_ref_k=None, method=
     X, X_bim, X_fam = read_bed(pref_ref_commsnpsrefal, out_type=mem_out_type, dtype=np.float32)
     p_ref, n_ref = X.shape
 
-    W_ped, W_bim, W_fam = read_bed(pref_stu_commsnpsrefal, out_type='ped')
-    p_stu = W_ped.get_nb_markers()
-    n_stu = W_ped.get_nb_samples()
+    W_bim, W_fam = read_bed(pref_stu_commsnpsrefal, out_type='dask')[1:3]
+    p_stu = len(W_bim)
+    n_stu = len(W_fam)
     assert p_ref == p_stu
     p = p_ref
 
     # Check ref and stu have the same snps and alleles
-    assert all(W_bim.index == X_bim.index)
-    assert all(X_bim[['chrom', 'pos', 'a1', 'a2']] == W_bim[['chrom', 'pos', 'a1', 'a2']])
+    assert W_bim.equals(X_bim)
 
     # PCA on study individuals
     pcs_ref, pcs_stu = pca(X, pref_stu_commsnpsrefal, pref_stu, method, path_tmp, dim_ref, dim_stu, dim_stu_high)
