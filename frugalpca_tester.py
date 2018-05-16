@@ -150,7 +150,7 @@ def run_tests():
     pref_stu = '../data/ukb/ukb'
     # pref_stu = '../data/ukb/ukb_snps_comm'
     # pref_stu = '../data/ukb/ukb_snps_kgn_2c'
-    pref_stu = '../data/ukb/ukb_snps_kgn_1k'
+    # pref_stu = '../data/ukb/ukb_snps_kgn_1k'
     cmp_trace = False
     # pcs_trace_ref_filename = '../data/kgn_ukb_2c/kgn_ukb_2c.RefPC.coord'
     # pcs_trace_stu_filename = '../data/kgn_ukb_2c/kgn_ukb_2c.ProPC.coord'
