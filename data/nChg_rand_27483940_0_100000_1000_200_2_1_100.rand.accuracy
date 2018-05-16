@@ -1,8 +1,0 @@
-method	err.center	err.golden
-trace	4.53	0
-onl	4.43	0.23
-onlRand	4.44	0.23
-proj	5.79	6
-projRand	5.79	6
-hdpca	4.59	0.46
-hdpcaRand	4.23	3.02

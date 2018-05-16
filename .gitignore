@@ -26,5 +26,5 @@ cache/
 *.png
 *.memmap
 *.012
-logs/
+log/
 

@@ -38,9 +38,9 @@ int main(){
   mat PC_ref;
   mat PC_ref_fat;
   mat PC_new_head;
-  PC_ref.load("test_PC_ref.dat");
-  PC_ref_fat.load("test_PC_ref_fat.dat");
-  PC_new_head.load("test_PC_new_head.dat");
+  PC_ref.load("tmp/test_PC_ref.dat");
+  PC_ref_fat.load("tmp/test_PC_ref_fat.dat");
+  PC_new_head.load("tmp/test_PC_new_head.dat");
   mat PC_new_head_trsfed;
   double t;
   double rho;
@@ -50,10 +50,10 @@ int main(){
   // Test procrustes
   // cout << "Running TRACE's procrustes functions..." << endl;
   procrustes(PC_new_head, PC_ref_fat, PC_new_head_trsfed, t, rho, A, c, 0);
-  A.save("procrustes_A.dat", raw_ascii);
-  c.save("procrustes_c.dat", raw_ascii);
+  A.save("tmp/procrustes_A.dat", raw_ascii);
+  c.save("tmp/procrustes_c.dat", raw_ascii);
   ofstream fout;
-  fout.open("procrustes_rho.dat");
+  fout.open("tmp/procrustes_rho.dat");
   fout << rho;
   fout.close();
   // cout << "Done." << endl;
@@ -61,9 +61,9 @@ int main(){
   // Test projection procrustes
   // cout << "Running TRACE's projection procrustes functions..." << endl;
   pprocrustes(PC_new_head, PC_ref, PC_new_head_trsfed, t, rho, A, c, 10000, 0.000001, 0);
-  A.save("pprocrustes_A.dat", raw_ascii);
-  c.save("pprocrustes_c.dat", raw_ascii);
-  fout.open("pprocrustes_rho.dat");
+  A.save("tmp/pprocrustes_A.dat", raw_ascii);
+  c.save("tmp/pprocrustes_c.dat", raw_ascii);
+  fout.open("tmp/pprocrustes_rho.dat");
   fout << rho;
   fout.close();
   // cout << "Done." << endl;

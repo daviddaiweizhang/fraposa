@@ -8,8 +8,8 @@
 
 #PBS -M daiweiz@umich.edu
 #PBS -j oe
-#PBS -o logs/
-#PBS -e logs/
+#PBS -o log/
+#PBS -e log/
 #PBS -m abe
 #PBS -V
 #PBS -A leeshawn_fluxod

@@ -32,7 +32,7 @@ DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
 N_NEIGHBORS=5
 HDPCA_N_SPIKES_MAX = 18
-SAMPLE_CHUNK_SIZE_STU = 50
+SAMPLE_CHUNK_SIZE_STU = 300
 SAMPLE_SPLIT_PREF_LEN = 4
 PROCRUSTES_NITER_MAX = 10000
 PROCRUSTES_EPSILON_MIN = 1e-6
@@ -190,7 +190,10 @@ def intersect_ref_stu_snps(pref_ref, pref_stu, path_tmp):
         return pref_ref, pref_stu
     else:
         logging.info('Intersecting SNPs in reference and study samples...')
-        bashout = subprocess.run(['bash', 'intersect_bed.sh', pref_ref, pref_stu, path_tmp], stdout=subprocess.PIPE)
+        bashout = subprocess.run(
+            ['bash', 'intersect_bed.sh', pref_ref, pref_stu, path_tmp],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        assert len(bashout.stderr.decode('utf-8')) == 0
         pref_ref_commsnpsrefal, pref_stu_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
         assert len(pref_ref_commsnpsrefal) > 0
         assert len(pref_stu_commsnpsrefal) > 0
@@ -202,7 +205,7 @@ def bed2dask(filename, dtype=np.float32):
     X_dask = X_dask.astype(dtype)
     return X_dask, X_bim, X_fam
 
-def read_bed(bed_filepref, out_type='memory', dtype=np.float32):
+def read_bed(bed_filepref, out_type='memory', dtype=np.float16):
     logging.debug('Reading Plink binary data into Numpy array...')
     assert issubclass(dtype, np.floating) # int cannot store nan
     bim, fam, bed_dask = read_plink(bed_filepref, verbose=False)
@@ -451,13 +454,13 @@ def pca(X, W_filepref, out_pref, method, path_tmp,
     logging.info('Study PC scores saved to ' + pcs_stu_filename)
     return pcs_ref, pcs_stu
 
-def run_pca(pref_ref, pref_stu, popu_ref_filename=None, popu_ref_k=None, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, log_level='info'):
+def run_pca(pref_ref, pref_stu, popu_filename_ref=None, popu_ref_k=None, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, log_level='info'):
     dir_ref = os.path.dirname(pref_ref)
     dir_stu = os.path.dirname(pref_stu)
     path_tmp = os.path.join(dir_stu, DIR_TMP)
     assert 2 <= dim_ref <= dim_stu <= dim_stu_high
     log = create_logger(pref_stu, log_level)
-    assert (popu_ref_filename is None) != (popu_ref_k is None)
+    assert (popu_filename_ref is None) != (popu_ref_k is None)
     logging.info('Reference data: ' + pref_ref)
     logging.info('Study data: ' + pref_stu)
     logging.debug('Tmp path: ' + path_tmp)
@@ -487,19 +490,19 @@ def run_pca(pref_ref, pref_stu, popu_ref_filename=None, popu_ref_k=None, method=
     pcs_ref, pcs_stu = pca(X, pref_stu_commsnpsrefal, pref_stu, method, path_tmp, dim_ref, dim_stu, dim_stu_high)
 
     # Read or predict ref populations
-    if popu_ref_filename is not None:
-        logging.info('Reading reference population from ' + popu_ref_filename)
-        popu_ref = pd.read_table(popu_ref_filename, header=None).iloc[:,1]
+    if popu_filename_ref is not None:
+        logging.info('Reading reference population from ' + popu_filename_ref)
+        popu_ref = pd.read_table(popu_filename_ref, header=None).iloc[:,2]
     else:
         logging.info('Predicting reference population...')
         popu_ref = KMeans(n_clusters=popu_ref_k).fit_predict(pcs_ref)
-        popu_ref_df = pd.DataFrame({'iid':X_fam['iid'], 'popu':popu_ref})
+        popu_ref_df = pd.DataFrame({'fid':X_fam['fid'], 'iid':X_fam['iid'], 'popu':popu_ref})
         popu_ref_df.to_csv(pref_ref+'_pred.popu', sep=DELIMITER, header=False, index=False)
         logging.info('Reference population prediction saved to ' + pref_ref+'_pred.popu')
 
     # Predict stu population
     popu_stu_pred = pred_popu_stu(pcs_ref, popu_ref, pcs_stu)
-    popu_stu_pred_df = pd.DataFrame({'iid':W_fam['iid'], 'popu':popu_stu_pred})
+    popu_stu_pred_df = pd.DataFrame({'fid':W_fam['fid'], 'iid':W_fam['iid'], 'popu':popu_stu_pred})
     popu_stu_pred_df.to_csv(pref_stu+'_pred.popu', sep=DELIMITER, header=False, index=False)
     logging.info('Study population prediction saved to ' + pref_stu+'_pred.popu')
 
