@@ -2,19 +2,18 @@ import numpy as np
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.cluster import KMeans
-from pandas_plink import read_plink
-# from pyplink import PyPlink
-# import dask.array as da
-# from dask import compute
-# from chest import Chest
 import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr
 from rpy2.robjects import numpy2ri
 r = robjects.r
 robjects.numpy2ri.activate()
 importr('hdpca')
-pc_adjust = r['pc_adjust']
 hdpc_est = r['hdpc_est']
+from pyplink import PyPlink
+# from pandas_plink import read_plink
+# import dask.array as da
+# from dask import compute
+# from chest import Chest
 import matplotlib
 matplotlib.use('Agg') # For outputting plots in png on servers
 import matplotlib.pyplot as plt
@@ -199,32 +198,28 @@ def intersect_ref_stu_snps(pref_ref, pref_stu, path_tmp):
         assert len(pref_stu_commsnpsrefal) > 0
         return pref_ref_commsnpsrefal, pref_stu_commsnpsrefal
 
-def bed2dask(filename, dtype=np.float32):
-    logging.debug('Reading Plink binary data into dask array...')
-    X_bim, X_fam, X_dask = read_plink(filename, verbose=False)
-    X_dask = X_dask.astype(dtype)
-    return X_dask, X_bim, X_fam
-
-def read_bed(bed_filepref, out_type='memory', dtype=np.float16):
-    logging.debug('Reading Plink binary data into Numpy array...')
-    assert issubclass(dtype, np.floating) # int cannot store nan
-    bim, fam, bed_dask = read_plink(bed_filepref, verbose=False)
-    if out_type == 'dask':
-        return bed_dask, bim, fam
+def read_bed(bed_filepref, bed_store='memory', dtype=np.int8):
+    pyp = PyPlink(bed_filepref)
+    bim = pyp.get_bim()
+    fam = pyp.get_fam()
+    if bed_store is None:
+        bed = None
     else:
         p = len(bim)
         n = len(fam)
-        if out_type in ['memmap_C', 'memmap_F']:
+        if bed_store in ['memmap_C', 'memmap_F']:
             memmap_filename = bed_filepref + '.memmap'
-            order = out_type[-1]
-            mat = np.memmap(memmap_filename, dtype=dtype, mode='w+', shape=(p, n), order=order)
-        elif out_type == 'memory':
-            mat = np.zeros(shape=(p,n), dtype=dtype)
+            order = bed_store[-1]
+            bed = np.memmap(memmap_filename, dtype=dtype, mode='w+', shape=(p, n), order=order)
+        elif bed_store == 'memory':
+            bed = np.zeros(shape=(p, n), dtype=dtype)
         else:
             logging.error('Invalid output type')
             assert False
-        mat[:] = bed_dask
-        return mat, bim, fam
+        for (i, (snp, genotypes)) in enumerate(pyp):
+            bed[i,:] = genotypes
+        bed = 2 - bed
+    return bed, bim, fam
 
 def dask2memmap(X_dask, X_memmap_filename, path_tmp):
     logging.info('Loading dask array into memmap...')
@@ -233,6 +228,25 @@ def dask2memmap(X_dask, X_memmap_filename, path_tmp):
     X = np.memmap(X_memmap_filename, dtype=dtype, mode='w+', shape=X_dask.shape)
     X[:] = X_dask
     return X
+
+def standardize(X, mean=None, std=None, miss=3):
+    assert np.issubdtype(X.dtype, np.floating)
+    p, n = X.shape
+    is_miss = X == miss
+    if (mean is None) or (std is None):
+        mean = np.zeros(p)
+        std = np.zeros(p)
+        for i in range(p):
+            row_nomiss = X[i,:][~is_miss[i,:]]
+            mean[i] = np.mean(row_nomiss)
+            std[i] = np.std(row_nomiss)
+        std[std == 0] = 1
+    mean = mean.reshape((-1, 1))
+    std = std.reshape((-1, 1))
+    X -= mean
+    X /= std
+    X[is_miss] = 0
+    return mean, std
 
 def standardize_ref(X):
     logging.debug('Centering, normalizing, and imputing reference data...')
@@ -299,8 +313,9 @@ def pca_stu(stu_bed_filepref, X_mean, X_std, method, path_tmp,
             dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
     p_ref = len(X_mean)
     n_ref = len(s)
-    bed_dask = read_bed(stu_bed_filepref, out_type='dask')[0]
-    p_stu, n_stu = bed_dask.shape
+    W_bim, W_fam = read_bed(stu_bed_filepref, bed_store=None)[1:3]
+    p_stu = len(W_bim)
+    n_stu = len(W_fam)
     chunk_n_stu = int(np.ceil(n_stu / SAMPLE_CHUNK_SIZE_STU))
     pcs_stu = np.zeros((n_stu, dim_ref))
 
@@ -311,56 +326,52 @@ def pca_stu(stu_bed_filepref, X_mean, X_std, method, path_tmp,
     assert len(stu_bed_filepref_chunk_list) == chunk_n_stu
     elapse_split = time.time() - t0
 
+    logging.info('Calculating study PC scores with ' + method + '...')
     elapse_load = 0.0
     elapse_standardize = 0.0
     elapse_method = 0.0
-
-    logging.info('Calculating study PC scores with ' + method + '...')
     for i in range(chunk_n_stu):
         logging.debug('Reading study samples...')
         t0 = time.time()
         sample_start = SAMPLE_CHUNK_SIZE_STU * i
         sample_end = min(SAMPLE_CHUNK_SIZE_STU * (i+1), n_stu)
-        W = read_bed(stu_bed_filepref_chunk_list[i], out_type='memory', dtype=np.float32)[0]
+        W = read_bed(stu_bed_filepref_chunk_list[i], bed_store='memory', dtype=np.int8)[0]
         elapse_load += time.time() - t0
 
-        t0 = time.time()
-        logging.debug('Centering, normalizing, and imputing study data...')
-        logging.debug('Centering...')
-        W -= X_mean
-        logging.debug('Normalizing...')
-        W /= X_std
-        logging.debug('Imputing...')
-        W[np.isnan(W)] = 0
-        elapse_standardize += time.time() - t0
-
-        t0 = time.time()
         if method == 'oadp':
             logging.debug('Predicting study pc scores with online augment-decompose-procrustes...')
             assert (U is not None) & (s is not None) and (V is not None)
-            for i in range(W.shape[1]):
-                w = W[:,i]
-                pcs_stu_row = oadp(U, s, V, w, dim_ref, dim_stu, dim_stu_high)
-                pcs_stu[sample_start + i, :] = pcs_stu_row
         elif method == 'adp':
             logging.debug('Predicting study pc scores with augment-decompose-procrustes...')
             assert (XTX is not None) and (X is not None)
-            for i in range(W.shape[1]):
-                w = W[:,i]
-                pcs_stu_row = adp(XTX, X, w, pcs_ref, dim_stu=dim_stu)
-                pcs_stu[sample_start + i, :] = pcs_stu_row
-        else:
+        elif method == 'ap':
+            logging.debug('Predicting study PC scores with adjusted projection...')
             assert U is not None
-            pcs_stu_chunk = W.T @ (U[:,:dim_ref])
-            pcs_stu[sample_start:sample_end, :] = pcs_stu_chunk
-            if method == 'sp':
-                logging.debug('Predicting study PC scores with simple projection...')
-            elif method == 'ap':
-                logging.debug('Predicting study PC scores with adjusted projection...')
-            else:
-                logging.error(method + ' is not one of sp, ap, adp, or oadp.')
-        elapse_method += time.time() - t0
+        elif method == 'sp':
+            logging.debug('Predicting study PC scores with simple projection...')
+            assert U is not None
+        else:
+            logging.error(Method + ' is not one of sp, ap, adp, or oadp.')
+            assert False
 
+        for i in range(W.shape[1]):
+            t0 = time.time()
+            w = W[:,i].astype(np.float64).reshape((-1,1))
+            standardize(w, X_mean, X_std, miss=3)
+            elapse_standardize += time.time() - t0
+            t0 = time.time()
+            if method == 'oadp':
+                pcs_stu[sample_start + i, :] = oadp(U, s, V, w, dim_ref, dim_stu, dim_stu_high)
+            elif method == 'adp':
+                pcs_stu[sample_start + i, :] = adp(XTX, X, w, pcs_ref, dim_stu=dim_stu)
+            elif method == 'ap':
+                pcs_stu[sample_start + i, :] = w.T @ (U[:,:dim_ref])
+            elif method == 'sp':
+                pcs_stu[sample_start + i, :] = w.T @ (U[:,:dim_ref])
+            else:
+                logging.error(Method + ' is not one of sp, ap, adp, or oadp.')
+                assert False
+            elapse_method += time.time() - t0
         logging.info('Finished analyzing ' + str(sample_end) + ' samples.')
 
     logging.info('Finished analyzing all study samples.')
@@ -436,7 +447,8 @@ def pca(X, W_filepref, out_pref, method, path_tmp,
         dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX):
     # PCA on ref and stu
     p_ref, n_ref = X.shape
-    X_mean, X_std = standardize_ref(X)
+    logging.info('Standardizing reference data...')
+    X_mean, X_std = standardize(X)
     s, V, XTX = pca_ref(X)
     pcs_ref = V[:, :dim_ref] * s[:dim_ref]
     np.savetxt(out_pref+'_ref.pcs', pcs_ref, fmt=NP_OUTPUT_FMT)
@@ -474,10 +486,10 @@ def run_pca(pref_ref, pref_stu, popu_filename_ref=None, popu_ref_k=None, method=
         mem_out_type = 'memmap_C'
     else:
         mem_out_type = 'memory'
-    X, X_bim, X_fam = read_bed(pref_ref_commsnpsrefal, out_type=mem_out_type, dtype=np.float32)
+    X, X_bim, X_fam = read_bed(pref_ref_commsnpsrefal, bed_store=mem_out_type, dtype=np.float32)
     p_ref, n_ref = X.shape
 
-    W_bim, W_fam = read_bed(pref_stu_commsnpsrefal, out_type='dask')[1:3]
+    W_bim, W_fam = read_bed(pref_stu_commsnpsrefal, bed_store=None)[1:3]
     p_stu = len(W_bim)
     n_stu = len(W_fam)
     assert p_ref == p_stu

@@ -7,7 +7,7 @@ import subprocess
 def test_online_svd_procrust():
     np.random.seed(21)
     # def test_svd_online():
-    print('Testing test_svd_online...')
+    print('Testing svd_online and procrustes...')
 
     # # For debugging only
     # # For comparing with the R script written by Shawn
@@ -96,7 +96,7 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True):
     pcs_trace_ref_filename = pref_ref + '.RefPC.coord'
     pcs_trace_stu_filename = pref_stu + '.ProPC.coord'
     dim_ref = 4
-    log_level = 'info'
+    log_level = 'debug'
     use_memmap = False
 
     pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp =  fp.run_pca(pref_ref, pref_stu, popu_filename_ref = popu_filename_ref, dim_ref=dim_ref, method='sp', use_memmap=use_memmap, log_level=log_level)
@@ -119,23 +119,27 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True):
             pcs_ref_trace[:,i] *= sign
             pcs_stu_trace[:,i] *= sign
         assert np.allclose(pcs_ref, pcs_ref_trace, 1e-3, 1e-3)
+        assert np.allclose(pcs_stu_oadp, pcs_stu_trace, 1e-1, 5e-2)
         assert np.allclose(pcs_stu_ap, pcs_stu_trace, 1e-1, 5e-2)
         assert np.allclose(pcs_stu_sp, pcs_stu_trace, 5e-1, 5e-2)
-        assert np.allclose(pcs_stu_oadp, pcs_stu_trace, 1e-1, 5e-2)
 
         print('Procrustes similarity score (compared to TRACE result):')
         print('Ref:')
         smlr_trace_ref = fp.procrustes_similarity(pcs_ref_trace, pcs_ref)
         print(smlr_trace_ref)
+        assert smlr_trace_ref > 0.99
         print('SP:')
         smlr_trace_sp = fp.procrustes_similarity(pcs_stu_trace, pcs_stu_sp)
         print(smlr_trace_sp)
+        assert smlr_trace_sp > 0.99
         print('AP:')
         smlr_trace_ap = fp.procrustes_similarity(pcs_stu_trace, pcs_stu_ap)
         print(smlr_trace_ap)
+        assert smlr_trace_ap > 0.99
         print('OADP:')
         smlr_trace_oadp = fp.procrustes_similarity(pcs_stu_trace, pcs_stu_oadp)
         print(smlr_trace_oadp)
+        assert smlr_trace_oadp > 0.99
 
 
 def test_pca_subpopu(pref_ref, pref_stu, popu_name_this):
@@ -143,6 +147,38 @@ def test_pca_subpopu(pref_ref, pref_stu, popu_name_this):
     pref_ref_this, pref_stu_this = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
     test_pca(pref_ref_this, pref_stu_this, cmp_trace=False)
 
+def test_standardize():
+    print('Testing standardize...')
+    x = np.array([[0.0,1.0,2.0],
+                  [2,2,2],
+                  [2,3,2],
+                  [0,1,3]])
+    x_standardized_crct = np.array([[-1.22474487,0,1.22474487],
+                                    [0,0,0],
+                                    [0,0,0],
+                                    [-1,1,0]])
+    x_mean_crct = np.array([1,2,2,0.5]).reshape((-1,1))
+    x_std_crct = np.array([0.81649658,1.,1.,0.5]).reshape((-1,1))
+    x_mean, x_std = fp.standardize(x, miss=3)
+    assert np.allclose(x, x_standardized_crct)
+    assert np.allclose(x_mean, x_mean_crct)
+    assert np.allclose(x_std, x_std_crct)
+    print('Passed!')
+
+    y = np.array([[ 1.,  0.,  1.],
+                  [ 0., 3.,  0.],
+                  [ 2.,  2.,  0.],
+                  [3.,  0.,  0.]])
+    y_standardized_crct = np.array([[ 0., -1.,  0.],
+                                    [-1., 0, -1.],
+                                    [ 0.,  0., -1.],
+                                    [0, -1., -1.]])
+    y_standardized_crct = np.array([[ 0.        , -1.22474487,  0.        ],
+                                    [-2.        ,  0.        , -2.        ],
+                                    [ 0.        ,  0.        , -2.        ],
+                                    [ 0.        , -1.        , -1.        ]])
+    fp.standardize(y, x_mean_crct, x_std_crct, miss=3)
+    assert np.allclose(y, y_standardized_crct)
 
 def run_tests():
     pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb'
@@ -151,14 +187,17 @@ def run_tests():
     # pref_stu = '../data/ukb/ukb_snps_comm'
     # pref_stu = '../data/ukb/ukb_snps_kgn_2c'
     # pref_stu = '../data/ukb/ukb_snps_kgn_1k'
-    cmp_trace = False
+    cmp_trace = True
     # pcs_trace_ref_filename = '../data/kgn_ukb_2c/kgn_ukb_2c.RefPC.coord'
     # pcs_trace_stu_filename = '../data/kgn_ukb_2c/kgn_ukb_2c.ProPC.coord'
-    popu_name_this = 'EUR'
 
+    test_standardize()
     test_online_svd_procrust()
     test_pca(pref_ref, pref_stu, cmp_trace=cmp_trace)
-    test_pca_subpopu(pref_ref, pref_stu, popu_name_this)
-
+    test_pca_subpopu(pref_ref, pref_stu, 'EUR')
+    test_pca_subpopu(pref_ref, pref_stu, 'EAS')
+    test_pca_subpopu(pref_ref, pref_stu, 'SAS')
+    test_pca_subpopu(pref_ref, pref_stu, 'AMR')
+    test_pca_subpopu(pref_ref, pref_stu, 'AFR')
 
 run_tests()
