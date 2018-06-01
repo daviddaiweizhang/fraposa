@@ -33,11 +33,15 @@ if [ "${missing}" -eq "1" ]; then
     date
     for chunk_filepref_this in ${chunk_filepref_list}; do
         plink --bfile ${bed_filepref} --keep ${chunk_filepref_this} --keep-allele-order --out ${chunk_filepref_this} --make-bed
-        rm ${chunk_filepref_this}
         cmp --silent ${chunk_filepref_this}.bim ${bed_filepref}.bim || {>&2 echo "Error: Output bim files not identical"; echo; echo; exit 1; } # The last two echos are placeholders for output file names
         date
     done
 fi
+
+rm ${chunk_filepref_list}
+
+# TODO: check concat(all chunck .fam) == .fam
+# TODO: check chunk .bim == .bim for all chunks
 
 # Return the list of splitted files
 echo ${chunk_filepref_list}

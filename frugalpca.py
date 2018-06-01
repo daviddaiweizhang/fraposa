@@ -258,15 +258,11 @@ def standardize_ref(X):
     X[np.isnan(X)] = 0
     return X_mean, X_std
 
-def pca_ref(X, dim_ref=DIM_REF, save_XTXsV=False):
+def pca_ref(X):
     logging.info('Calculating covariance matrix...')
     XTX = X.T @ X
     logging.info('Eigendecomposition on covariance matrix...')
     s, V = svd_eigcov(XTX)
-    # if save_XTXsV:
-    #     np.savetxt(out_pref+'_XTX.dat', XTX, fmt=NP_OUTPUT_FMT)
-    #     np.savetxt(out_pref+'_s.dat', s, fmt=NP_OUTPUT_FMT)
-    #     np.savetxt(out_pref+'_V.dat', V, fmt=NP_OUTPUT_FMT)
     return s, V, XTX
 
 def get_pc_loading(X, s, V, dim_stu_high=DIM_STU_HIGH, out_pref=None):
@@ -319,7 +315,8 @@ def pca_stu(stu_bed_filepref, X_mean, X_std, method, path_tmp,
     chunk_n_stu = int(np.ceil(n_stu / SAMPLE_CHUNK_SIZE_STU))
     pcs_stu = np.zeros((n_stu, dim_ref))
 
-    logging.info('Spliting study samples...')
+    print('='*80)
+    logging.info('Splitting study samples...')
     t0 = time.time()
     bashout = subprocess.run(['bash', 'split_fam.sh', stu_bed_filepref, str(SAMPLE_CHUNK_SIZE_STU)], stdout=subprocess.PIPE)
     stu_bed_filepref_chunk_list = bashout.stdout.decode('utf-8').split('\n')[-2].split()
@@ -331,24 +328,20 @@ def pca_stu(stu_bed_filepref, X_mean, X_std, method, path_tmp,
     elapse_standardize = 0.0
     elapse_method = 0.0
     for i in range(chunk_n_stu):
-        logging.debug('Reading study samples...')
         t0 = time.time()
+        logging.debug('Reading study samples...')
         sample_start = SAMPLE_CHUNK_SIZE_STU * i
         sample_end = min(SAMPLE_CHUNK_SIZE_STU * (i+1), n_stu)
         W = read_bed(stu_bed_filepref_chunk_list[i], bed_store='memory', dtype=np.int8)[0]
         elapse_load += time.time() - t0
 
         if method == 'oadp':
-            logging.debug('Predicting study pc scores with online augment-decompose-procrustes...')
             assert (U is not None) & (s is not None) and (V is not None)
         elif method == 'adp':
-            logging.debug('Predicting study pc scores with augment-decompose-procrustes...')
             assert (XTX is not None) and (X is not None)
         elif method == 'ap':
-            logging.debug('Predicting study PC scores with adjusted projection...')
             assert U is not None
         elif method == 'sp':
-            logging.debug('Predicting study PC scores with simple projection...')
             assert U is not None
         else:
             logging.error(Method + ' is not one of sp, ap, adp, or oadp.')
@@ -356,10 +349,13 @@ def pca_stu(stu_bed_filepref, X_mean, X_std, method, path_tmp,
 
         for i in range(W.shape[1]):
             t0 = time.time()
+            logging.debug('Extracting one row...')
             w = W[:,i].astype(np.float64).reshape((-1,1))
+            logging.debug('Standardizing...')
             standardize(w, X_mean, X_std, miss=3)
             elapse_standardize += time.time() - t0
             t0 = time.time()
+            logging.debug('Method...')
             if method == 'oadp':
                 pcs_stu[sample_start + i, :] = oadp(U, s, V, w, dim_ref, dim_stu, dim_stu_high)
             elif method == 'adp':
@@ -375,6 +371,7 @@ def pca_stu(stu_bed_filepref, X_mean, X_std, method, path_tmp,
         logging.info('Finished analyzing ' + str(sample_end) + ' samples.')
 
     logging.info('Finished analyzing all study samples.')
+    print('='*80)
     logging.info('Runtimes: ')
     logging.info('Splitting: ' + str(elapse_split))
     logging.info('Loading: ' + str(elapse_load))
@@ -443,30 +440,69 @@ def adj_hdpc_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX
     for i in range(n_pc_adjusted):
         U[:, i] /= shrinkage[i]
 
-def pca(X, W_filepref, out_pref, method, path_tmp,
-        dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX):
-    # PCA on ref and stu
-    p_ref, n_ref = X.shape
-    logging.info('Standardizing reference data...')
-    X_mean, X_std = standardize(X)
-    s, V, XTX = pca_ref(X)
-    pcs_ref = V[:, :dim_ref] * s[:dim_ref]
-    np.savetxt(out_pref+'_ref.pcs', pcs_ref, fmt=NP_OUTPUT_FMT)
-    logging.info('Reference PC scores saved to ' + out_pref + '_ref.pcs')
-    U = get_pc_loading(X, s, V)
+def pca(X_filepref, W_filepref, out_pref, method, path_tmp,
+        dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX,
+        use_memmap=False, load_saved_ref_decomp=True):
+
+    Xmnsd_filename = out_pref + '_mnsd.dat'
+    s_filename = out_pref + '_s.dat'
+    V_filename = out_pref + '_V.dat'
+    U_filename = out_pref + '_U.dat'
+    pcsref_filename = out_pref + '_ref.pcs'
+    ref_decomp_filenames = [Xmnsd_filename, s_filename, V_filename, U_filename, pcsref_filename]
+    ref_decomp_allexist = all([os.path.isfile(filename) for filename in ref_decomp_filenames])
+
+    if ref_decomp_allexist and load_saved_ref_decomp:
+        logging.info('Loading mean, sd, and SVD of ref data...')
+        Xmnsd = np.loadtxt(Xmnsd_filename)
+        X_mean = Xmnsd[:,0].reshape((-1,1))
+        X_std = Xmnsd[:,1].reshape((-1,1))
+        s = np.loadtxt(s_filename)
+        V = np.loadtxt(V_filename)
+        pcs_ref = np.loadtxt(pcsref_filename)
+        U = np.loadtxt(U_filename)
+    else:
+        logging.info('Reading reference samples...')
+        if use_memmap:
+            mem_out_type = 'memmap_C'
+        else:
+            mem_out_type = 'memory'
+        X, X_bim, X_fam = read_bed(X_filepref, bed_store=mem_out_type, dtype=np.float32)
+        W_bim, W_fam = read_bed(W_filepref, bed_store=None)[1:3]
+        assert W_bim.equals(X_bim)
+
+        logging.info('Standardizing reference data...')
+        X_mean, X_std = standardize(X)
+        np.savetxt(Xmnsd_filename, np.hstack((X_mean, X_std)), fmt=NP_OUTPUT_FMT)
+
+        s, V, XTX = pca_ref(X)
+        V = V[:, :dim_stu_high]
+        pcs_ref = V[:, :dim_ref] * s[:dim_ref]
+        np.savetxt(s_filename, s, fmt=NP_OUTPUT_FMT)
+        np.savetxt(V_filename, V, fmt=NP_OUTPUT_FMT)
+        np.savetxt(pcsref_filename, pcs_ref, fmt=NP_OUTPUT_FMT)
+        logging.info('Reference PC scores saved to ' + out_pref + '_ref.pcs')
+
+        logging.info('Calculating PC loadings...')
+        U = X @ (V[:,:dim_stu_high] / s[:dim_stu_high])
+        np.savetxt(U_filename, U, fmt=NP_OUTPUT_FMT)
+
+    p_ref = X_mean.shape[0]
+    n_ref = V.shape[0]
 
     if method == 'ap':
         adj_hdpc_shrinkage(U, s, p_ref, n_ref, dim_ref)
 
     pcs_stu = pca_stu(W_filepref, X_mean, X_std, method=method, path_tmp=path_tmp,
-                      U=U, s=s, V=V, XTX=XTX, X=X, pcs_ref=pcs_ref,
+                      U=U, s=s, V=V, pcs_ref=pcs_ref,
                       dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
     pcs_stu_filename = out_pref + '_stu_' + method +'.pcs'
     np.savetxt(pcs_stu_filename, pcs_stu, fmt=NP_OUTPUT_FMT, delimiter='\t')
     logging.info('Study PC scores saved to ' + pcs_stu_filename)
     return pcs_ref, pcs_stu
 
-def run_pca(pref_ref, pref_stu, popu_filename_ref=None, popu_ref_k=None, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, log_level='info'):
+def run_pca(pref_ref, pref_stu, popu_filename_ref=None, popu_ref_k=None, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, log_level='info'):
+    t0 = time.time()
     dir_ref = os.path.dirname(pref_ref)
     dir_stu = os.path.dirname(pref_stu)
     path_tmp = os.path.join(dir_stu, DIR_TMP)
@@ -480,26 +516,10 @@ def run_pca(pref_ref, pref_stu, popu_filename_ref=None, popu_ref_k=None, method=
     # Intersect ref and stu snps
     pref_ref_commsnpsrefal, pref_stu_commsnpsrefal = intersect_ref_stu_snps(pref_ref, pref_stu, path_tmp)
 
-    # Load ref
-    logging.info('Reading reference samples...')
-    if use_memmap:
-        mem_out_type = 'memmap_C'
-    else:
-        mem_out_type = 'memory'
-    X, X_bim, X_fam = read_bed(pref_ref_commsnpsrefal, bed_store=mem_out_type, dtype=np.float32)
-    p_ref, n_ref = X.shape
-
     W_bim, W_fam = read_bed(pref_stu_commsnpsrefal, bed_store=None)[1:3]
-    p_stu = len(W_bim)
-    n_stu = len(W_fam)
-    assert p_ref == p_stu
-    p = p_ref
-
-    # Check ref and stu have the same snps and alleles
-    assert W_bim.equals(X_bim)
 
     # PCA on study individuals
-    pcs_ref, pcs_stu = pca(X, pref_stu_commsnpsrefal, pref_stu, method, path_tmp, dim_ref, dim_stu, dim_stu_high)
+    pcs_ref, pcs_stu = pca(pref_ref_commsnpsrefal, pref_stu_commsnpsrefal, pref_stu, method, path_tmp, dim_ref, dim_stu, dim_stu_high, use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp)
 
     # Read or predict ref populations
     if popu_filename_ref is not None:
@@ -541,5 +561,5 @@ def run_pca(pref_ref, pref_stu, popu_filename_ref=None, popu_ref_k=None, method=
     # # pcs_ref_eur = pcs_ref[indiv_is_eur,:] * X_std[indiv_is_eur]
     # # pcs_ref_eur += X_mean[indiv_is_eur]
 
-    del X
+    print('Total runtime: ' + str(time.time() - t0))
     return pcs_ref, pcs_stu, popu_ref, popu_stu_pred

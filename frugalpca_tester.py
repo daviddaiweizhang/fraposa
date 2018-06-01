@@ -96,13 +96,13 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True):
     pcs_trace_ref_filename = pref_ref + '.RefPC.coord'
     pcs_trace_stu_filename = pref_stu + '.ProPC.coord'
     dim_ref = 4
-    log_level = 'debug'
+    log_level = 'info'
     use_memmap = False
+    load_saved_ref_decomp = True
 
-    pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp =  fp.run_pca(pref_ref, pref_stu, popu_filename_ref = popu_filename_ref, dim_ref=dim_ref, method='sp', use_memmap=use_memmap, log_level=log_level)
-    pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap =  fp.run_pca(pref_ref, pref_stu, popu_filename_ref = popu_filename_ref, dim_ref=dim_ref, method='ap', use_memmap=use_memmap, log_level=log_level)
-    pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp =  fp.run_pca(pref_ref, pref_stu, popu_filename_ref = popu_filename_ref, dim_ref=dim_ref, method='oadp', use_memmap=use_memmap, log_level=log_level)
-    # pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp =  fp.run_pca(pref_ref, pref_stu, popu_filename_ref = popu_filename_ref, dim_ref=dim_ref, method='adp', use_memmap=True, log_level=log_level)
+    pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp =  fp.run_pca(pref_ref, pref_stu, popu_filename_ref = popu_filename_ref, dim_ref=dim_ref, method='sp', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)
+    pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap =  fp.run_pca(pref_ref, pref_stu, popu_filename_ref = popu_filename_ref, dim_ref=dim_ref, method='ap', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)
+    pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp =  fp.run_pca(pref_ref, pref_stu, popu_filename_ref = popu_filename_ref, dim_ref=dim_ref, method='oadp', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)
 
     # assert np.allclose(pcs_stu_ap, pcs_stu_oadp, 1e-1, 5e-2)
     method_list = ['sp', 'adp', 'oadp']
@@ -119,9 +119,9 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True):
             pcs_ref_trace[:,i] *= sign
             pcs_stu_trace[:,i] *= sign
         assert np.allclose(pcs_ref, pcs_ref_trace, 1e-3, 1e-3)
-        assert np.allclose(pcs_stu_oadp, pcs_stu_trace, 1e-1, 5e-2)
-        assert np.allclose(pcs_stu_ap, pcs_stu_trace, 1e-1, 5e-2)
         assert np.allclose(pcs_stu_sp, pcs_stu_trace, 5e-1, 5e-2)
+        assert np.allclose(pcs_stu_ap, pcs_stu_trace, 1e-1, 5e-2)
+        assert np.allclose(pcs_stu_oadp, pcs_stu_trace, 1e-1, 5e-2)
 
         print('Procrustes similarity score (compared to TRACE result):')
         print('Ref:')
@@ -183,10 +183,12 @@ def test_standardize():
 def run_tests():
     pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb'
     # pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb_snps_comm'
-    pref_stu = '../data/ukb/ukb'
+    # pref_stu = '../data/ukb/ukb'
     # pref_stu = '../data/ukb/ukb_snps_comm'
-    # pref_stu = '../data/ukb/ukb_snps_kgn_2c'
+    pref_stu = '../data/ukb/ukb_snps_kgn_2c'
     # pref_stu = '../data/ukb/ukb_snps_kgn_1k'
+    # pref_stu = '../data/ukb/ukb_snps_kgn_10k'
+    # pref_stu = '../data/ukb/ukb_snps_kgn_100k'
     cmp_trace = True
     # pcs_trace_ref_filename = '../data/kgn_ukb_2c/kgn_ukb_2c.RefPC.coord'
     # pcs_trace_stu_filename = '../data/kgn_ukb_2c/kgn_ukb_2c.ProPC.coord'
@@ -194,10 +196,10 @@ def run_tests():
     test_standardize()
     test_online_svd_procrust()
     test_pca(pref_ref, pref_stu, cmp_trace=cmp_trace)
-    test_pca_subpopu(pref_ref, pref_stu, 'EUR')
-    test_pca_subpopu(pref_ref, pref_stu, 'EAS')
-    test_pca_subpopu(pref_ref, pref_stu, 'SAS')
-    test_pca_subpopu(pref_ref, pref_stu, 'AMR')
-    test_pca_subpopu(pref_ref, pref_stu, 'AFR')
+    # test_pca_subpopu(pref_ref, pref_stu, 'EUR')
+    # test_pca_subpopu(pref_ref, pref_stu, 'EAS')
+    # test_pca_subpopu(pref_ref, pref_stu, 'SAS')
+    # test_pca_subpopu(pref_ref, pref_stu, 'AMR')
+    # test_pca_subpopu(pref_ref, pref_stu, 'AFR')
 
 run_tests()
