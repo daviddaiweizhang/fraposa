@@ -31,13 +31,13 @@ DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
 N_NEIGHBORS=5
 HDPCA_N_SPIKES_MAX = 18
-SAMPLE_CHUNK_SIZE_STU = 10000
+SAMPLE_CHUNK_SIZE_STU = 1000
 SAMPLE_SPLIT_PREF_LEN = 4
 PROCRUSTES_NITER_MAX = 10000
 PROCRUSTES_EPSILON_MIN = 1e-6
 
 PLOT_ALPHA_REF=0.1
-PLOT_ALPHA_STU=0.99
+PLOT_ALPHA_STU=0.2
 PLOT_MARKERS = ['.', '+', 'x', '*', 'd', 's']
 
 # DIM_SVDRAND = DIM_STU * 4
@@ -188,6 +188,8 @@ def intersect_ref_stu_snps(pref_ref, pref_stu, path_tmp):
         logging.info('SNPs and alleles in reference and study samples are identical')
         return pref_ref, pref_stu
     else:
+        logging.error('Error: SNPs and alleles in reference and study samples are not identical')
+        assert False
         logging.info('Intersecting SNPs in reference and study samples...')
         bashout = subprocess.run(
             ['bash', 'intersect_bed.sh', pref_ref, pref_stu, path_tmp],
@@ -220,6 +222,10 @@ def read_bed(bed_filepref, bed_store='memory', dtype=np.int8):
             bed[i,:] = genotypes
         bed = 2 - bed
     return bed, bim, fam
+
+def bed2trace(bed, bim, fam):
+    bed_filename = '../data/ukb/small'
+    bed, bim, fam = read_bed(bed_filename)
 
 def dask2memmap(X_dask, X_memmap_filename, path_tmp):
     logging.info('Loading dask array into memmap...')
@@ -444,11 +450,11 @@ def pca(X_filepref, W_filepref, out_pref, method, path_tmp,
         dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX,
         use_memmap=False, load_saved_ref_decomp=True):
 
-    Xmnsd_filename = out_pref + '_mnsd.dat'
-    s_filename = out_pref + '_s.dat'
-    V_filename = out_pref + '_V.dat'
-    U_filename = out_pref + '_U.dat'
-    pcsref_filename = out_pref + '_ref.pcs'
+    Xmnsd_filename = X_filepref + '_mnsd.dat'
+    s_filename = X_filepref + '_s.dat'
+    V_filename = X_filepref + '_V.dat'
+    U_filename = X_filepref + '_U.dat'
+    pcsref_filename = X_filepref + '_ref.pcs'
     ref_decomp_filenames = [Xmnsd_filename, s_filename, V_filename, U_filename, pcsref_filename]
     ref_decomp_allexist = all([os.path.isfile(filename) for filename in ref_decomp_filenames])
 
@@ -533,33 +539,17 @@ def run_pca(pref_ref, pref_stu, popu_filename_ref=None, popu_ref_k=None, method=
         logging.info('Reference population prediction saved to ' + pref_ref+'_pred.popu')
 
     # Predict stu population
+    stu_popu_filename = pref_stu + '_pred_' + method + '.popu'
     popu_stu_pred = pred_popu_stu(pcs_ref, popu_ref, pcs_stu)
     popu_stu_pred_df = pd.DataFrame({'fid':W_fam['fid'], 'iid':W_fam['iid'], 'popu':popu_stu_pred})
-    popu_stu_pred_df.to_csv(pref_stu+'_pred.popu', sep=DELIMITER, header=False, index=False)
-    logging.info('Study population prediction saved to ' + pref_stu+'_pred.popu')
+    popu_stu_pred_df.to_csv(stu_popu_filename, sep=DELIMITER, header=False, index=False)
+    logging.info('Study population prediction saved to ' + stu_popu_filename)
 
     # Plot PC scores
     plot_pcs(pcs_ref, [pcs_stu], popu_ref, [popu_stu_pred], method_list=[method], out_pref=pref_stu)
 
     # logging.info('Temporary directory content: ')
     # logging.info(subprocess.run(['ls', '-hl', DIR_TMP]))
-
-    # Finer-level PCA on a subpopulation
-    # ref_indiv_is_eur = popu_ref == 'EUR'
-    # stu_indiv_is_eur = popu_stu_pred == 'EUR'
-    # X_fam_eur = X_fam[ref_indiv_is_eur]
-    # W_fam_eur = W_fam[stu_indiv_is_eur]
-    # X_fam_eur.to_csv(pref_ref+'_eur.id', sep=DELIMITER, header=False, columns=['fid', 'iid'], index=False)
-    # W_fam_eur.to_csv(pref_stu+'_eur.id', sep=DELIMITER, header=False, columns=['fid', 'iid'], index=False)
-    # X_eur = X[:, ref_indiv_is_eur]
-    # popu_ref_eur = popu_ref[ref_indiv_is_eur]
-    # # The following line actually slows down pca on study samples quite a lot, especially hdpca
-    # # Actually not necessarily. Could be that eur indivs are harder for hdpca to adjust.
-    # W_dask_eur = W_dask[:, stu_indiv_is_eur]
-    # # W_eur = dask2memmap(W_dask_eur, 'W_eur.memmap')
-    # pca(X_eur, W_dask_eur, popu_ref_eur, 'superpopu_eur')
-    # # pcs_ref_eur = pcs_ref[indiv_is_eur,:] * X_std[indiv_is_eur]
-    # # pcs_ref_eur += X_mean[indiv_is_eur]
 
     print('Total runtime: ' + str(time.time() - t0))
     return pcs_ref, pcs_stu, popu_ref, popu_stu_pred
