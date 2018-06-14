@@ -25,20 +25,25 @@ import subprocess
 import sys
 import logging
 import filecmp
+import multiprocessing as mp
+from joblib import Parallel, delayed
 
 DIM_REF = 4
 DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
 N_NEIGHBORS=5
 HDPCA_N_SPIKES_MAX = 18
-SAMPLE_CHUNK_SIZE_STU = 1000
+SAMPLE_CHUNK_SIZE_STU = 50000
 SAMPLE_SPLIT_PREF_LEN = 4
 PROCRUSTES_NITER_MAX = 10000
 PROCRUSTES_EPSILON_MIN = 1e-6
+NUM_CORES = mp.cpu_count()
 
-PLOT_ALPHA_REF=0.1
-PLOT_ALPHA_STU=0.2
+
+PLOT_ALPHA_REF=0.05
+PLOT_ALPHA_STU=0.40
 PLOT_MARKERS = ['.', '+', 'x', '*', 'd', 's']
+LOG_LEVEL = 'info'
 
 # DIM_SVDRAND = DIM_STU * 4
 # NITER_SVDRAND = 2
@@ -46,6 +51,20 @@ NP_OUTPUT_FMT = '%.4f'
 DELIMITER = '\t'
 # DIR_TMP = mkdtemp()
 DIR_TMP = 'tmp'
+
+
+        # pcs_stu[sample_start:sample_end, :] = Parallel(n_jobs=NUM_CORES)(delayed(get_pcs_stu_this)(i, W, X_mean, X_std, U, s, V, method, dim_ref, dim_stu, dim_stu_high) for i in range(W.shape[1]))
+
+        # output = mp.Queue()
+        # processes = [mp.Process(target=get_pcs_stu_this, args=(output, i, W, X_mean, X_std, U, s, V, method, dim_ref, dim_stu, dim_stu_high)) for i in range(W.shape[1])]
+        # for p in processes:
+        #     p.start()
+        # for p in processes:
+        #     p.join()
+        # results = [output.get() for p in processes]
+        # for (i, pcs_stu_this) in results:
+        #     pcs_stu[sample_start + i, :] = pcs_stu_this
+
 
 def create_logger(prefix='frugalpca', level='info'):
     log = logging.getLogger()
@@ -223,9 +242,50 @@ def read_bed(bed_filepref, bed_store='memory', dtype=np.int8):
         bed = 2 - bed
     return bed, bim, fam
 
-def bed2trace(bed, bim, fam):
-    bed_filename = '../data/ukb/small'
-    bed, bim, fam = read_bed(bed_filename)
+def bed2trace(filepref, missing=3):
+    log = create_logger(filepref, 'info')
+    bed, bim, fam = read_bed(filepref)
+    for idx, x in np.ndenumerate(bed):
+        if x == missing:
+            bed[idx] = -9
+    bed_df = pd.DataFrame(bed.T)
+    tracegeno = pd.concat([fam[['fid', 'iid']], bed_df], axis=1, join_axes=[fam.index])
+    tracegeno.to_csv(filepref+'.geno', sep='\t', header=False, index=False)
+
+    tracesite = pd.DataFrame({
+        'CHROM': bim['chrom'],
+        'POS': bim['pos'],
+        'ID': bim.index.values,
+        'REF': bim['a1'],
+        'ALT': bim['a2']
+    })
+    tracesite = tracesite[['CHROM', 'POS', 'ID', 'REF', 'ALT']]
+    tracesite.to_csv(filepref+'.site', sep='\t', header=True, index=False)
+
+def trace2bed(trace_filepref, missing=3):
+    bed_filepref = trace_filepref
+
+    with open(trace_filepref+'.geno', 'r') as f:
+        ncols = len(f.readline().split())
+    bed = np.loadtxt(trace_filepref+'.geno', dtype=np.int8, usecols=range(2, ncols)).T
+    bed[bed == -9] = missing
+    bed = 2 - bed
+    with PyPlink(bed_filepref, 'w') as pyp:
+        for row in bed:
+            pyp.write_genotypes(row)
+
+    fam = pd.read_table(trace_filepref+'.geno', usecols=range(0, 2), header=None)
+    popu = pd.concat([fam, fam.iloc[:,0]], axis=1)
+    popu.to_csv(bed_filepref+'.popu', sep='\t', header=False, index=False)
+    nrows = fam.shape[0]
+    filler = pd.DataFrame(np.zeros((nrows, 4), dtype=np.int8))
+    fam = pd.concat([fam, filler], axis=1)
+    fam.to_csv(bed_filepref+'.fam', sep='\t', header=False, index=False)
+
+    site = pd.read_table(trace_filepref+'.site')
+    bim = site[['CHR', 'ID', 'POS', 'REF', 'ALT']]
+    bim.insert(2, 'cm', 0)
+    bim.to_csv(bed_filepref+'.bim', sep='\t', header=False, index=False)
 
 def dask2memmap(X_dask, X_memmap_filename, path_tmp):
     logging.info('Loading dask array into memmap...')
@@ -310,79 +370,76 @@ def adp(XTX, X, w, pcs_ref, dim_stu=DIM_STU):
     pcs_stu = ref_aug_procrustes(pcs_ref, pcs_aug)
     return pcs_stu[:dim_ref]
 
-def pca_stu(stu_bed_filepref, X_mean, X_std, method, path_tmp,
+
+def get_pcs_stu_this(output, i, W, X_mean, X_std, U, s, V, method, dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
+    w = W[:,i].astype(np.float64).reshape((-1,1))
+    standardize(w, X_mean, X_std, miss=3)
+    if method == 'oadp':
+        pcs_stu_this = oadp(U, s, V, w, dim_ref, dim_stu, dim_stu_high)
+    # elif method == 'adp':
+    #     pcs_stu_this = adp(XTX, X, w, pcs_ref, dim_stu=dim_stu)
+    elif method == 'ap':
+        pcs_stu_this = w.T @ (U[:,:dim_ref])
+    elif method == 'sp':
+        pcs_stu_this = w.T @ (U[:,:dim_ref])
+    else:
+        assert False
+    output.put((i, pcs_stu_this))
+
+
+def pca_stu(W, X_mean, X_std, method, path_tmp,
             U=None, s=None, V=None, XTX=None, X=None, pcs_ref=None,
             dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
     p_ref = len(X_mean)
     n_ref = len(s)
-    W_bim, W_fam = read_bed(stu_bed_filepref, bed_store=None)[1:3]
-    p_stu = len(W_bim)
-    n_stu = len(W_fam)
-    chunk_n_stu = int(np.ceil(n_stu / SAMPLE_CHUNK_SIZE_STU))
+    p_stu, n_stu = W.shape
     pcs_stu = np.zeros((n_stu, dim_ref))
 
-    print('='*80)
-    logging.info('Splitting study samples...')
-    t0 = time.time()
-    bashout = subprocess.run(['bash', 'split_fam.sh', stu_bed_filepref, str(SAMPLE_CHUNK_SIZE_STU)], stdout=subprocess.PIPE)
-    stu_bed_filepref_chunk_list = bashout.stdout.decode('utf-8').split('\n')[-2].split()
-    assert len(stu_bed_filepref_chunk_list) == chunk_n_stu
-    elapse_split = time.time() - t0
-
-    logging.info('Calculating study PC scores with ' + method + '...')
     elapse_load = 0.0
     elapse_standardize = 0.0
     elapse_method = 0.0
-    for i in range(chunk_n_stu):
-        t0 = time.time()
-        logging.debug('Reading study samples...')
-        sample_start = SAMPLE_CHUNK_SIZE_STU * i
-        sample_end = min(SAMPLE_CHUNK_SIZE_STU * (i+1), n_stu)
-        W = read_bed(stu_bed_filepref_chunk_list[i], bed_store='memory', dtype=np.int8)[0]
-        elapse_load += time.time() - t0
 
+    if method == 'oadp':
+        assert (U is not None) & (s is not None) and (V is not None)
+    elif method == 'adp':
+        assert (XTX is not None) and (X is not None)
+    elif method == 'ap':
+        assert U is not None
+    elif method == 'sp':
+        assert U is not None
+    else:
+        logging.error(Method + ' is not one of sp, ap, adp, or oadp.')
+        assert False
+
+    for i in range(W.shape[1]):
+        t0 = time.time()
+        logging.debug('Extracting one row...')
+        w = W[:,i].astype(np.float64).reshape((-1,1))
+        logging.debug('Standardizing...')
+        standardize(w, X_mean, X_std, miss=3)
+        elapse_standardize += time.time() - t0
+        t0 = time.time()
+        logging.debug('Method...')
         if method == 'oadp':
-            assert (U is not None) & (s is not None) and (V is not None)
-        elif method == 'adp':
-            assert (XTX is not None) and (X is not None)
-        elif method == 'ap':
-            assert U is not None
-        elif method == 'sp':
-            assert U is not None
+            pcs_stu[i,:] = oadp(U, s, V, w, dim_ref, dim_stu, dim_stu_high)
+        elif method =='adp':
+            pcs_stu[i,:] = adp(XTX, X, w, pcs_ref, dim_stu=dim_stu)
+        elif method =='ap':
+            pcs_stu[i,:] = w.T @ (U[:,:dim_ref])
+        elif method =='sp':
+            pcs_stu[i,:] = w.T @ (U[:,:dim_ref])
         else:
             logging.error(Method + ' is not one of sp, ap, adp, or oadp.')
             assert False
+        elapse_method += time.time() - t0
 
-        for i in range(W.shape[1]):
-            t0 = time.time()
-            logging.debug('Extracting one row...')
-            w = W[:,i].astype(np.float64).reshape((-1,1))
-            logging.debug('Standardizing...')
-            standardize(w, X_mean, X_std, miss=3)
-            elapse_standardize += time.time() - t0
-            t0 = time.time()
-            logging.debug('Method...')
-            if method == 'oadp':
-                pcs_stu[sample_start + i, :] = oadp(U, s, V, w, dim_ref, dim_stu, dim_stu_high)
-            elif method == 'adp':
-                pcs_stu[sample_start + i, :] = adp(XTX, X, w, pcs_ref, dim_stu=dim_stu)
-            elif method == 'ap':
-                pcs_stu[sample_start + i, :] = w.T @ (U[:,:dim_ref])
-            elif method == 'sp':
-                pcs_stu[sample_start + i, :] = w.T @ (U[:,:dim_ref])
-            else:
-                logging.error(Method + ' is not one of sp, ap, adp, or oadp.')
-                assert False
-            elapse_method += time.time() - t0
-        logging.info('Finished analyzing ' + str(sample_end) + ' samples.')
+    # logging.info('Finished analyzing all study samples.')
+    # logging.info('Runtimes: ')
+    # logging.info('Splitting: ' + str(elapse_split))
+    # logging.info('Loading: ' + str(elapse_load))
+    # logging.info('Standardizing: ' + str(elapse_standardize))
+    # logging.info(method + ': ' + str(elapse_method))
 
-    logging.info('Finished analyzing all study samples.')
-    print('='*80)
-    logging.info('Runtimes: ')
-    logging.info('Splitting: ' + str(elapse_split))
-    logging.info('Loading: ' + str(elapse_load))
-    logging.info('Standardizing: ' + str(elapse_standardize))
-    logging.info(method + ': ' + str(elapse_method))
     del W
     return pcs_stu
 
@@ -407,9 +464,9 @@ def load_pcs(pref, methods):
 def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref,
              markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU):
     assert len(pcs_stu_list) == len(popu_stu_list) == len(method_list)
-    popu_unique = set(popu_ref)
+    popu_unique = list(set(popu_ref))
     popu_n = len(popu_unique)
-    plot_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    plot_colors_unique = plt.rcParams['axes.prop_cycle'].by_key()['color']
     dim_ref = pcs_ref.shape[1]
     n_subplot = dim_ref // 2
     fig, ax = plt.subplots(ncols=n_subplot)
@@ -419,18 +476,23 @@ def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pr
         plt.ylabel('PC' + str(j*2+2))
         for i,popu in enumerate(popu_unique):
             ref_is_this_popu = popu_ref == popu
-            plt.plot(pcs_ref[ref_is_this_popu, j*2], pcs_ref[ref_is_this_popu, j*2+1], markers[-1], alpha=alpha_ref, color=plot_colors[i], label=str(popu))
+            plt.scatter(pcs_ref[ref_is_this_popu, j*2], pcs_ref[ref_is_this_popu, j*2+1], marker=markers[-1], alpha=alpha_ref, color=plot_colors_unique[i], label=str(popu))
         if len(pcs_stu_list) > 0:
             for k,pcs_stu in enumerate(pcs_stu_list):
                 popu_stu = popu_stu_list[k]
                 method = method_list[k]
-                for i,popu in enumerate(popu_unique):
-                    stu_is_this_popu = popu_stu == popu
-                    if np.sum(stu_is_this_popu) > 0:
-                        plot_label = None
-                        if i == 0:
-                            plot_label = str(method)
-                        plt.plot(pcs_stu[stu_is_this_popu, j*2], pcs_stu[stu_is_this_popu, j*2+1], markers[k], label=plot_label, alpha=alpha_stu, color=plot_colors[i])
+                plot_colors_stu = np.array([plot_colors_unique[popu_unique.index(popu_this)] for popu_this in popu_stu], dtype=np.object)
+                a = 5
+                for i in range(a):
+                    if i == 0:
+                        label = method
+                    else:
+                        label = None
+                    indiv_shuffled_this = np.arange(pcs_stu.shape[0]) % a == i
+                    plt.scatter(pcs_stu[indiv_shuffled_this, j*2],
+                                pcs_stu[indiv_shuffled_this, j*2+1],
+                                color=plot_colors_stu[indiv_shuffled_this],
+                                marker=markers[k], alpha=alpha_stu, label=label)
     plt.legend()
     plt.tight_layout()
     fig_filename = out_pref+'_'.join([''] + method_list)+'.png'
@@ -446,15 +508,15 @@ def adj_hdpc_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX
     for i in range(n_pc_adjusted):
         U[:, i] /= shrinkage[i]
 
-def pca(X_filepref, W_filepref, out_pref, method, path_tmp,
+def pca(ref_filepref, stu_filepref, method, path_tmp,
         dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX,
         use_memmap=False, load_saved_ref_decomp=True):
 
-    Xmnsd_filename = X_filepref + '_mnsd.dat'
-    s_filename = X_filepref + '_s.dat'
-    V_filename = X_filepref + '_V.dat'
-    U_filename = X_filepref + '_U.dat'
-    pcsref_filename = X_filepref + '_ref.pcs'
+    Xmnsd_filename = ref_filepref + '_mnsd.dat'
+    s_filename = ref_filepref + '_s.dat'
+    V_filename = ref_filepref + '_V.dat'
+    U_filename = ref_filepref + '_U.dat'
+    pcsref_filename = ref_filepref + '_ref.pcs'
     ref_decomp_filenames = [Xmnsd_filename, s_filename, V_filename, U_filename, pcsref_filename]
     ref_decomp_allexist = all([os.path.isfile(filename) for filename in ref_decomp_filenames])
 
@@ -473,8 +535,8 @@ def pca(X_filepref, W_filepref, out_pref, method, path_tmp,
             mem_out_type = 'memmap_C'
         else:
             mem_out_type = 'memory'
-        X, X_bim, X_fam = read_bed(X_filepref, bed_store=mem_out_type, dtype=np.float32)
-        W_bim, W_fam = read_bed(W_filepref, bed_store=None)[1:3]
+        X, X_bim, X_fam = read_bed(ref_filepref, bed_store=mem_out_type, dtype=np.float32)
+        W_bim, W_fam = read_bed(stu_filepref, bed_store=None)[1:3]
         assert W_bim.equals(X_bim)
 
         logging.info('Standardizing reference data...')
@@ -487,7 +549,7 @@ def pca(X_filepref, W_filepref, out_pref, method, path_tmp,
         np.savetxt(s_filename, s, fmt=NP_OUTPUT_FMT)
         np.savetxt(V_filename, V, fmt=NP_OUTPUT_FMT)
         np.savetxt(pcsref_filename, pcs_ref, fmt=NP_OUTPUT_FMT)
-        logging.info('Reference PC scores saved to ' + out_pref + '_ref.pcs')
+        logging.info('Reference PC scores saved to ' + pcsref_filename)
 
         logging.info('Calculating PC loadings...')
         U = X @ (V[:,:dim_stu_high] / s[:dim_stu_high])
@@ -499,21 +561,75 @@ def pca(X_filepref, W_filepref, out_pref, method, path_tmp,
     if method == 'ap':
         adj_hdpc_shrinkage(U, s, p_ref, n_ref, dim_ref)
 
-    pcs_stu = pca_stu(W_filepref, X_mean, X_std, method=method, path_tmp=path_tmp,
-                      U=U, s=s, V=V, pcs_ref=pcs_ref,
-                      dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
-    pcs_stu_filename = out_pref + '_stu_' + method +'.pcs'
-    np.savetxt(pcs_stu_filename, pcs_stu, fmt=NP_OUTPUT_FMT, delimiter='\t')
-    logging.info('Study PC scores saved to ' + pcs_stu_filename)
+    t0 = time.time()
+    print('.'*30)
+    logging.info('Splitting study data...')
+    W_bim, W_fam = read_bed(stu_filepref, bed_store=None)[1:3]
+    n_stu = W_fam.shape[0]
+    chunk_n_stu = int(np.ceil(n_stu / SAMPLE_CHUNK_SIZE_STU))
+    logging.info(' '. join([str(SAMPLE_CHUNK_SIZE_STU), 'samples per chunk x', str(chunk_n_stu), 'chunks']))
+    bashout = subprocess.run(['bash', 'split_fam.sh', stu_filepref, str(SAMPLE_CHUNK_SIZE_STU)], stdout=subprocess.PIPE)
+    stu_filepref_chunk_list = bashout.stdout.decode('utf-8').split('\n')[-2].split()
+    assert len(stu_filepref_chunk_list) == chunk_n_stu
+
+    logging.info('Predicting study PC scores (method: ' + method + ')...')
+    pcs_stu_chunk_list = [None] * chunk_n_stu
+    pcs_stu_chunk_list = Parallel(n_jobs=NUM_CORES)(delayed(pca_stu_io)(i, stu_filepref_chunk_list, ref_filepref, path_tmp, method, X_mean, X_std, U, s, V, pcs_ref, dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH) for i in range(chunk_n_stu))
+
+    # for i in range(chunk_n_stu):
+    #     pcs_stu_chunk_list[i] = pca_stu_io(
+    #             i, stu_filepref_chunk_list, ref_filepref, path_tmp, method,
+    #             X_mean, X_std, U, s, V, pcs_ref,
+    #             dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH)
+
+    pcs_stu = np.zeros((n_stu, dim_ref))
+    for i in range(chunk_n_stu):
+        sample_start = i * SAMPLE_CHUNK_SIZE_STU
+        sample_end = min([sample_start + SAMPLE_CHUNK_SIZE_STU, n_stu])
+        pcs_stu[sample_start:sample_end,:] = pcs_stu_chunk_list[i]
+    ref_basepref = os.path.basename(ref_filepref)
+    out_filepref = stu_filepref + '_sturef_' + ref_basepref
+    logging.info('Study PC scores saved to ' + out_filepref)
+    elapse_stu = time.time() - t0
+    logging.info('Study time: ' + str(elapse_stu))
+    print('.'*30)
+
+    # pcs_stu = pca_stu(stu_filepref, X_mean, X_std, method=method, path_tmp=path_tmp,
+    #                   U=U, s=s, V=V, pcs_ref=pcs_ref,
+    #                   dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
+    # pcs_stu_filename = out_pref + '_stu_' + method +'.pcs'
+    # np.savetxt(pcs_stu_filename, pcs_stu, fmt=NP_OUTPUT_FMT, delimiter='\t')
+    # logging.info('Study PC scores saved to ' + pcs_stu_filename)
+
     return pcs_ref, pcs_stu
 
+
+def pca_stu_io(
+        i, stu_filepref_list, ref_filepref, path_tmp, method,
+        X_mean, X_std, U, s, V, pcs_ref,
+        dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
+    stu_filepref = stu_filepref_list[i]
+    W = read_bed(stu_filepref, bed_store='memory', dtype=np.int8)[0]
+    pcs_stu = pca_stu(
+        W, X_mean, X_std, method=method, path_tmp=path_tmp,
+        U=U, s=s, V=V, pcs_ref=pcs_ref,
+        dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
+    ref_basepref = os.path.basename(ref_filepref)
+    out_filepref = stu_filepref + '_sturef_' + ref_basepref
+    pcs_stu_filename = out_filepref + '_stu_' + method +'.pcs'
+    np.savetxt(pcs_stu_filename, pcs_stu, fmt=NP_OUTPUT_FMT, delimiter='\t')
+    return pcs_stu
+
 def run_pca(pref_ref, pref_stu, popu_filename_ref=None, popu_ref_k=None, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, log_level='info'):
+    print('='*30)
     t0 = time.time()
-    dir_ref = os.path.dirname(pref_ref)
+    base_ref = os.path.basename(pref_ref)
     dir_stu = os.path.dirname(pref_stu)
+    pref_out = pref_stu + '_sturef_' + base_ref
     path_tmp = os.path.join(dir_stu, DIR_TMP)
+    log = create_logger(pref_out, log_level)
     assert 2 <= dim_ref <= dim_stu <= dim_stu_high
-    log = create_logger(pref_stu, log_level)
+    logging.info('Using ' + str(NUM_CORES) + ' cores.')
     assert (popu_filename_ref is None) != (popu_ref_k is None)
     logging.info('Reference data: ' + pref_ref)
     logging.info('Study data: ' + pref_stu)
@@ -525,7 +641,7 @@ def run_pca(pref_ref, pref_stu, popu_filename_ref=None, popu_ref_k=None, method=
     W_bim, W_fam = read_bed(pref_stu_commsnpsrefal, bed_store=None)[1:3]
 
     # PCA on study individuals
-    pcs_ref, pcs_stu = pca(pref_ref_commsnpsrefal, pref_stu_commsnpsrefal, pref_stu, method, path_tmp, dim_ref, dim_stu, dim_stu_high, use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp)
+    pcs_ref, pcs_stu = pca(pref_ref_commsnpsrefal, pref_stu_commsnpsrefal, method, path_tmp, dim_ref, dim_stu, dim_stu_high, use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp)
 
     # Read or predict ref populations
     if popu_filename_ref is not None:
@@ -539,17 +655,18 @@ def run_pca(pref_ref, pref_stu, popu_filename_ref=None, popu_ref_k=None, method=
         logging.info('Reference population prediction saved to ' + pref_ref+'_pred.popu')
 
     # Predict stu population
-    stu_popu_filename = pref_stu + '_pred_' + method + '.popu'
+    stu_popu_filename = pref_out + '_pred_' + method + '.popu'
     popu_stu_pred = pred_popu_stu(pcs_ref, popu_ref, pcs_stu)
     popu_stu_pred_df = pd.DataFrame({'fid':W_fam['fid'], 'iid':W_fam['iid'], 'popu':popu_stu_pred})
     popu_stu_pred_df.to_csv(stu_popu_filename, sep=DELIMITER, header=False, index=False)
     logging.info('Study population prediction saved to ' + stu_popu_filename)
 
     # Plot PC scores
-    plot_pcs(pcs_ref, [pcs_stu], popu_ref, [popu_stu_pred], method_list=[method], out_pref=pref_stu)
+    plot_pcs(pcs_ref, [pcs_stu], popu_ref, [popu_stu_pred], method_list=[method], out_pref=pref_out)
 
     # logging.info('Temporary directory content: ')
     # logging.info(subprocess.run(['ls', '-hl', DIR_TMP]))
 
-    print('Total runtime: ' + str(time.time() - t0))
+    logging.info('Total runtime: ' + str(time.time() - t0))
     return pcs_ref, pcs_stu, popu_ref, popu_stu_pred
+

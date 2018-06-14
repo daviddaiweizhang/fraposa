@@ -1,9 +1,10 @@
 #!/bin/bash
 ####  PBS preamble
 
-#PBS -N fp.500k.EUR
-#PBS -l nodes=1:ppn=10,mem=32gb,walltime=20:00:00
-# use this for array: #PBS -t 0-4
+#PBS -N trace.5c.eur
+# Change the number of cores (ppn=1), amount of memory, and walltime:
+#PBS -l nodes=1:ppn=1,mem=16gb,walltime=0:02:00:00
+# For array jobs #PBS -t 4-4
 
 #PBS -M daiweiz@umich.edu
 #PBS -j oe
@@ -25,11 +26,15 @@ if [ -n "$PBS_NODEFILE" ]; then cat $PBS_NODEFILE; fi
 # Print job and array ids
 echo $PBS_JOBID
 echo $PBS_ARRAYID
-id="${PBS_JOBID:0:8}"
 
 #  Put your job commands here:
+i=$PBS_ARRAYID
+let "n = 1000 + 500 * i"
+id="${PBS_JOBID:0:8}"
+pref=ggsim
 
 date
-# module load R mkl/11.3.3 gcc/5.4.0 armadillo plink
-python -c "import frugalpca_tester as fpt; fpt.test_pca_500k_EUR()"
+# bash chain.sh 1 ori ${pref} 100000 $n 200 2 1 100
+trace -s ../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR.geno -g ../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR.geno -o ../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR -k 4 -K 20
 date
+

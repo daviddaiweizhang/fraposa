@@ -27,4 +27,5 @@ cache/
 *.memmap
 *.012
 log/
+old/
 

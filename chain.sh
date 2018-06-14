@@ -6,25 +6,25 @@ sim=$1
 ver=$2
 
 host=`hostname`
-if [[ "${host:0:3}" == "nyx" || "${host:0:4}" == "flux" ]]; then
-    # Flux
-    echo "Loading modules for flux..."
-    module load python-dev 
-    module load numpy-dev 
-    module load mkl/11.3.3 # Dependency for armadillo
-    module load gcc/5.4.0 # Dependency for armadillo
-    module load armadillo
-    module load R
-    # export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH;
-    echo "Done."
-elif [ ${host} == "xps-arch" ]; then
-    # Local
-    echo "Doing nothing for local"
-    #echo "Using Python virtualenv for local."
-    #export WORKON_HOME=$HOME/.virtualenvs
-    #source /usr/bin/virtualenvwrapper.sh
-    #workon normal
-fi
+# if [[ "${host:0:3}" == "nyx" || "${host:0:4}" == "flux" ]]; then
+#     # Flux
+#     echo "Loading modules for flux..."
+#     module load python-dev 
+#     module load numpy-dev 
+#     module load mkl/11.3.3 # Dependency for armadillo
+#     module load gcc/5.4.0 # Dependency for armadillo
+#     module load armadillo
+#     module load R
+#     # export LD_LIBRARY_PATH=/home/daiweiz/gsl/lib:$LD_LIBRARY_PATH;
+#     echo "Done."
+# elif [ ${host} == "xps-arch" ]; then
+#     # Local
+#     echo "Doing nothing for local"
+#     #echo "Using Python virtualenv for local."
+#     #export WORKON_HOME=$HOME/.virtualenvs
+#     #source /usr/bin/virtualenvwrapper.sh
+#     #workon normal
+# fi
 
 if [ ${sim} == "1" ]; then
     pref=$3
@@ -60,20 +60,24 @@ if [ -f ${out_pref}.info ]; then
     rm ${out_pref}.info
 fi
 
+bash runTrace_ori.sh ${ver} ${geno_file} ${study_file} ${out_pref}
 
-date
-bash runTrace.sh ${ver} ${geno_file} ${study_file} ${out_pref}
+# date
+# bash runTrace.sh ${ver} ${geno_file} ${study_file} ${out_pref}
 
-date
-Rscript runHdpca.R ${out_pref} hdpca
+# date
+# Rscript runHdpca.R ${out_pref} hdpca
+# 
+# date
+# Rscript runHdpca.R ${out_pref} hdpcaRand
+# 
+# date
+# Rscript accuracy.R ${out_pref}
 
-date
-Rscript runHdpca.R ${out_pref} hdpcaRand
 
-date
-Rscript accuracy.R ${out_pref}
-
-
+# ====================================================================================
+# Old codes from here on
+# ====================================================================================
 
 # ver=$1
 # pref=$2

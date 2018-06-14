@@ -9,6 +9,7 @@ m=$5
 k=$6
 s=$7
 mig=$8
+pref=${pref}${n}
 let "nplusm = n + m"
 let "nplusmHigh = nplusm"
 # Not using unbalanced for now. Kind of buggy right now.
@@ -36,7 +37,7 @@ else
     date
     echo "Done."
     echo "Removing intermediate files..."
-    rm ${ggs_file} ${dup_file} ${geno_both_file} 
+    rm ${ggs_file} ${dup_file} ${geno_both_file}
     echo "Done."
 fi
 
