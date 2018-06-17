@@ -7,6 +7,7 @@
 \usepackage[capitalise]{cleveref}
 \usepackage{verbatim}
 \usepackage{float}
+\usepackage{graphicx}
 
 \newcommand{\bO}{\mathcal{O}}
 \newcommand{\bR}{\mathbb{R}}
@@ -479,38 +480,27 @@ of the study samples,
 we selected the study samples predicted to by Europeans
 and applied PCA to them
 by using the European reference samples only.
+Since ADP is very slow compared to the other three methods,
+we randomly selected 500 study samples
+and used them to compare the four methods.
+After that,
+we applied SP, AP, and OADP to all the study samples.
 
 
 \section{Results}
 
-Simulation study
+\subsection{Simulation study}
 
-Runtimes vs ref size
-Distance to ADP vs ref size
-Distance to geo center vs ref size
-PC1 vs PC2, 5 x 3 grid (uncolored study samples)
+% Runtimes vs ref size
+% Distance to ADP vs ref size
+% Distance to geo center vs ref size
+% PC1 vs PC2, 5 x 3 grid (uncolored study samples)
+% The predicted PC scores are shown in \Cref{fig:n1000} and \Cref{fig:ukb}.
 
-UK Biobank
-
-500 samples, 4 methods
-All continents
-European only
-misclassification rate compared to ADP
-distance to ADP
-
-all samples, 3 methods
-same as above
-
-
-The predicted PC scores are shown in \Cref{fig:n1000} and \Cref{fig:ukb}.
-For the comparison of the runtimes and accuracy for different reference and sample sizes for the simulated data,
-see \Cref{fig:nChg} and \Cref{fig:mChg}.
-For comparing the methods for the real-life data, see \Cref{tbl:ukb}.
-
-
-\section{Discussion}
-
-For the real-life datasets (\Cref{tbl:ukb} and \Cref{fig:ukb}),
+For the simulation study
+(\Cref{tbl:nChg-runtimes-ref}, \Cref{tbl:nChg-runtimes-study},
+\Cref{tbl:nChg-accuracy-gold}, \Cref{tbl:nChg-accuracy-ctr},
+\Cref{tbl:mChg-runtimes-study}),
 we see that ADP, which is the most reliable method,
 is the slowest in study runtimes.
 By using the online SVD algorithm,
@@ -518,34 +508,101 @@ OADP achieved the highest accuracy (excluding ADP, which is the golden standard)
 SP is fast, also,
 but its accuracy is the lowest.
 By using the HDPCA package,
-AP reduces the error of AP
+AP reduces the error of SP
 and achieved the second highest in accuracy.
-The randomized version of SP is as accurate as the standard SP,
-which shows that the randomized SVD algorithm gives reliable results,
-and that using linear regression to predict the uncalculated reference eigenvalues is satisfactory.
-It also reduces the runtime almost by half,
-due to not calculating all the eigenvalues.
-Similar reduction in study runtime is observed for the randomized version of AP,
-but in this case the accuracy is also decreased,
-thought it is still higher than that of SP and RSP.
-Finally, the randomized OADP is disappointing,
-as its error is almost as high as SP and RSP.
-
-The pattern for accuracy is very similar when we look at the simulated data.
-(\Cref{tbl:nChg-runtimes-ref}, \Cref{tbl:nChg-runtimes-study},
-\Cref{tbl:nChg-accuracy-gold}, \Cref{tbl:nChg-accuracy-ctr},
-\Cref{tbl:mChg-runtimes-study}).
-A noticeable difference in this case is the accuracy of ROADP.
-Here ROADP's accuracy is almost identical to OADP's,
-as measured by both the golden standard error and the geographic center err.
 However, as the reference size increases,
 the accuracies of different methods become closer and closer (\Cref{fig:nChg}).
 As for the speed,
-AWD's study runtime increases so fast with the reference size
+ADP's study runtime increases so fast with the reference size
 that the study runtimes for the other methods seem to be constant in comparison (\Cref{fig:nChg}).
 On the other hand,
 the study runtimes appear to increase linearly with respect to the study size (\Cref{fig:mChg}).
 This information can be used to predict the runtime for larger study samples.
+
+\subsection{UK Biobank data}
+
+When we used the global samples,
+we found that the PC scores predicted by the four methods' are almost identical.
+The separation of the ethnic groups was clear,
+and the shrinkage bias of SP was not obvious,
+which is consistent with the theoretical understanding
+that the shrinkage bias decreases
+as the signal-to-noise ratio increases.
+
+However, when we focus on the European (EUR) samples only,
+the results given by SP were clearly unreliable.
+The samples from British in England and Scotland (GBR)
+and those from Utah residents with northern and western European ancestry	(CEU)
+drifted very close to NULL.
+This causes SP to incorrectly classified almost all of them as CEU,
+since most GBR reference samples are far away from NULL.
+A few of the study samples predicted by ADP to be GBR or CEU
+were even classified as the Iberian population in Spain (IBS),
+since the IBS reference samples are close to NULL.
+Moreover, the shrinkage for the IBS
+and for the Toscani in Italia (TSI) populations
+caused significant errors within these two groups.
+The IBS reference samples
+are approximately in the middle
+between the TSI reference samples and NULL.
+Thus most of the the study samples predicted by ADP to be TSI
+were classified by SP as IBS.
+
+For OADP, its predicted PC1 and PC2 scores
+for the European study samples
+are almost identical
+to those done by ADP.
+OADP's results for PC3 and PC4
+are also very close to ADP's results,
+though we observed a very slight decrease in the magnitude of the PC scores.
+This minor shrinkage did not affect
+OADP's classification for the IBS and TSI samples,
+since their PC1 and PC2 scores were accurately predicted by OADP.
+Neither was any CEU/GBR sample classified as IBS/TSI. 
+For the CEU and GBR samples,
+their predicted PC scores are tightly mixed together
+for all the 4 PCs,
+which were even difficult for ADP to separate them.
+Thus the slight difference in PC3 and PC4 scores
+between OADP and ADP
+caused the classification of many CEU and GBR samples
+to be different on the two methods.
+
+Furthermore, AP successfully adjusted for the shrinkage
+in PC1 and PC2 for the European samples,
+so its predicted PC scores are almost identical to ADP's.
+However, it did not detect the shrinkage in PC 3 and PC4,
+so its predicted PC scores are the same as SP's for these two PCs.
+This still allowed AP to correctly separate
+the CEU/GBR samples from the IBS/TSI samples.
+However, its separation of the IBS and TSI samples
+did not agree completely with that done by ADP,
+most likely caused by the shrinkage on PC3.
+For the classification between CEU and GBR,
+the AP's results differ far from ADP's,
+as AP classified many more CEU/GBR samples as CEU.
+
+The patterns for the accuracy of SP, AP, and OADP
+discussed above
+were also observed
+when we used all the 490,000 study samples in the UK Biobank dataset
+and those predicted to be Europeans among them.
+See \Cref{tbl:ukb} for details.
+
+
+\section{Discussion}
+
+For the future, we would like
+to improve the parallelization of our software.
+Currently it uses the poor-man’s parallelism,
+that is,
+dividing the study dataset into multiple smaller files on the hard drive,
+applying the analysis to each of them,
+and merge the results.
+This parallelism saves both the memory usage and the runtime.
+However, we would like to utilize
+more sophisticated parallel computation techniques
+to further improve the performance of our software.
 
 \newpage
 
@@ -553,31 +610,31 @@ This information can be used to predict the runtime for larger study samples.
 
 \section{Randomized SVD}\label{sec:randsvd}
 
-In addition to estimating the PC scores of the study individuals,
-we have another algorithm that aims at improving the decomposition of the
-training data.
-For SP, AP, ADP, and OADP, we need to find the covariance matrix of the training
-data, which has dimension $n \times n$, and conduct eigendecomosition on it.
-However, when $n$ is exceedingly large,
-computation and memory cost of PCA on the reference samples can be enormous.
-A randomized SVD (RSVD) algorithm has been developed to handle this issue.
-When the reference sample size is small, RSVD can be slower than standard SVD,
-but it is scalable to large sample size.
-For the details of the RSVD algorithm, see \citet{halko2011finding}.
+% In addition to estimating the PC scores of the study individuals,
+% we have another algorithm that aims at improving the decomposition of the
+% training data.
+% For SP, AP, ADP, and OADP, we need to find the covariance matrix of the training
+% data, which has dimension $n \times n$, and conduct eigendecomosition on it.
+% However, when $n$ is exceedingly large,
+% computation and memory cost of PCA on the reference samples can be enormous.
+% A randomized SVD (RSVD) algorithm has been developed to handle this issue.
+% When the reference sample size is small, RSVD can be slower than standard SVD,
+% but it is scalable to large sample size.
+% For the details of the RSVD algorithm, see \citet{halko2011finding}.
 
-Notice that the randomized SVD method on the training data
-only calculates the first $k$ eigenvalues.
-However, in order to use adjusted projection,
-all the eigenvalues of the training data are required.
-Thus for the missing eigenvalues,
-we predict them by regressing their log-scale values on the ranks
-and using the first $k$ eigenvalues for training the linear regression.
+% Notice that the randomized SVD method on the training data
+% only calculates the first $k$ eigenvalues.
+% However, in order to use adjusted projection,
+% all the eigenvalues of the training data are required.
+% Thus for the missing eigenvalues,
+% we predict them by regressing their log-scale values on the ranks
+% and using the first $k$ eigenvalues for training the linear regression.
 
 
 \newpage
 
 \bibliographystyle{plainnat}
-\bibliography{frugalpca}
+\bibliography{paper}
 
 
 \newpage
@@ -594,15 +651,9 @@ and using the first $k$ eigenvalues for training the linear regression.
     \hline
     OADP & $\bO[n^2 p]$ & $\bO[mk(p + k n)]$ \\
     \hline
-    ROADP & $\bO[k^2 p]$ & $\bO[mk(p + k n)]$ \\
-    \hline
     SP & $\bO[n^2p]$ & $\bO[mkp]$ \\
     \hline
-    RSP & $\bO[k^2p]$ & $\bO[mkp]$ \\
-    \hline
     AP & $\bO[n^2p]$ &  $\bO[mkp]$ \\
-    \hline
-    RAP & $\bO[k^2p]$ &  $\bO[mkp]$ \\
     \hline
   \end{tabular}
   \caption{
@@ -619,21 +670,15 @@ and using the first $k$ eigenvalues for training the linear regression.
   \centering
   \begin{tabular}{|l|l|l|l|l|}
     \hline
-    Method & Reference Runtimes (n=?) & Study Runtimes (m=?)& Golden Standard Error \\ 
+    Method & Reference Runtimes (n=2492) & Study Runtimes (m=1000)& Golden Standard Error \\ 
     \hline
     ADP & 411 & 29813 & 0.00 \\
     \hline
     OADP & 2518 & 103 & 0.40 \\
     \hline
-    ROADP & 2518 & 103 & 1.93 \\
-    \hline
     SP & 411 & 425 & 1.95 \\
     \hline
-    RSP & 2504 & 241 & 1.95 \\
-    \hline
     AP & 411 & 482 & 1.12 \\
-    \hline
-    RAP & 2505 & 250 & 1.83 \\ 
     \hline
   \end{tabular}
   \caption{
@@ -654,11 +699,8 @@ and using the first $k$ eigenvalues for training the linear regression.
     \hline
     ADP        &  68  & 1263 & 2871 & 5720 & 9737 \\
     OADP       &  72  & 18   & 19   & 22   & 24   \\
-    ROADP      & 809  & 18   & 17   & 20   & 21   \\
     SP         &  68  & 26   & 42   & 67   & 96   \\
-    RSP        & 805  & 23   & 31   & 39   & 46   \\
     AP         &  68  & 69   & 107  & 91   & 119  \\
-    RAP        & 805  & 11   & 24   & 29   & 9    \\
     \hline
   \end{tabular}
   \caption{
@@ -677,11 +719,8 @@ and using the first $k$ eigenvalues for training the linear regression.
     \hline
     ADP        & 391  &  130 &  222 &  339 &  486 \\
     OADP       & 15   &  136 &  230 &  350 &  499 \\
-    ROADP      & 15   & 1211 & 1633 & 2023 & 2422 \\
     SP         & 16   &  130 &  222 &  339 &  486 \\
-    RSP        & 15   & 1204 & 1624 & 2012 & 2409 \\
     AP         & 34   &  130 &  222 &  339 &  486 \\
-    RAP        & 18   & 1204 & 1624 & 2012 & 2409 \\
     \hline
   \end{tabular}
   \caption{
@@ -700,11 +739,8 @@ and using the first $k$ eigenvalues for training the linear regression.
     \hline
     ADP        & 0.00  & 0.00 & 0.00 & 0.00 & 0.00 \\
     OADP       & 0.23  & 0.15 & 0.11 & 0.08 & 0.07 \\
-    ROADP      & 0.23  & 0.15 & 0.12 & 0.08 & 0.08 \\
     SP         & 6.00  & 4.34 & 3.43 & 2.75 & 2.34 \\
-    RSP        & 6.00  & 4.34 & 3.43 & 2.75 & 2.34 \\
     AP         & 0.46  & 0.37 & 0.31 & 0.26 & 0.22 \\
-    RAP        & 3.02  & 2.93 & 2.54 & 2.15 & 1.91 \\
     \hline
   \end{tabular}
   \caption{
@@ -723,11 +759,8 @@ and using the first $k$ eigenvalues for training the linear regression.
     \hline
     ADP        & 4.53  & 4.13 & 3.81 & 3.59 & 3.23 \\
     OADP       & 4.43  & 4.06 & 3.77 & 3.55 & 3.20 \\
-    ROADP      & 4.44  & 4.06 & 3.76 & 3.55 & 3.20 \\
     SP         & 5.79  & 4.51 & 3.89 & 3.56 & 3.19 \\
-    RSP        & 5.79  & 4.51 & 3.89 & 3.56 & 3.19 \\
     AP         & 4.59  & 4.10 & 3.76 & 3.57 & 3.24 \\
-    RAP        & 4.23  & 3.87 & 3.55 & 3.38 & 3.07 \\
     \hline
   \end{tabular}
   \caption{
@@ -746,11 +779,8 @@ and using the first $k$ eigenvalues for training the linear regression.
     \hline
     ADP        & 507  & 758 & 1011 & 1262 & 1549 \\
     OADP       &  73  & 108 &  156 &  189 &  282 \\
-    ROADP      &  73  & 108 &  159 &  183 &  281 \\
     SP         &  44  &  64 &   84 &  103 &  131 \\
-    RSP        &  43  &  63 &   83 &  101 &  129 \\
     AP         &  66  &  81 &  100 &  117 &  146 \\
-    RAP        &  22  &  15 &   15 &   21 &   24 \\
     \hline
   \end{tabular}
   \caption{
@@ -760,6 +790,34 @@ and using the first $k$ eigenvalues for training the linear regression.
   }
   \label{tbl:mChg-runtimes-study}
 \end{table}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.98\textwidth]{ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_sp}
+  \caption{EUR samples in UK Biobank data by SP}
+\end{figure}
+
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.98\textwidth]{ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_ap}
+  \caption{EUR samples in UK Biobank data by AP}
+\end{figure}
+
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.98\textwidth]{ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_oadp}
+  \caption{EUR samples in UK Biobank data by oadp}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.98\textwidth]{ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_adp}
+  \caption{EUR samples in UK Biobank data by adp}
+\end{figure}
+
+
 
 
 \begin{figure}[p]
