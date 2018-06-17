@@ -1,0 +1,90 @@
+\begin{thebibliography}{12}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Brand(2002)]{brand2002incremental}
+Matthew Brand.
+\newblock Incremental singular value decomposition of uncertain data with
+  missing values.
+\newblock In \emph{European Conference on Computer Vision}, pages 707--720.
+  Springer, 2002.
+
+\bibitem[Consortium et~al.(2015)]{10002015global}
+1000 Genomes~Project Consortium et~al.
+\newblock A global reference for human genetic variation.
+\newblock \emph{Nature}, 526\penalty0 (7571):\penalty0 68, 2015.
+
+\bibitem[Dey and Lee(2016{\natexlab{a}})]{dey2016asymptotic}
+Rounak Dey and Seunggeun Lee.
+\newblock Asymptotic properties of principal component analysis and
+  shrinkage-bias adjustment under the generalized spiked population model.
+\newblock \emph{arXiv preprint arXiv:1607.08647}, 2016{\natexlab{a}}.
+
+\bibitem[Dey and Lee(2016{\natexlab{b}})]{hdpca}
+Rounak Dey and Seunggeun Lee.
+\newblock \emph{hdpca: Principal Component Analysis in High-Dimensional Data},
+  2016{\natexlab{b}}.
+\newblock URL \url{https://CRAN.R-project.org/package=hdpca}.
+\newblock R package version 1.0.0.
+
+\bibitem[Halko et~al.(2011)Halko, Martinsson, and Tropp]{halko2011finding}
+Nathan Halko, Per-Gunnar Martinsson, and Joel~A Tropp.
+\newblock Finding structure with randomness: Probabilistic algorithms for
+  constructing approximate matrix decompositions.
+\newblock \emph{SIAM review}, 53\penalty0 (2):\penalty0 217--288, 2011.
+
+\bibitem[Jolliffe(2002)]{jolliffe2002principal}
+I.~T. Jolliffe.
+\newblock \emph{Principal component analysis}.
+\newblock Springer, New York, 2002.
+\newblock ISBN 978-0-387-95442-4.
+
+\bibitem[Mathieson and McVean(2012)]{mathieson2012differential}
+Iain Mathieson and Gil McVean.
+\newblock Differential confounding of rare and common variants in spatially
+  structured populations.
+\newblock \emph{Nature genetics}, 44\penalty0 (3):\penalty0 243, 2012.
+
+\bibitem[Price et~al.(2006)Price, Patterson, Plenge, Weinblatt, Shadick, and
+  Reich]{price2006principal}
+Alkes~L Price, Nick~J Patterson, Robert~M Plenge, Michael~E Weinblatt, Nancy~A
+  Shadick, and David Reich.
+\newblock Principal components analysis corrects for stratification in
+  genome-wide association studies.
+\newblock \emph{Nature genetics}, 38\penalty0 (8):\penalty0 904, 2006.
+
+\bibitem[Reich et~al.(2008)Reich, Price, and Patterson]{reich2008principal}
+David Reich, Alkes~L Price, and Nick Patterson.
+\newblock Principal component analysis of genetic data.
+\newblock \emph{Nature genetics}, 40\penalty0 (5):\penalty0 491, 2008.
+
+\bibitem[Sudlow et~al.(2015)Sudlow, Gallacher, Allen, Beral, Burton, Danesh,
+  Downey, Elliott, Green, Landray, et~al.]{sudlow2015uk}
+Cathie Sudlow, John Gallacher, Naomi Allen, Valerie Beral, Paul Burton, John
+  Danesh, Paul Downey, Paul Elliott, Jane Green, Martin Landray, et~al.
+\newblock Uk biobank: an open access resource for identifying the causes of a
+  wide range of complex diseases of middle and old age.
+\newblock \emph{PLoS medicine}, 12\penalty0 (3):\penalty0 e1001779, 2015.
+
+\bibitem[Wang et~al.(2014)Wang, Zhan, Bragg-Gresham, Kang, Stambolian, Chew,
+  Branham, Heckenlively, Fulton, Wilson, et~al.]{wang2014ancestry}
+Chaolong Wang, Xiaowei Zhan, Jennifer Bragg-Gresham, Hyun~Min Kang, Dwight
+  Stambolian, Emily~Y Chew, Kari~E Branham, John Heckenlively, Robert Fulton,
+  Richard~K Wilson, et~al.
+\newblock Ancestry estimation and control of population stratification for
+  sequence-based association studies.
+\newblock \emph{Nature genetics}, 46\penalty0 (4):\penalty0 409, 2014.
+
+\bibitem[Wang et~al.(2015)Wang, Zhan, Liang, Abecasis, and
+  Lin]{wang2015improved}
+Chaolong Wang, Xiaowei Zhan, Liming Liang, Gon{\c{c}}alo~R Abecasis, and Xihong
+  Lin.
+\newblock Improved ancestry estimation for both genotyping and sequencing data
+  using projection procrustes analysis and genotype imputation.
+\newblock \emph{The American Journal of Human Genetics}, 96\penalty0
+  (6):\penalty0 926--937, 2015.
+
+\end{thebibliography}
