@@ -4,11 +4,14 @@
 \usepackage[round]{natbib}
 \usepackage{amsmath}
 \usepackage{amsfonts}
-\usepackage{cleveref}
+\usepackage[capitalise]{cleveref}
 \usepackage{verbatim}
 \usepackage{float}
 
 \newcommand{\bO}{\mathcal{O}}
+\newcommand{\bR}{\mathbb{R}}
+\newcommand{\ostu}{\operatorname{stu}}
+\newcommand{\oref}{\operatorname{ref}}
 \newcommand{\argmin}[1]{\underset{#1}{\operatorname{arg\;min}}\;}
 
 \title{Computational Methods for Principle Component Analysis Applied to
@@ -19,222 +22,377 @@
 
 \maketitle
 
+\begin{abstract}
+    Population stratification (PS) is an important confounder
+    for the association between genotypes and phenotypes.
+    To adjust for PS,
+    we need to accurately estimate the ancestral structure
+    in the study samples.
+    This can be done effectively
+    by using principle component (PC) analysis
+    to predict the PC scores of the study genotypes
+    from a set of reference genotypes.
+    There are two major existing methods for predicting PC scores:
+    simple projection (SP) and augmentation-decomposition-transformation (ADP).
+    However, when the reference size is large,
+    the former is computationally efficient but inaccurate
+    (PC scores shrinking toward zero),
+    while the latter is accurate but computationally costly ($\bO[n^3]$).
+    To solve these problems,
+    we created the genoPCA software
+    that implemented 
+    the adjusted projection (AP) method to remove the bias in SP, and
+    the online ADP (OADP) method to speed up ADP.
+    We compared the accuracy and computational efficiency of these four methods
+    by conducting a simulation study
+    with the GGS software.
+    We also used them to study the UKbiobank data by using the 1000Genomes data as the reference.
+    We found that AP achieved the accuracy of ADP without adding much runtime,
+    while OADP reduced the runtime of ADP by $x$-fold without losing accuracy.
+    Furturmore, when studying a large number of samples
+    from a narrower geographic area
+    where the signal-to-noise ratio is low,
+    AP and OADP performed reasonably well
+    while SP frequently misclassified the populations
+    and the runtime of ADP became impractical.
+    
+    
+    
+    
+\end{abstract}
+
 \section{Introduction}
 
-Population stratification (PS) is an important confounder for the association  between
+Population stratification (PS) is an important confounder for the association between
 genotypes and phenotypes \citep{price2006principal}.
-To adjust for PS, we need to accurately estimate the ancestry structure in the study samples. Principle component analysis (PCA) is a multivariate statistical method which finds the direction of the maximum variability. By aggregating information across all genetic markers, PCA can accurate infer the ancestry structure \citep{reich2008principal}.
-To adjust for PS, PCA can be applied to study data to calculate PC scores, which are regarded as variables of ancestry direction and can be used as covariates to adjust for. An alternative approach is predicting the PC scores of the study samples using reference genotyped samples with detailed ancestry information.
-This prediction-based approach not only allows to adjust for PS but also to infer ancestry memberships of study samples. 
+To adjust for PS, we need to accurately estimate the ancestry structure in the study samples.
+Principle component analysis (PCA) is a multivariate statistical method
+which finds the direction of the maximum variability among the samples.
+By aggregating information across all genetic markers,
+PCA can accurately infer the ancestry structure \citep{reich2008principal}.
+To adjust for PS,
+PCA can be applied to study data to calculate the principle component (PC) scores,
+which are regarded as variables of ancestry direction
+and can be used as covariates to adjust for.
+An alternative approach for doing PCA is
+predicting the PC scores of the study samples
+by using some reference genotyped samples with detailed ancestry information.
+This prediction-based approach allows not only adjustment for PS
+but also infererence of the ancestry memberships of the study samples. 
 
-The standard way of predicting PC scores is to find the PC loadings of the reference data and project the data points of the study samples onto them.
+The standard way of predicting PC scores is to find the PC loadings of the reference samples and project the study samples onto them.
 We call this method simple projection (SP).
-However, when the number of features are greatly larger than the size of the reference sample,
-the predicted PC scores by this method are known to be biased toward null \citep{dey2016asymptotic}.
+However, when the number of features greatly exceeds the size of the reference samples,
+which is common for genotype data,
+the PC scores predicted by SP are known to be biased toward null \citep{dey2016asymptotic}.
 One way of addressing this shrinkage bias is presented by \citet{wang2014ancestry, wang2015improved}.
-Their solution is to combine one study individual with the reference set and
-find the PC scores of this augmented data set by singular value decomposition (SVD).
+Their solution is to combine one study sample with all the reference samples and
+find the PC scores of this augmented data set by using singular value decomposition (SVD).
 The PC scores of the study individuals are then retrieved from the singular vector matrices and mapped to the reference PC space by a Procrustes transformation.
-We call this method ``augment, decompose, and Procrustes transform'' (ADP).
-This method has been shown to be effective in eliminating the shrinking bias of
-study PC scores.
-However since ADP needs to run SVD for each study samples, ADP is computationally expensive.
+We call this method ``augmentation, decomposition, and Procrustes transformation'' (ADP).
+This method has been shown to be effective in eliminating the shrinkage bias of study PC scores.
+However since ADP needs to run SVD for each study sample,
+ADP is computationally expensive.
 
 To address the limitations of SP and ADP,
 we propose and evaluate two alternative PC score prediction methods.
 The first approach removes the bias in SP by estimating the asymptotic bias factor,
-which is calculated based on Random Matrix Theory \citep{dey2016asymptotic}.
-The second approach improves the computation efficiency of ADP by using online SVD algorithm \citep{halko2011finding}. 
-We call the first approach ``adjusted projection'' (AP), and the second approach ``online augment, decompose, and Procrustes transform'' (OADP). 
-
-In addition, we also address a computation problem with finding the PCs of the reference set when the reference sample sizes are large. 
-The previously mentioned four methods all need to find the SVD of the reference data first.
-This requires loading the covariance matrix of the reference data into the
-computer's memory. 
-However, when the size of the reference set is large,
-the resulted covariance matrix will far exceed the size of a normal personal
-computer's memory.
-To solve this issue, a randomized SVD method has been developed that does not
-require finding the covariance matrix.
-
-In this paper, we compare the properties of
-SP, ADP, AP, and OADP in terms of computation time and accuracy.
-We also compare using standard SVD and randomized SVD for the reference set
-and examine the difference in accuracy and computation time.
-We found that AP and OADP have both achieved the accuracy of ADP
-and the computational efficiency of SP.
-In addition, randomized SVD gives results similar to standard SVD and only increase the computational time for the reference data.
-
-
-
+which is calculated based on random matrix theory \citep{dey2016asymptotic}.
+The second approach improves the computational efficiency of ADP
+by using an online SVD algorithm \citep{halko2011finding}, 
+which obtains the SVD results of the augmented matrix
+by updating the SVD results of the reference matrix,
+since the latter only differs slightly from the former
+and the overlapping calculations can be avoided
+(at least approximately).
+We call the first approach ``adjusted projection'' (AP)
+and the second approach ``online augmentation, decomposition, and Procrustes transformation'' (OADP). 
+We found that AP and OADP have both achieved accuracy close to that of ADP
+and computational efficiency close to that of SP.
 
 \section{Method}
 
 \subsection{Model}
 
 \subsubsection{Data Format}
-There are two genotype datasets, reference and study datasets, and both can be represented by matrices.
-Suppose $X$ is a $p \times n$ matrix of reference genotypes and 
-$Y$ is a $p \times m$ matrix of study sample genotypes, where 
-$p$ is the number of genetic markers, $n$ is the number of reference samples and $m$ is the number of study samples. Each entry of $X$ and $Y$ is the number of minor alleles (0,1,2) of single nucleotide polymorphism (SNP). 
-For genotype data, it is common for $p$ to be significantly larger than either $n$ or $m$.
-Thus we assume this to be true except for the part where we discuss the randomized SVD algorithm,
-which is developed to handle datasets with exceedingly large $n$.
+For PC score prediction,
+we have a reference group and a study group.
+The reference and study data sets are represented by matrices.
+Let $X$ be a $p \times n$ matrix of reference genotypes
+and  let $Y$ be a $p \times m$ matrix of study sample genotypes,
+where $p$ is the number of genetic markers,
+$n$ is the number of reference samples
+and $m$ is the number of study samples.
+In our study we only consider genotypes composed of biallelic single nucleotide polymorphisms (SNP),
+so each entry of $X$ and $Y$ is a minor allele count of 0, 1, or 2.
 
-\subsubsection{Principle Component Analysis}\label{pca-intro}
-Given a multi-dimensional data, PCA searches for the directions in which the data has the greatest variance.
-These unit vectors are called the principle components (PCs).
-The PC's form an orthonormal basis for the sample space,
-and we can ignore all but the first few PC's to reduce the dimension of the data.
-In particular, let $X$ be standardized so that each row (feature) has mean equal to zero and standard deviation equal to one.
-Moreover, Let $X=UDV^T$ be the SVD of $X$,
-where $U$ is a $p \times n$ matrix whose columns are the PC's,
-$D$ is an $n \times n$ diagonal matrix storing the standard deviations of the PC's,
-and $V$ an $n \times n$ matrix such that each row contains the standardized PC scores of an individual.
-(Alternatively, we can use eigendecomposition to find the matrices since $X^T X = VD^2V^T$ and $X X^T = UD^2U^T$.)
-We sort the diagonal elements of $D$ in descending order and rearrange the
-columns of $U$ and $V$ accordingly.
-We are interested in the top $k$ PC's (where $k \ll n$) and look at the top $k$
-columns of $V$ for their PC scores.
-
-\subsubsection{Estimating PC scores}
-
-population.
-In the ideal case in which the genotypes of all individuals of the population are given
-we use the method in \Cref{pca-intro} to find the PC scores of the individuals
-we are interested in.
-In practice, however, we have a reference dataset and a study dataset assumed to be generated from the
-same population and use the former to estimate the populational PC scores of the latter.
-There are several computational methods one can use to do this estimation.
-In \Cref{sec:compu}, we compare the performance of four of them.
-
-\subsection{Computational Methods}\label{sec:compu}
-
-
-
-\subsubsection{Simple Projection (SP)}
-The standard way for estimating PC scores is by projecting the study
-individuals' data points to the PC space of the reference individuals by using reference sample PC loadings,
-which is the matrix $U$ in the eigendecomposition of the (standardized) reference sample matrix $X$.
-The PC loadings are unit vectors pointing toward the directions of the greatest variances in the $p$-dimension sample space.
-We call this method ``simple projection'' (SP).
-The algorithm goes as follows.
-
+\subsubsection{Principle Component Analysis on the Reference Data}
+First, we conduct a PCA on the reference data $X$.
+The reference data matrix is standardized
+so that the mean and standard deviation of each feature are $0$ and $1$, respectively.
+With $n$ data points residing in a $p$-dimensional vector space and $n < p$,
+there is a unique $n$-dimensional hyperplane that covers all the data points.
+This hyperplane can be represented as the span of an orthonormal basis composed of $n$ unit vectors.
+Of course, the choice for such orthonormal basis is not unique,
+but what what we are interested in PCA is 
+to maximize the variance of the samples on the direction of the first basis element,
+maximize the variance on the samples on the second basis element after they are collapsed in the direction of the first basis element,
+and so forth,
+until we have $n$ basis elements.
+At the end, PCA gives us three variables:
 \begin{enumerate}
-\item Compute $X^T X$.
-  (Computational complexity: $\bO[n^2p]$.)  
-\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
-  ($\bO[n^3]$.)
-\item Calculate PC loading matrix $L = X V_1 D_1^{-1}$,
-where $V_1$ and $D_1$ are the the first $k_1$ columns of $V$ and $D$, respectively ($\bO[k_1^2 n + knp]$)
-\item Calculate predicted PC scores $W = Y^T L$, where $Y$ is the data matrix for all the study individuals ($\bO[mpk_1]$.)
+    \item $n$ pairwise-orthogonal unit vectors of $p$ dimensions
+    representing the orthonormal basis.
+    These are called principle components (PC) or PC loadings,
+    and we organized them into a $p \times n$ matrix $U$.
+    \item $n$ non-negative real numbers
+    each of which represents the standard deviations of the samples
+    on the direction of the corresponding PC loading.
+    They are organized into an $n \times n$ diagonal matrix $D$.
+    \item $n$ tuples of $n$ dimensions
+    representing the normalized coordinates of the data points
+    in the $n$-dimensional space spanned by the PC loadings.
+    These are called the normalized PC scores,
+    and they are organized into an $n \times n$ matrix $V$,
+    where each column corresponds to the coordinate of a PC loading
+    and each row corresponds to a sample.
 \end{enumerate}
+If we multiply each normalized PC score by the corresponding standard deviation
+(i.e. calculate $VD$),
+we get the unnormalized PC scores.
+In our study, we use unnormalized PC scores and simply call them PC scores.
+The study can be carried out by using normalized PC scores, too,
+and the result would be equivalent.
+Moreover, the standard deviation matrix $D$ is in descending order,
+so that the first column of $U$ is the direction of the greatest sample variance,
+the first column of $V$ represents the coordinates of the $n$ samples in this direction.
+The same correspondence applies to $U$'s and $V$'s second column, third column, etc.
+Thus PCA reduces the dimension of the sample space from $p$ to $n$.
+We can further reduces the sample space dimension
+by using only the first $k$ PCs ($k \ll n$) and ignore the rest $n-k$ PCs.
+In genetic studies, choosing $k \leq 10$ is often sufficient.
 
-Total computational complexity: 
-\[
-    \bO[n^2p + n^3 + k_1^2 n + pnk_1 + pmk_1)] \approx \bO[n^2p + mk_1p]
-\]
-given that $k_1 \ll n \ll p$.
+The (standardized) reference data matrix can be restored by $X = U D V^T$.
+In fact, this is exactly the SVD of $X$ \citep{jolliffe2002principal}.
+Thus PCA on the reference data can be done easily on any language
+in which a SVD algorithm has been implemented.
+If all that we are interested in is the PC scores,
+we can reduce the computational complexity by applying eigen decomposition (EGD) on $X^TX$
+to obtain $X^T X = V D^2 V^T$.
+Afterwards, $U$ can be retrieved by $U = X V D^{-1}$ if needed.
 
-As the reference sample size increases,
-the computational complexity of SP stays as a constant,
-except for decomposing the reference matrix, which is done once for all study individuals.
-However, it is known that the projection method tends to underestimates the magnitude of the PC scores when $n \ll p$ \citep{dey2016asymptotic},
-which we call the ``shrinking bias''.
-This limits the accuracy of SP for high dimensional data.
+\subsubsection{Predicting the PC Scores of the Study Samples}
 
-\subsubsection{Augment, Decompose, and Transform (ADP)}
+Once PCA is finished on the reference data,
+we predict the PC scores of the study data.
+There are more than one ways to accomplish this,
+and two common methods are SP and ADP.
+The performance of these two methods can be improved by using AP and OADP.
+We now discuss the algorithm, computational efficiency, and accuracy of these four methods.
 
-One way to solve the shrinking bias of SP is the ADP approach developed by \citet{wang2014ancestry, wang2015improved}.
-In this method, each study individual's data point is appended to the reference
-data matrix.
-Then SVD is applied to the augmented matrix,
-and PC scores in this augmented sample are found for both the reference
-individuals and the study individual.
-The the PC scores of the reference individuals in this augmented sample is
-compared with the PC scores of the reference individuals in the reference
-sample,
-which is calculated in the beginning,
-and a linear (Procrustes) map is constructed to transform the latter into the former
-with the smallest error.
-This transformation is then applied to the PC scores of the study individual in
-the augmented sample.
-The resulted PC scores are used as an estimate for the study individual's
-population PC scores.
-Specifically, let
-\[
-  V =
-  \begin{bmatrix}
-    V_{\text{ref}} & W
-  \end{bmatrix},
-  \quad
-  \tilde{V} =
-  \begin{bmatrix}
-    \tilde{V}_{\text{ref}} & \tilde{W}_\text{ref} \\
-    \tilde{V}_\text{stu} & \tilde{W}_\text{stu}
-  \end{bmatrix},
-\]
-where the dimensions of $V_\text{ref}$, $\tilde{V}_\text{ref}$, and $\tilde{V}_\text{stu}$ are $n \times k_1$, $n \times k_2$, and $1 \times k_2$, respectively, with $ 1 \leq k_1 \leq k_2 \leq n+1$. 
-Next, we use Procrustes analysis to find
-\[
-  A, b = \argmin{A, b} d(V_\text{ref}, \tilde{V}_{\text{ref}}A+b)
-\]
-for some metric $d$.
-Finally, we get the Procrustes-adjusted top $k_1$ PC scores for the study individual $V_\text{pro} = \tilde{V}_\text{stu} A + b$.
-The algorithm is summarized as follows:
-\begin{enumerate}
-\item Compute $X^T X$.
-  (Computational complexity: $\bO[n^2p]$.)  
-\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$ (columns of $D$ and $V$ are sorted by PC variance with the first column corresponding to the greatest PC variance).
-  ($\bO[n^3]$.)
-\item Append $X^T y$ and its transpose to the last column and row of $X^T X$, respectively.
-  The entry of the bottom-right corner is $y^T y$.
-  This is exactly the same as computing $\tilde{X}^T \tilde{X}$,
-  where $\tilde{X} = (X, y)$ is the reference group with the study individual added.
-  ($\bO[np]$.)
-\item Apply eigendecomposition to $\tilde{X}^T \tilde{X}$ to get $\tilde{X}^T \tilde{X} = \tilde{V} \tilde{D}^2 \tilde{V}^T$.
-  ($\bO[n^3]$.)
-\item Project the first $k_2$ columns of $\tilde{V}$ to the first $k_1$ columns of $V$ by using Procrustes analysis to get the transformed PC scores of the study individual (the last row of $V$),
-  where $k_1 < k_2 \ll n$.
-  (Computational complexity is ignorable if $k_2$ is not large compared to $n$.)
-  \item Go to step 3 for the next study individual.
-\end{enumerate}
+Before we using any of these methods,
+we need to standardize the study samples
+by subtracting the reference means from them
+and then dividing them by the reference standard deviations.
+For simplicity,
+we overload the symbol $Y$
+and let it represent the standardized study data for the rest of the paper.
 
-Total Computational complexity: $\bO[n^2p + m(np + n^3)]$.
-
-Although accurate, ADP is the slowest among the other three computational methods.
-Its computational complexity increases cubically with respect to the reference sample size and linearly with respect to the study sample size.
-The ADP method is has been implemented in the TRACE software \citep{wang2014ancestry, wang2015improved}.
-
-
-\subsubsection{Adjusted Projection (AP)}
-
-A more efficient way to solve the shrinking bias of SP is to estimate the
-magnitude and angle of the shrinkage and adjust the study individuals' PC scores accordingly.
-This method has been developed by \citet{dey2016asymptotic} and implemented in the High
-Dimension Principal Component Analysis (HDPCA) in the R language \citep{hdpca}.
-HDPCA reads the PC scores and variances calculated by projection and estimate the shrinkage factor to restore the unshrinked scores. 
+\paragraph{Simple Projection (SP)}
+This method is simple and intuitive.
+Since the PCA on the reference data has already given us the PC loadings,
+we can simply project a (standardized) study sample onto them by calculating their dot products.
+The resulted projection lengths are the predicted PC scores for this study sample.
 The algorithm is
+
 \begin{enumerate}
-\item Compute $X^T X$.
-  (Computational complexity: $\bO[n^2p]$.)  
-\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
-  ($\bO[n^3]$.)
-\item Calculate $W = Y^T (X V D_1^{-1})$, where $Y$ is the data matrix for all the study individuals, $D_1$ the first $k_1$ columns of $D$. ($\bO[mpk_1 + pnk_1]$.)
-  \item Input $D$ and $W$ to the pc\_adjust function in the HDPCA function to obtain the PC scores adjusted for the shrinking bias. ($\bO[p]$ for finding the number of distant spikes (function select.nspike), $\bO[n]$ for adjusting for the shrinking bias (function hdpc\_est))
+\item Compute the reference covariance matrix $X^T X$.
+  (Computational complexity (CC): $\bO[pn^2]$.)  
+\item EGD on the reference covariance matrix: $X^T X = V D^2 V^T$.
+  (CC: $\bO[n^3]$.)
+\item Compute the PC loading matrix for the top $k$ PCs only: $U_k= X V_k D_k^{-1}$.
+Here $V_k$ and $D_k$
+are the the first $k$ columns of $V$
+and the upper-left $k \times k$ submatrix of $D$, respectively.
+(CC: $\bO[pnk]$.)
+\item Compute the predicted study PC scores for the top $k$ PCs: $W_k = Y^T U_k$.
+(CC: $\bO[mpk]$.)
 \end{enumerate}
+The total computational complexity is  $\bO[pn^2 + mpk]$
+given that $k \ll n \ll p$.
+The computational complexity for each study sample is $\bO[pk]$,
+which is the lowest among all the methods discussed in this paper.
+However, though computationally efficient,
+a major disadvantae of SP is the loss of accuracy when the number of features $p$ greatly exceeds the reference sample size $n$,
+a situation that is not uncommon for genotype data.
+\citet{dey2016asymptotic} have shown that when $n \ll p$,
+especially when the signals in the reference samples are not strong,
+the predicted PC scores will shrink toward the origin.
+This shrinkage bias limits the accuracy of SP for high dimensional data.
+Fortunately, \citet{dey2016asymptotic} have also provided a way
+to estimate the asymptotic shrinkage magnitude and angle
+and implemented it in the \verb|hdpca| package in the R language \citep{hdpca}.
+We use this estimation to eliminate the shrinkage bias,
+as in the AP method.
 
-Total computational complexity: $\bO[n^2p + mk_1(p + n) + p + n] \approx \bO[n^2p + mk_1p]$,
-given that $m$ or $n$ is large. The computational complexities between simple projection and adjusted projection are the same.
-The accuracy of adjusted projection will be empirically shown later.
+\paragraph{Adjusted Projection (AP)}
 
-\subsubsection{Online ADP (OADP)}
+This method is almost identical to SP,
+with the only difference being the addition of the adjustment for the shrinkage bias
+after the projections are finished to restore the unshrinked PC scores.
+For estimating the asymptotic shrinkage factor,
+we need all the eigenvalues
+of the the reference data matrix,
+as well as the number of features
+and the reference sample size.
+The details for estimating the shrinkage factor can be found in \citet{dey2016asymptotic}.
+The algorithm is summarized below.
 
-A remedy for ADP is to reduce the computational complexity without much sacrifice of the accuracy.
-This is achieved by the online ADP (OADP) method.
-Notice that in OADP, only the top $k_2$ PC's are used.
-OADP uses the online SVD method, which calculates a close approximation of the first $k_3$ columns of $\tilde{V}$ for some $k_2 \leq k_3 \ll n$ and keeps everything else the same as in ADP, including Procrustes analysis. 
-The algorithm is
+\begin{enumerate}
+\item Compute the reference covariance matrix $X^T X$.
+  (CC: $\bO[pn^2]$.)  
+\item EGD on the reference covariance matrix: $X^T X = V D^2 V^T$.
+  (CC: $\bO[n^3]$.)
+\item Estimate the shrinkage magnitudes and organize them in a $n \times n$ diagonal matrix $S$.
+  (CC: $\bO[p]$.)
+\item Compute the PC loading matrix for the top $k$ PCs with the adjustment for the shrinkage bias: $U_k= X V_k D_k^{-1} S_k^{-1}$.
+Here $V_k$, $D_k$, and $S_k$
+are the the first $k$ columns of $V$
+and the upper-left $k \times k$ submatrices $D$ and $S$, respectively.
+(CC: $\bO[pnk]$.)
+\item Compute the predicted study PC scores for the top $k$ PCs: $W_k = Y^T U_k$.
+(CC: $\bO[mpk]$.)
+\end{enumerate}
+Given that $k \ll n \ll p$,
+the total computational complexity is $\bO[pn^2 + mpk]$,
+which is the same as that of SP.
+Thus the adjustment for the shrinkage bias in AP
+does not increase the computational complexity of SP
+(though it does slightly increase the empirical runtimes).
+A minor disadvantage of AP is that
+while the computatinal complexity and memory usage of SP
+can be further reduced
+by using some truncated SVD algorithm
+(such as the randomized SVD algorithm
+by \citet{halko2011finding}
+as discussed in \cref{sec:randsvd})
+to compute the SVD for only the top $k$ PCs of the reference matrix,
+AP requires all the eigenvalues
+and thus a full SVD or EGD of the reference matrix.
+
+\paragraph{Augmentation, Decomposition, and Procrustes Transformation (ADP)}
+
+ADP predicts the study PC scores by using a completely different approach
+compared to SP and AP.
+The details of this method
+and an implementation in C++ called TRACE
+are described in \cite{wang2014ancestry,wang2015improved}.
+In ADP,
+we augment the (standardized) reference matrix by one column
+by appending a (standardized) study sample to it.
+Then we apply SVD or EGD to this $p \times (n+1)$ matrix $\tilde{X}$.
+The resulted $(n+1) \times (n+1)$ normalized PC score matrix $\tilde{V}$
+can be divided into two submatrices:
+the first $n$ rows $\tilde{V}_{\oref}$,
+which correspond to the reference samples,
+and the last row $\tilde{v}_{\ostu}$,
+which corresponds to the study sample.
+Notice that $\tilde{V}_{\oref}$ is now different from $V$,
+the $n \times n$ normalized PC score matrix of the reference data,
+so we look for a linear transformation
+\[
+    f(\tilde{V}_{\oref}) = \rho A \tilde{V}_{\oref} + c
+\]
+where $\rho$ is a non-negative real number
+(for uniform scaling),
+$A$ is a $n \times (n+1)$ orthonormal matrix
+(for projection, rotation and reflection),
+and $c$ is a column vector
+(for translation),
+so that the distance
+between $V$ and the transformed $f(\tilde{V}_{\oref})$
+(i.e. the sum of squares of the error matrix $V - f(\tilde{V}_{\oref})$)
+is minimized.
+This is called the Procrustes transformation
+from $f(\tilde{V}_{\oref})$ to $V$.
+We then apply this transformation to $\tilde{v}_{\ostu}$
+to obtain $f(\tilde{v}_{\ostu})$.
+Finally,
+by multiplying these Procrustes-transformed normalized PC scores
+by the reference PC standard deviations,
+we obtain the predicted PC score for the study sample $f(\tilde{v}_{\ostu})D$.
+
+Notice that so far we have been using all the PCs for ADP.
+However, this is not necessary
+if all that we are interested in
+is the top few PCs.
+Thus we can use only
+the top $k$ PC scores of the reference matrix
+and the top $lk$ PC scores of the augmented matrix
+(where $l$ is a constant greater than or equal to $1$ and $lk \ll n$)
+and find the Procrustes transformation from $\bR^{lk}$ to $\bR^k$.
+The algorithm is summarized as follows.
+
+\begin{enumerate}
+\item Compute the reference covariance matrix $X^T X$.
+  (CC: $\bO[pn^2]$.)  
+\item Apply EGD to the reference corariance matrix
+  to obtain $X^T X = V D^2 V^T$.
+  (CC: $\bO[n^3]$.)
+\item For a study sample $y$,
+  find the augmented covariance matrix
+  $\tilde{X}^T \tilde{X}$
+  by computing $X^T y$, $(X^T y)^T$, and $y^T y$
+  and appending them to the
+  bottom edge,
+  right edge,
+  and bottom-right corner of $X^TX$.
+  (CC: $\bO[pn]$.)
+\item Apply EGD to $\tilde{X}^T \tilde{X}$ to get $\tilde{X}^T \tilde{X} = \tilde{V} \tilde{D}^2 \tilde{V}^T$.
+  (CC: $\bO[n^3]$.)
+\item Find the Procrutes transformation
+from the first $lk$ columns of $\tilde{V}$
+to the first $k$ columns of $V$.
+  (CC: $\bO[nk^2]$)
+  \item Go to step 3 for the next study sample
+  until all the study samples are analyzed.
+\end{enumerate}
+The total computational complexity is
+$\bO[pn^2 + m(np + n^3)]$
+given that $lk \ll n \ll p$.
+
+ADP is regarded as the most accurate method for predicting study PC scores.
+It is does not have SP's shrinkage bias.
+However, the major disadvantage of ADP
+is its high computational complexity.
+In particular,
+as the reference size increases,
+the computational cost for a study sample
+increases cubically.
+Fortunately, this disadvantage can be mitigated by taking some computational shortcuts,
+as in the OADP method.
+
+\paragraph{Online Augmentation, Decomposition, and Procrustes Transformation (OADP)}
+
+Notice that the augmented data matrix $\tilde{X}$
+only differs slightly from the reference matrix $X$
+when the reference sample size is large.
+Thus the computational process for the SVD of $\tilde{X}$
+is numerically close to that for the SVD of $X$.
+If we can avoid the repeated computation in this process
+and obtain the SVD of $\tilde{X}$
+by updating the SVD of $X$
+instead of recalculating everything,
+we could greatly reduce the computational cost.
+One of such ``online'' algorithms for computing the SVD of the augmented matrix is discussed in \citet{brand2002incremental}.
+This algorithm calculates SVD in the incremental manner described above
+and has the ability to find the approximate SVD for the top few singular values only,
+which exactly fits our need for obtaining the top few PCs.
+Thus we use the algorithm by \citet{brand2002incremental}
+to replace the standard algorithm for decomposing the augmented matrices
+and coin the name ``online augmentation, decomposition, and Procrustes transformation'' (OADP).
+The algorithm for this method is as follows:
+
 \begin{enumerate}
 \item Compute $X^T X$.
   (Computational complexity: $\bO[n^2p]$.)  
@@ -284,100 +442,70 @@ The closeness between the results given by OADP and ADP will be empirically show
 
 A comparison of computational complexities of the four PCA methods are shown in \Cref{tbl:cplx}.
 
-\subsubsection{Randomized SVD}
+\subsection{Simulation Studies}
 
-In addition to estimating the PC scores of the study individuals,
-we have another algorithm that aims at improving the decomposition of the
-training data.
-For SP, AP, ADP, and OADP, we need to find the covariance matrix of the training
-data, which has dimension $n \times n$, and conduct eigendecomosition on it.
-However, when $n$ is exceedingly large,
-computation and memory cost of PCA on the reference samples can be enormous.
-A randomized SVD (RSVD) algorithm has been developed to handle this issue.
-When the reference sample size is small, RSVD can be slower than standard SVD,
-but it is scalable to large sample size.
-For the details of the RSVD algorithm, see \citet{halko2011finding}.
+We used the Grid Genotype Simulator (GGS)
+by \citet{ mathieson2012differential}
+to simulate population migration.
+The grid's dimension is 2 by 2
+with the same number of individuals
+in each of the 4 populations.
+Moreover, we let the number of reference samples
+range from 1000 to 3000
+and fix the number of study samples to 200.
+Each genotype sample has 100 genealogies
+with 1000 loci in each genealogy.
+In addition, the migration rate was set to 100.
+After the individuals were simulated,
+we applied SP, ADP, AP, and OADP to the data
+to predict the PC scores for the study samples.
+Then we used the k-nearest neighbors method
+to predict which ethnic group a study sample comes from.
 
-Notice that the randomized SVD method on the training data
-only calculates the first $k$ eigenvalues.
-However, in order to use adjusted projection,
-all the eigenvalues of the training data are required.
-Thus for the missing eigenvalues,
-we predict them by regressing their log-scale values on the ranks
-and using the first $k$ eigenvalues for training the linear regression.
+\subsection{UK Biobank data analysis}
 
-
-\section{Data}
-
-In this study, we used both simulated data and real-life data to conduct
-empirical tests of the computational methods for PCA.
-
-\subsubsection{Simulation Studies}
-
-We used the GGS software to simulate individuals migrating on a grid.
-The parameters we chose to use are as follows:
-\begin{enumerate}
-\item L: Number of loci in each genealogy. (Fixed to $1000$.)
-\item G: Number of genealogies. (Equal to $p / L$)
-\item K: Side length of the grid. (Fixed to $2$.)
-\item c: Number of haploids at each cell of the grid. (Equal to $2n / K^2$ and
-$2m / K^2$)
-\item M: Migration rate. (Fixed to $100$)
-\end{enumerate}
-
-For our study, we used different reference and study sample sizes.
-First, we fix
-the study size to be $m=200$ and increase $n$ from $1000$ to $3000$ with the
-increment equal to $500$.
-Next, we fix
-the reference size to be $n=600$ and increase $m$ from $1000$ to $3000$ with the increment equal to $500$.
-
-For comparing the speed of the algorithms,
-we only compare the runtimes for the study individuals.
-The time spent on calculations that are once-for-all (such as finding the SVD of
-the reference matrix) is ignored.
-
-For comparing the accuracy, we use two different measures.
-First, for a given cell of the grid, we compute the mean of the PC scores of the 
-reference individuals located at this cell.  
-This is the estimated coordinate of the cell.
-Next, we find the Euclidean distance between the estimated PC scores of the
-study individuals and the estimated coordinates of the cells they are located
-at.
-These are the geographic estimation errors for the study individuals.
-The average of these errors are used to measure the accuracy of the
-computational methods (that is, the square root of the sum of squares divided by the
-study size). 
-Second, since ADP is a model free approach and believed to be the most reliable, we compare the average
-Euclidean distance between the PC score estimates calculated by another method
-to those calculated by ADP. 
-The comparison of the runtimes and accuracy are also conducted by using both the
-standard SVD and randomized SVD on the training data matrix.
-
-\subsubsection{UK Biobank data analysis with 1000 Genomes as reference}
-
-The real-life datasets used in our study are the UKBioBank and 1000 Genomes datasets.
-They contain the genotype readings of individuals from different ethnic groups over the world.
-For better comparison, we select only the SNPs that are included in both datasets,
-the number of which is approximately $1.5 \times 10^5$.
-We use the 1000 Genomes dataset as the reference and removed individuals who have at least one parent who is also in the dataset.
-The reference samples size is approximately $2300$.
-Moreover, we use the first 1000 individuals in the UKBioBank data set out of a
-total number of $5 \times 10^5$ individuals. 
-The measures we use for comparing speed and accuracy are the same as for
-simulated data,
-except that we do not use the geographic error here.
-In addition, both the standard and randomized SVD on the training data set are tested.
-
+We also applied the four methods
+to study the UK Biobank data \citep{sudlow2015uk},
+which consists of 490,000 middle- or elderly-aged individuals
+in the United Kingdom.
+Our reference samples
+are from the 1000 Genomes Project \citep{10002015global},
+which collected 2500 samples from Europe, Africa, East Asia, South Asia, and America.
+(Individuals whose children are also in the data were removed.)
+The reference and the study samples
+have 145,000 SNPs in common.
+After we predicted the PC scores and ethnic groups
+of the study samples,
+we selected the study samples predicted to by Europeans
+and applied PCA to them
+by using the European reference samples only.
 
 
 \section{Results}
+
+Simulation study
+
+Runtimes vs ref size
+Distance to ADP vs ref size
+Distance to geo center vs ref size
+PC1 vs PC2, 5 x 3 grid (uncolored study samples)
+
+UK Biobank
+
+500 samples, 4 methods
+All continents
+European only
+misclassification rate compared to ADP
+distance to ADP
+
+all samples, 3 methods
+same as above
+
 
 The predicted PC scores are shown in \Cref{fig:n1000} and \Cref{fig:ukb}.
 For the comparison of the runtimes and accuracy for different reference and sample sizes for the simulated data,
 see \Cref{fig:nChg} and \Cref{fig:mChg}.
 For comparing the methods for the real-life data, see \Cref{tbl:ukb}.
-
 
 
 \section{Discussion}
@@ -421,11 +549,40 @@ This information can be used to predict the runtime for larger study samples.
 
 \newpage
 
+\appendix
+
+\section{Randomized SVD}\label{sec:randsvd}
+
+In addition to estimating the PC scores of the study individuals,
+we have another algorithm that aims at improving the decomposition of the
+training data.
+For SP, AP, ADP, and OADP, we need to find the covariance matrix of the training
+data, which has dimension $n \times n$, and conduct eigendecomosition on it.
+However, when $n$ is exceedingly large,
+computation and memory cost of PCA on the reference samples can be enormous.
+A randomized SVD (RSVD) algorithm has been developed to handle this issue.
+When the reference sample size is small, RSVD can be slower than standard SVD,
+but it is scalable to large sample size.
+For the details of the RSVD algorithm, see \citet{halko2011finding}.
+
+Notice that the randomized SVD method on the training data
+only calculates the first $k$ eigenvalues.
+However, in order to use adjusted projection,
+all the eigenvalues of the training data are required.
+Thus for the missing eigenvalues,
+we predict them by regressing their log-scale values on the ranks
+and using the first $k$ eigenvalues for training the linear regression.
+
+
+\newpage
+
 \bibliographystyle{plainnat}
 \bibliography{frugalpca}
 
 
 \newpage
+
+\section{Tables and Figures}
 
 \begin{table} 
   \centering
