@@ -8,7 +8,8 @@ chunk_n_lines=$2
 
 chunk_len_suff=4
 chunk_midf=_chunksize${chunk_n_lines}_
-chunk_filepref=${bed_filepref}${chunk_midf}
+dir=${bed_filepref}_chunksize${chunk_n_lines}
+chunk_filepref=${dir}/${bed_filepref}${chunk_midf}
 
 # Split .fam file
 split -l ${chunk_n_lines} -a ${chunk_len_suff} -d ${bed_filepref}.fam ${chunk_filepref}

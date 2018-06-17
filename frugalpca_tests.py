@@ -164,9 +164,15 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True, load_results=False, assert_resu
         popu_stu_pred_ap = np.loadtxt(pref_out + '_pred_ap.popu', dtype=np.object)[:,2]
         popu_stu_pred_oadp = np.loadtxt(pref_out + '_pred_ap.popu', dtype=np.object)[:,2]
     else:
-        pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp =  fp.run_pca(pref_ref, pref_stu, popu_filename_ref = popu_filename_ref, dim_ref=dim_ref, method='sp', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)
-        pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap =  fp.run_pca(pref_ref, pref_stu, popu_filename_ref = popu_filename_ref, dim_ref=dim_ref, method='ap', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)
-        pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp =  fp.run_pca(pref_ref, pref_stu, popu_filename_ref = popu_filename_ref, dim_ref=dim_ref, method='oadp', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)
+        pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp =  fp.run_pca(
+            pref_ref, pref_stu, popu_filename_ref = popu_filename_ref,
+            method='sp', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)[:4]
+        pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap =  fp.run_pca(
+            pref_ref, pref_stu, popu_filename_ref = popu_filename_ref,
+            method='ap', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)[:4]
+        pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp =  fp.run_pca(
+            pref_ref, pref_stu, popu_filename_ref = popu_filename_ref,
+            method='oadp', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)[:4]
 
     method_list = ['sp', 'ap', 'oadp']
     pcs_stu_list = [pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp]
@@ -242,13 +248,12 @@ def plot_results(pref_ref, pref_stu):
     popu_stu_list = [pcs_stu_pred_sp, pcs_stu_pred_ap, pcs_stu_pred_oadp, pcs_stu_pred_oadp]
     fp.plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref=pref_stu)
 
-def convert():
-    # filepref = '../data/ggsim/ggsim_100000_3000_2_1_100_0'
-    # fp.trace2bed(filepref)
-    # filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR'
-    # fp.bed2trace(filepref)
-    filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
-    fp.bed2trace(filepref)
+def convert_ggsim(i):
+    n = 1000 + i * 500
+    filepref = '../data/ggsim'+str(n)+'/ggsim'+str(n)+'_100000_'+str(n)+'_2_1_100_0'
+    fp.trace2bed(filepref)
+    filepref = '../data/ggsim'+str(n)+'/ggsim'+str(n)+'_100000_'+'200'+'_2_1_100_1'
+    fp.trace2bed(filepref)
 
 def test_pca_500k_EUR():
     pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb'
@@ -256,10 +261,11 @@ def test_pca_500k_EUR():
     test_pca_subpopu(pref_ref, pref_stu, 'EUR', cmp_trace=False)
 
 def test_pca_ggsim():
-    for n in range(1000, 3500, 500):
-        pref_ref = '../data/ggsim/ggsim' + str(n) + '_100000_' + str(n) + '_2_1_100_0'
-        pref_stu = '../data/ggsim/ggsim' + str(n) + '_100000_200_2_1_100_1'
-        test_pca(pref_ref, pref_stu, cmp_trace=True, load_results=True)
+    for i in range(5):
+        n = 1000 + i * 500
+        pref_ref = '../data/ggsim'+str(n)+'/ggsim'+str(n)+'_100000_'+str(n)+'_2_1_100_0'
+        pref_stu = '../data/ggsim'+str(n)+'/ggsim'+str(n)+'_100000_'+'200'+'_2_1_100_1'
+        test_pca(pref_ref, pref_stu, cmp_trace=True, load_results=False)
 
 def test_pca_5c():
     pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb'

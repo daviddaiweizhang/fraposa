@@ -1,8 +1,8 @@
 #!/bin/bash
 ####  PBS preamble
 
-#PBS -N fp.500k.EUR
-#PBS -l nodes=1:ppn=10,mem=32gb,walltime=20:00:00
+#PBS -N fpt.5c
+#PBS -l nodes=1:ppn=1,mem=4,walltime=01:00:00
 # use this for array: #PBS -t 0-4
 
 #PBS -M daiweiz@umich.edu
@@ -31,5 +31,5 @@ id="${PBS_JOBID:0:8}"
 
 date
 # module load R mkl/11.3.3 gcc/5.4.0 armadillo plink
-python -c "import frugalpca_tester as fpt; fpt.test_pca_500k_EUR()"
+python -c "import frugalpca_tests as fpt; fpt.test_pca_ggsim()"
 date
