@@ -3,13 +3,13 @@
 
 #PBS -N trace.nChg
 # Change the number of cores (ppn=1), amount of memory, and walltime:
-#PBS -l nodes=1:ppn=1,mem=16gb,walltime=0:02:00:00
+#PBS -l nodes=1:ppn=1,mem=4gb,walltime=0:02:00:00
 #PBS -t 0-4
 
 #PBS -M daiweiz@umich.edu
 #PBS -j oe
-#PBS -o log/
-#PBS -e log/
+#PBS -o logs/
+#PBS -e logs/
 #PBS -m abe
 #PBS -V
 #PBS -A leeshawn_fluxod

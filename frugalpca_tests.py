@@ -164,15 +164,9 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True, load_results=False, assert_resu
         popu_stu_pred_ap = np.loadtxt(pref_out + '_pred_ap.popu', dtype=np.object)[:,2]
         popu_stu_pred_oadp = np.loadtxt(pref_out + '_pred_ap.popu', dtype=np.object)[:,2]
     else:
-        pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp =  fp.run_pca(
-            pref_ref, pref_stu, popu_filename_ref = popu_filename_ref,
-            method='sp', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)[:4]
-        pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap =  fp.run_pca(
-            pref_ref, pref_stu, popu_filename_ref = popu_filename_ref,
-            method='ap', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)[:4]
-        pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp =  fp.run_pca(
-            pref_ref, pref_stu, popu_filename_ref = popu_filename_ref,
-            method='oadp', use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, log_level=log_level)[:4]
+        pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp = fp.run_pca(pref_ref, pref_stu, method='sp')[:4]
+        pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap = fp.run_pca(pref_ref, pref_stu, method='ap')[:4]
+        pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp = fp.run_pca(pref_ref, pref_stu, method='oadp')[:4]
 
     method_list = ['sp', 'ap', 'oadp']
     pcs_stu_list = [pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp]
@@ -229,23 +223,16 @@ def test_pca_subpopu(pref_ref, pref_stu, popu_name_this, cmp_trace=True, load_re
 
 def plot_results(pref_ref, pref_stu):
     pcs_ref = np.loadtxt(pref_ref + '_ref.pcs')
-    pcs_stu_oadp = np.loadtxt(pref_stu + '_stu_oadp.pcs')
-    popu_ref = np.loadtxt(pref_ref + '.popu', dtype=np.object)[:,2]
-    popu_stu_oadp = np.loadtxt(pref_stu + '_pred_oadp.popu', dtype=np.object)[:,2]
-
-    pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb'
-    pref_stu = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
-    pcs_ref = np.loadtxt(pref_ref + '_ref.pcs')
     pcs_stu_sp = np.loadtxt(pref_stu + '_stu_sp.pcs')
     pcs_stu_ap = np.loadtxt(pref_stu + '_stu_ap.pcs')
     pcs_stu_oadp = np.loadtxt(pref_stu + '_stu_oadp.pcs')
     popu_ref = np.loadtxt(pref_ref + '.popu', dtype=np.object)[:,2]
     popu_stu_pred_sp = np.loadtxt(pref_stu + '_pred_sp.popu', dtype=np.object)[:,2]
     popu_stu_pred_ap = np.loadtxt(pref_stu + '_pred_ap.popu', dtype=np.object)[:,2]
-    popu_stu_pred_oadp = np.loadtxt(pref_stu + '_pred_ap.popu', dtype=np.object)[:,2]
-    method_list = ['sp', 'ap', 'oadp', 'adp']
-    pcs_stu_list = [pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp, pcs_stu_adp]
-    popu_stu_list = [pcs_stu_pred_sp, pcs_stu_pred_ap, pcs_stu_pred_oadp, pcs_stu_pred_oadp]
+    popu_stu_pred_oadp = np.loadtxt(pref_stu + '_pred_oadp.popu', dtype=np.object)[:,2]
+    method_list = ['sp', 'ap', 'oadp']
+    pcs_stu_list = [pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp]
+    popu_stu_list = [pcs_stu_pred_sp, pcs_stu_pred_ap, pcs_stu_pred_oadp]
     fp.plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref=pref_stu)
 
 def convert_ggsim(i):
@@ -277,5 +264,16 @@ def test_pca_5c_EUR():
     pref_stu = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
     test_pca_subpopu(pref_ref, pref_stu, 'EUR', cmp_trace=True, load_results=False)
 
+def test_pca_array(pref_ref, pref_stu, method):
+    if type(method) is int:
+        method = {0:'oadp', 1:'ap', 2:'sp'}[method]
+    print(pref_stu)
+    fp.run_pca(pref_ref, pref_stu, method=method)
 
-
+def test_merge_array_results():
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb'
+    stu_filepref = '../data/ukb_snpscap_kgn_bial_orphans_5c_nchunks10/ukb_snpscap_kgn_bial_orphans_5c_nchunks10'
+    n_chunks = 93
+    fp.merge_array_results(ref_filepref, stu_filepref, 'sp', n_chunks)
+    fp.merge_array_results(ref_filepref, stu_filepref, 'ap', n_chunks)
+    fp.merge_array_results(ref_filepref, stu_filepref, 'oadp', n_chunks)
