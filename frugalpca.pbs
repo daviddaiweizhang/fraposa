@@ -1,9 +1,9 @@
 #!/bin/bash
 ####  PBS preamble
 
-#PBS -N fp.5c.sp.array
-#PBS -l nodes=1:ppn=1,mem=1gb,walltime=00:02:00
-#PBS -t 1-10
+#PBS -N fp.500k.EUR.ap.array
+#PBS -l nodes=1:ppn=1,mem=4gb,walltime=00:40:00
+#PBS -t 0-99
 
 #PBS -M daiweiz@umich.edu
 #PBS -j oe
@@ -29,18 +29,20 @@ echo $PBS_ARRAYID
 jobid="${PBS_JOBID:0:8}"
 # module load R mkl/11.3.3 gcc/5.4.0 armadillo plink
 
+# PBS_ARRAYID=16
+
 #  Put your job commands here:
-n_chunks=10
-pref_ref=../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb
-pref_stu=../data/ukb/ukb_snpscap_kgn_bial_orphans_5c
+method=ap
+pref_ref=../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR
+pref_stu=../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR
+n_chunks=100
 i=$PBS_ARRAYID
-pref_stu=`bash split_bed_indivs.sh ${pref_stu} ${n_chunks} ${i} | tail -n 1`
-
-method=oadp
-# j=$PBS_ARRAYID
-# let "i = j % ${n_chunks}"
-# let "method = j / ${n_chunks}"
 date
-python -c "import frugalpca as fp; fp.run_pca('${pref_ref}', '${pref_stu}', '${method}')"
+python -c "import frugalpca_tests as fpt; fpt.test_pca_array('${pref_ref}', '${pref_stu}', '${method}', ${n_chunks}, ${i})"
 date
 
+# #  Put your job commands here:
+# pref_ref=../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR
+# pref_stu=../data/ukb_snpscap_kgn_bial_orphans_pred_EUR_chunksize5000/ukb_snpscap_kgn_bial_orphans_pred_EUR_chunksize5000_`printf "%04d" ${i}`
+# method=oadp
+# python -c "import frugalpca as fp; fp.run_pca('${pref_ref}', '${pref_stu}', '${method}')"

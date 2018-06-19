@@ -13,6 +13,8 @@ print('Number of cores: ' + str(NUM_CORES))
 # fpt.test_pca_5c_EUR()
 # Parallel(n_jobs=NUM_CORES)(delayed(fpt.convert_ggsim)(i) for i in range(5))
 # fpt.convert_ggsim(4)
-# fpt.test_pca_ggsim()
-fpt.test_merge_array_results()
+for i in range(5):
+    fpt.test_pca_ggsim(i)
+# fpt.test_merge_array_results()
+# fpt.test_split_bed_indiv()
 

@@ -33,6 +33,7 @@ DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
 N_NEIGHBORS=5
 HDPCA_N_SPIKES_MAX = 18
+HDPCA_N_SPIKES = DIM_REF
 SAMPLE_CHUNK_SIZE_STU = 5000
 SAMPLE_SPLIT_PREF_LEN = 4
 PROCRUSTES_NITER_MAX = 10000
@@ -112,7 +113,7 @@ def create_logger(prefix='frugalpca', level='info'):
     # create file handler which logs even debug messages
     log_dir = os.path.dirname(prefix) + '/logs/'
     if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+        os.makedirs(log_dir, exist_ok=True)
     filename = log_dir + os.path.basename(prefix) + '.' + str(round(time.time())) + '.log'
     fh = logging.FileHandler(filename, 'w')
     fh.setLevel(log_level)
@@ -438,17 +439,17 @@ def load_pcs(pref, methods):
         pcs_stu_list += [pcs_stu_this]
     return pcs_ref, pcs_stu_list
 
-def adj_hdpc_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX, dim_ref=DIM_REF):
+def adj_hdpc_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX, hdpca_n_spikes=HDPCA_N_SPIKES, dim_ref=DIM_REF):
     logging.info('Estimating PC shrinkage and adjusting PC loadings...')
-    hdpc_est_result  = hdpc_est(s**2, p_ref, n_ref, n_spikes_max=hdpca_n_spikes_max)
+    # hdpc_est_result  = hdpc_est(s**2, p_ref, n_ref, n_spikes_max=hdpca_n_spikes_max)
+    hdpc_est_result  = hdpc_est(s**2, p_ref, n_ref, n_spikes=hdpca_n_spikes)
     shrinkage = np.array(hdpc_est_result[-1])
     n_pc_adjusted = min(dim_ref, len(shrinkage))
     for i in range(n_pc_adjusted):
-        U[:, i] /= shrinkage[i]
+        U[:, i] /= shrinkage[i] # TODO: Adjust angles too?
 
 
-def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref,
-             markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU):
+def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref, markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU, plot_lim=None):
     if type(pcs_stu_list) is not list:
         pcs_stu_list = [pcs_stu_list]
     if type(popu_stu_list) is not list:
@@ -485,6 +486,9 @@ def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pr
                                 pcs_stu[indiv_shuffled_this, j*2+1],
                                 color=plot_colors_stu[indiv_shuffled_this],
                                 marker=markers[k], alpha=alpha_stu, label=label)
+        if plot_lim is not None:
+            plt.xlim(plot_lim[:,j*2])
+            plt.ylim(plot_lim[:,j*2+1])
     plt.legend()
     plt.tight_layout()
     fig_filename = out_pref+'_'.join([''] + method_list)+'.png'
@@ -550,6 +554,8 @@ def pca_stu(W, X_mean, X_std, method, path_tmp,
         else:
             logging.error(Method + ' is not one of sp, ap, adp, or oadp.')
             assert False
+        if (i+1) % 1000 == 0:
+            logging.info('Finished ' + str(i) + ' study samples.')
         elapse_method += time.time() - t0
 
     logging.info('Finished analyzing all study samples.')
@@ -571,8 +577,9 @@ def pca(ref_filepref, stu_filepref, method, path_tmp,
     s_filename = ref_filepref + '_s.dat'
     V_filename = ref_filepref + '_V.dat'
     U_filename = ref_filepref + '_U.dat'
+    Uadj_filename = ref_filepref + '_Uadj.dat'
     pcs_ref_filename = ref_filepref + '_ref.pcs'
-    ref_decomp_filenames = [Xmnsd_filename, s_filename, V_filename, U_filename, pcs_ref_filename]
+    ref_decomp_filenames = [Xmnsd_filename, s_filename, V_filename, U_filename, Uadj_filename, pcs_ref_filename]
     ref_decomp_allexist = all([os.path.isfile(filename) for filename in ref_decomp_filenames])
 
     if ref_decomp_allexist and load_saved_ref_decomp:
@@ -584,6 +591,7 @@ def pca(ref_filepref, stu_filepref, method, path_tmp,
         V = np.loadtxt(V_filename)
         pcs_ref = np.loadtxt(pcs_ref_filename)
         U = np.loadtxt(U_filename)
+        Uadj = np.loadtxt(Uadj_filename) # TODO: Change to save/load shrinkage
     else:
         logging.info('Reading reference samples...')
         if use_memmap:
@@ -609,12 +617,15 @@ def pca(ref_filepref, stu_filepref, method, path_tmp,
         logging.info('Calculating PC loadings...')
         U = X @ (V[:,:dim_stu_high] / s[:dim_stu_high])
         np.savetxt(U_filename, U, fmt=NP_OUTPUT_FMT)
-
-    p_ref = X_mean.shape[0]
-    n_ref = V.shape[0]
+        Uadj = np.copy(U)
+        p_ref = X_mean.shape[0]
+        n_ref = V.shape[0]
+        adj_hdpc_shrinkage(Uadj, s, p_ref, n_ref, dim_ref)
+        np.savetxt(Uadj_filename, Uadj, fmt=NP_OUTPUT_FMT)
 
     if method == 'ap':
-        adj_hdpc_shrinkage(U, s, p_ref, n_ref, dim_ref)
+        U = Uadj
+
 
     # logging.info('Splitting study data...')
     # W_bim, W_fam = read_bed(stu_filepref, bed_store=None)[1:3]
@@ -659,7 +670,7 @@ def pca(ref_filepref, stu_filepref, method, path_tmp,
     return pcs_ref, pcs_stu, pcs_ref_filename, pcs_stu_filename
 
 
-def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, log_level='info'):
+def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, log_level='info', plot_results=False):
     print('='*30)
     t0 = time.time()
     base_ref = os.path.basename(pref_ref)
@@ -671,6 +682,7 @@ def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU,
     logging.info('Using ' + str(NUM_CORES) + ' cores.')
     logging.info('Reference data: ' + pref_ref)
     logging.info('Study data: ' + pref_stu)
+    logging.info('Method: ' + method)
     logging.debug('Tmp path: ' + path_tmp)
     subprocess.run(['mkdir', '-p', path_tmp])
     # Intersect ref and stu snps
@@ -702,7 +714,8 @@ def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU,
     logging.info('Study population prediction saved to ' + popu_stu_filename)
 
     # Plot PC scores
-    plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu_pred, method_list=method, out_pref=pref_out)
+    if plot_results:
+        plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu_pred, method_list=method, out_pref=pref_out)
 
     logging.info('Total runtime: ' + str(time.time() - t0))
     return pcs_ref, pcs_stu, popu_ref, popu_stu_pred, pcs_ref_filename, pcs_stu_filename, popu_ref_filename, popu_stu_filename
@@ -712,8 +725,8 @@ def merge_array_results(ref_filepref, stu_filepref, method, n_chunks):
     stu_filepref_list = [stu_filepref + '_' + str(i).zfill(SAMPLE_SPLIT_PREF_LEN) + '_sturef_' + ref_basepref for i in range(n_chunks)]
     stu_pcs_filename_list = [fpref + '_stu_' + method + '.pcs' for fpref in stu_filepref_list]
     stu_popu_filename_list = [fpref + '_pred_' + method + '.popu' for fpref in stu_filepref_list]
-    stu_pcs_filename = stu_filepref + '_stu_' + method + '.pcs'
-    stu_popu_filename = stu_filepref + '_pred_' + method + '.popu'
+    stu_pcs_filename = stu_filepref + '_sturef_' + ref_basepref + '_stu_' + method + '.pcs'
+    stu_popu_filename = stu_filepref + '_sturef_' + ref_basepref + '_pred_' + method + '.popu'
     ref_pcs_filename = ref_filepref + '_ref.pcs'
     ref_popu_filename = ref_filepref + '.popu'
     with open(stu_pcs_filename, 'w') as outfile:
@@ -728,11 +741,30 @@ def merge_array_results(ref_filepref, stu_filepref, method, n_chunks):
     stu_pcs = np.loadtxt(stu_pcs_filename)
     ref_popu = np.loadtxt(ref_popu_filename, dtype=np.object)[:,2]
     stu_popu = np.loadtxt(stu_popu_filename, dtype=np.object)[:,2]
-    plot_pcs(ref_pcs, stu_pcs, ref_popu, stu_popu, method, out_pref=stu_filepref)
+    # plot_pcs(ref_pcs, stu_pcs, ref_popu, stu_popu, method, out_pref=stu_filepref)
 
-def split_bed_indiv(filepref, n_chunks):
-    fam = np.loadtxt(filepref+'.fam')
-    n = fam.shape[0]
-    fam_chunk_list = np.array_split(fam, n_chunks)
-    for fam_chunk in fam_chunk_list:
-        np.savetxt(fam_chunk)
+def split_bed_indiv(filepref, n_chunks, i):
+    assert i in range(n_chunks)
+    basepref = os.path.basename(filepref)
+    dirname = os.path.dirname(filepref)
+    basepref_chunks = basepref + '_nchunks' + str(n_chunks)
+    dirname_this = dirname + '/' + basepref_chunks
+    filepref_this = dirname_this + '/' + basepref_chunks + '_' + str(i).zfill(SAMPLE_SPLIT_PREF_LEN)
+
+    fam = np.loadtxt(filepref+'.fam', dtype='str')
+    fam_this = np.array_split(fam, n_chunks)[i]
+    fam_this_exists = False
+    if os.path.exists(filepref_this+'.fam'):
+        fam_this_existing = np.loadtxt(filepref_this+'.fam', dtype='str')
+        if np.array_equal(fam_this, fam_this_existing):
+            fam_this_exists = True
+    if not fam_this_exists:
+        os.makedirs(dirname_this, exist_ok=True)
+        np.savetxt(filepref_this+'.fam', fam_this, delimiter=' ', fmt='%s')
+        outerr = subprocess.run(
+                ['plink', '--bfile', filepref, '--keep', filepref_this+'.fam', '--keep-allele-order', '--out', filepref_this, '--make-bed'],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        os.remove(filepref_this+'.log') # remove plink log
+        assert filecmp.cmp(filepref_this+'.bim', filepref+'.bim')
+
+    return filepref_this
