@@ -1,6 +1,7 @@
 \documentclass{article}
 
-\usepackage{epsfig} \usepackage[margin=1.5in]{geometry}
+\usepackage{epsfig}
+\usepackage[margin=1in]{geometry}
 \usepackage[round]{natbib}
 \usepackage{amsmath}
 \usepackage{amsfonts}
@@ -8,6 +9,8 @@
 \usepackage{verbatim}
 \usepackage{float}
 \usepackage{graphicx}
+\usepackage{subcaption}
+
 
 \newcommand{\bO}{\mathcal{O}}
 \newcommand{\bR}{\mathbb{R}}
@@ -620,6 +623,103 @@ to further improve the performance of our software.
 \newpage
 \section{Tables and Figures}
 
+\begin{figure}[p]
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim1000_100000_200_2_1_100_1_sturef_ggsim1000_100000_1000_2_1_100_0_sp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim1000_100000_200_2_1_100_1_sturef_ggsim1000_100000_1000_2_1_100_0_ap}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim1000_100000_200_2_1_100_1_sturef_ggsim1000_100000_1000_2_1_100_0_oadp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim1000_100000_200_2_1_100_1_sturef_ggsim1000_100000_1000_2_1_100_0_adp}
+\end{subfigure}
+\hfill
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim1500_100000_200_2_1_100_1_sturef_ggsim1500_100000_1500_2_1_100_0_sp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim1500_100000_200_2_1_100_1_sturef_ggsim1500_100000_1500_2_1_100_0_ap}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim1500_100000_200_2_1_100_1_sturef_ggsim1500_100000_1500_2_1_100_0_oadp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim1500_100000_200_2_1_100_1_sturef_ggsim1500_100000_1500_2_1_100_0_adp}
+\end{subfigure}
+\hfill
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim2000_100000_200_2_1_100_1_sturef_ggsim2000_100000_2000_2_1_100_0_sp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim2000_100000_200_2_1_100_1_sturef_ggsim2000_100000_2000_2_1_100_0_sp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim2000_100000_200_2_1_100_1_sturef_ggsim2000_100000_2000_2_1_100_0_oadp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim2000_100000_200_2_1_100_1_sturef_ggsim2000_100000_2000_2_1_100_0_adp}
+\end{subfigure}
+\hfill
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim2500_100000_200_2_1_100_1_sturef_ggsim2500_100000_2500_2_1_100_0_sp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim2500_100000_200_2_1_100_1_sturef_ggsim2500_100000_2500_2_1_100_0_ap}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim2500_100000_200_2_1_100_1_sturef_ggsim2500_100000_2500_2_1_100_0_oadp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim2500_100000_200_2_1_100_1_sturef_ggsim2500_100000_2500_2_1_100_0_adp}
+\end{subfigure}
+\hfill
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim3000_100000_200_2_1_100_1_sturef_ggsim3000_100000_3000_2_1_100_0_sp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim3000_100000_200_2_1_100_1_sturef_ggsim3000_100000_3000_2_1_100_0_sp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim3000_100000_200_2_1_100_1_sturef_ggsim3000_100000_3000_2_1_100_0_oadp}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+  \centering
+  \includegraphics[width=.98\linewidth]{img/ggsim3000_100000_200_2_1_100_1_sturef_ggsim3000_100000_3000_2_1_100_0_adp}
+\end{subfigure}
+\caption{
+  The PC scores predicted by each of the four methods
+  as the reference size varies.
+  Reference samples are in colors
+  and study samples are in black.
+  The number of variants is 100,000,
+  and the study sample size is 200.
+  Only the top 4 PCs are calculated.
+  The data is simulated by the GGS software \citep{mathieson2012differential}.
+}
+\end{figure}
+
 \begin{table}[h]
   \centering
   \begin{tabular}{|l|l|l|}
@@ -659,7 +759,7 @@ to further improve the performance of our software.
     OADP       &  145  & 146   & 147   & 148   & 149   \\
     ADP        &  379  & 809 & 1526 & 2556 & 4062 \\
     \hline
-    \multicolumn{6}{|c|}{Euclidean Error} \\
+    \multicolumn{6}{|c|}{Error form ADP} \\
     \hline
     SP         &  188  & 139   & 112   & 91   & 84   \\
     AP         &  31  & 27   & 12  & 11   & 14  \\
@@ -678,17 +778,38 @@ to further improve the performance of our software.
     }
 \end{table}
 
+\begin{figure}[h]
+
+  \begin{subfigure}{.5\textwidth}
+    \centering
+    \includegraphics[width=.98\linewidth]{img/ggsim_runtimes.png}
+  \end{subfigure}
+  \begin{subfigure}{.5\textwidth}
+    \centering
+    \includegraphics[width=.98\linewidth]{img/ggsim_errors.png}
+  \end{subfigure}
+  \caption{
+    The runtimes (in seconds) and errors (Euclidean distance from ADP's PC scores) for the four methods
+    as the reference size increases.
+    The number of variants is 100,000,
+    and the study sample size is 200.
+    Only the top 4 PCs are calculated.
+    The data is simulated by the GGS software \citep{mathieson2012differential}.
+  }
+\end{figure}
+
 \begin{table}[h]
   \centering
   \begin{tabular}{|r|r|r|r|r|}
     \hline
     Method & \multicolumn{2}{|c|}{Runtime} & \multicolumn{2}{|c|}{Error} \\
+    \hline
     & Global & European & Global & European \\
     \hline
-    SP         &  62   & 48  &     & 450 \\ 
-    AP         &  65   & 48  &     & 33  \\
-    OADP       &  363  & 349 &     & 32  \\
-    ADP        &  6745 & 518 &     & 0   \\
+    SP         &  62   & 48  & 92  & 450 \\ 
+    AP         &  65   & 48  & 48  & 33  \\
+    OADP       &  363  & 349 & 10  & 32  \\
+    ADP        &  6739 & 518 & 0   & 0   \\
     \hline
   \end{tabular}
   \caption{
@@ -705,21 +826,7 @@ to further improve the performance of our software.
     }
 \end{table}
 
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.98\textwidth]{img/ggsim_runtimes.png}
-  \includegraphics[width=0.98\textwidth]{img/ggsim_errors.png}
-  \caption{
-    The runtimes (in seconds) and errors (Euclidean distance from ADP's PC scores) for the four methods
-    as the reference size increases.
-    The number of variants is 100,000,
-    and the study sample size is 200.
-    Only the top 4 PCs are calculated.
-    The data is simulated by the GGS software \citep{mathieson2012differential}.
-  }
-\end{figure}
-
-\begin{figure}[h]
+\begin{figure}[p]
   \centering
   \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_sp}
   \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_ap}
@@ -738,7 +845,6 @@ to further improve the performance of our software.
 \end{figure}
 
 \end{document}
-
 
 % \begin{figure}[p]
 %   \centering
