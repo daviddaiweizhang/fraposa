@@ -449,7 +449,7 @@ def adj_hdpc_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX
         U[:, i] /= shrinkage[i] # TODO: Adjust angles too?
 
 
-def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref, markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU, plot_lim=None):
+def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref, markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU, plot_lim=None, plot_dim=float('inf')):
     if type(pcs_stu_list) is not list:
         pcs_stu_list = [pcs_stu_list]
     if type(popu_stu_list) is not list:
@@ -461,7 +461,7 @@ def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pr
     popu_n = len(popu_unique)
     plot_colors_unique = plt.rcParams['axes.prop_cycle'].by_key()['color']
     dim_ref = pcs_ref.shape[1]
-    n_subplot = dim_ref // 2
+    n_subplot = int(min(dim_ref, plot_dim) / 2)
     fig, ax = plt.subplots(ncols=n_subplot)
     for j in range(n_subplot):
         plt.subplot(1, n_subplot, j+1)

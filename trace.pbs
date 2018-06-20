@@ -1,10 +1,10 @@
 #!/bin/bash
 ####  PBS preamble
 
-#PBS -N trace.nChg
+#PBS -N trace.5c
 # Change the number of cores (ppn=1), amount of memory, and walltime:
-#PBS -l nodes=1:ppn=1,mem=4gb,walltime=0:02:00:00
-#PBS -t 0-4
+#PBS -l nodes=1:ppn=1,mem=4gb,walltime=04:00:00
+#### #PBS -t 0-4
 
 #PBS -M daiweiz@umich.edu
 #PBS -j oe
@@ -35,7 +35,6 @@ pref=ggsim${n}
 
 date
 # bash chain.sh 1 ori ${pref} 100000 $n 200 2 1 100
-# trace -s ../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR.geno -g ../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR.geno -o ../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR -k 4 -K 20
-trace -s ../data/${pref}/${pref}_100000_200_2_1_100_1.geno -g ../data/${pref}/${pref}_100000_${n}_2_1_100_0.geno -o ../data/${pref}/${pref}_100000_200_2_1_100_1_sturef_${pref}_100000_${n}_2_1_100_0 -k 4 -K 20
+trace -s ../data/ukb/ukb_snpscap_kgn_bial_orphans_5c.geno -g ../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb.geno -o ../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb -k 4 -K 20
+# trace -s ../data/${pref}/${pref}_100000_200_2_1_100_1.geno -g ../data/${pref}/${pref}_100000_${n}_2_1_100_0.geno -o ../data/${pref}/${pref}_100000_200_2_1_100_1_sturef_${pref}_100000_${n}_2_1_100_0 -k 4 -K 20
 date
-
