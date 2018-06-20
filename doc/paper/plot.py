@@ -10,14 +10,31 @@ for i in range(4):
     plt.plot(n, ggsim[i], label=methods[i])
 plt.xticks(n)
 plt.legend()
+plt.title('Runtime', fontsize=20)
+fig = plt.gcf()
+fig.set_size_inches((12,5))
 plt.savefig('img/ggsim_runtimes.png', dpi=300)
 plt.close('all')
 
-ggsim = np.loadtxt('ggsim_errors.dat')
+ggsim = np.loadtxt('ggsim_errors_adp.dat')
 for i in range(4):
     plt.plot(n, ggsim[i], label=methods[i])
 plt.xticks(n)
 plt.legend()
-plt.savefig('img/ggsim_errors.png', dpi=300)
+plt.title('Error (from ADP)', fontsize=20)
+fig = plt.gcf()
+fig.set_size_inches((12,5))
+plt.savefig('img/ggsim_errors_adp.png', dpi=300)
+plt.close('all')
+
+ggsim = np.loadtxt('ggsim_errors_ctr.dat')
+for i in range(4):
+    plt.plot(n, ggsim[i], label=methods[i])
+plt.xticks(n)
+plt.legend()
+plt.title('Error (between centers)', fontsize=20)
+fig = plt.gcf()
+fig.set_size_inches((12,5))
+plt.savefig('img/ggsim_errors_ctr.png', dpi=300)
 plt.close('all')
 
