@@ -497,31 +497,38 @@ we applied SP, AP, and OADP to all the study samples.
 % PC1 vs PC2, 5 x 3 grid (uncolored study samples)
 % The predicted PC scores are shown in \Cref{fig:n1000} and \Cref{fig:ukb}.
 
-For the simulation study
-(\Cref{tbl:nChg-runtimes-ref}, \Cref{tbl:nChg-runtimes-study},
-\Cref{tbl:nChg-accuracy-gold}, \Cref{tbl:nChg-accuracy-ctr},
-\Cref{tbl:mChg-runtimes-study}),
-we see that ADP, which is the most reliable method,
-is the slowest in study runtimes.
-By using the online SVD algorithm,
-OADP achieved the highest accuracy (excluding ADP, which is the golden standard) and the fastest runtime.
-SP is fast, also,
-but its accuracy is the lowest.
-By using the HDPCA package,
-AP reduces the error of SP
-and achieved the second highest in accuracy.
-However, as the reference size increases,
-the accuracies of different methods become closer and closer (\Cref{fig:nChg}).
-As for the speed,
-ADP's study runtime increases so fast with the reference size
-that the study runtimes for the other methods seem to be constant in comparison (\Cref{fig:nChg}).
-On the other hand,
-the study runtimes appear to increase linearly with respect to the study size (\Cref{fig:mChg}).
-This information can be used to predict the runtime for larger study samples.
+For the simulation study,
+the PC scores predicted by AP, OADP, and ADP
+are very close to each other
+for every choice of reference sample size.
+Compared to their results,
+SP exhibits a strong shrinkage
+when the reference sample size is 1000.
+As we gradually increases the reference sample size to 3000
+by an increment of 500,
+the magnitude of the shrinkage decreases
+but is still visible.
+This is consistent with the theoretical result
+that the shrinkage bias decreases
+as the ratio of
+the reference sample dimension to the reference sample size
+decreases \citep{dey2016asymptotic}.
+
+For computational cost,
+we can see that the runtime for SP increases faster than linearly
+as the reference sample size increases.
+This is consistent
+with the theoretical computational complexity of SP,
+which expects the runtime to increase at the rate of $\bO[n^3]$.
+In comparison, the runtimes of SP, AP, and OADP
+increase only slightly.
+The theoretical computational complexity of SP and AP is $\bO[1]$
+and that of OADP is $\bO[n]$,
+when the data dimension and the study sample size are fixed.
 
 \subsection{UK Biobank data}
 
-When we used the global samples,
+When we used the global samples in the UK Biobank data,
 we found that the PC scores predicted by the four methods' are almost identical.
 The separation of the ethnic groups was clear,
 and the shrinkage bias of SP was not obvious,
@@ -529,7 +536,7 @@ which is consistent with the theoretical understanding
 that the shrinkage bias decreases
 as the signal-to-noise ratio increases.
 
-However, when we focus on the European (EUR) samples only,
+However, when we focused on the European (EUR) samples only,
 the results given by SP were clearly unreliable.
 The samples from British in England and Scotland (GBR)
 and those from Utah residents with northern and western European ancestry	(CEU)
@@ -607,41 +614,13 @@ to further improve the performance of our software.
 \newpage
 
 \appendix
-
-\section{Randomized SVD}\label{sec:randsvd}
-
-% In addition to estimating the PC scores of the study individuals,
-% we have another algorithm that aims at improving the decomposition of the
-% training data.
-% For SP, AP, ADP, and OADP, we need to find the covariance matrix of the training
-% data, which has dimension $n \times n$, and conduct eigendecomosition on it.
-% However, when $n$ is exceedingly large,
-% computation and memory cost of PCA on the reference samples can be enormous.
-% A randomized SVD (RSVD) algorithm has been developed to handle this issue.
-% When the reference sample size is small, RSVD can be slower than standard SVD,
-% but it is scalable to large sample size.
-% For the details of the RSVD algorithm, see \citet{halko2011finding}.
-
-% Notice that the randomized SVD method on the training data
-% only calculates the first $k$ eigenvalues.
-% However, in order to use adjusted projection,
-% all the eigenvalues of the training data are required.
-% Thus for the missing eigenvalues,
-% we predict them by regressing their log-scale values on the ranks
-% and using the first $k$ eigenvalues for training the linear regression.
-
-
-\newpage
-
 \bibliographystyle{plainnat}
 \bibliography{paper}
 
-
 \newpage
-
 \section{Tables and Figures}
 
-\begin{table} 
+\begin{table}[h]
   \centering
   \begin{tabular}{|l|l|l|}
     \hline
@@ -666,210 +645,151 @@ to further improve the performance of our software.
   \label{tbl:cplx}
 \end{table}
 
-\begin{table} 
-  \centering
-  \begin{tabular}{|l|l|l|l|l|}
-    \hline
-    Method & Reference Runtimes (n=2492) & Study Runtimes (m=1000)& Golden Standard Error \\ 
-    \hline
-    ADP & 411 & 29813 & 0.00 \\
-    \hline
-    OADP & 2518 & 103 & 0.40 \\
-    \hline
-    SP & 411 & 425 & 1.95 \\
-    \hline
-    AP & 411 & 482 & 1.12 \\
-    \hline
-  \end{tabular}
-  \caption{
-    Comparison of runtimes and accuracy for different methods applied to the real-life datasets.
-    The reference individuals are from the 1000 Genomes dataset with 2492 unrelated individuals.
-    The study sample contain 1000 individuals from the UKBioBank dataset.
-    There are about 125,000 loci shared by the reference and study data.
-    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADP.
-  }
-  \label{tbl:ukb}
-\end{table} 
 
-\begin{table}
+\begin{table}[h]
   \centering
   \begin{tabular}{|l|l|l|l|l|l|}
     \hline
     Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
     \hline
-    ADP        &  68  & 1263 & 2871 & 5720 & 9737 \\
-    OADP       &  72  & 18   & 19   & 22   & 24   \\
-    SP         &  68  & 26   & 42   & 67   & 96   \\
-    AP         &  68  & 69   & 107  & 91   & 119  \\
+    \multicolumn{6}{|c|}{Study Runtime} \\
+    \hline
+    SP         &  17  & 17   & 16   & 18   & 18   \\
+    AP         &  18  & 16   & 18  & 16   & 17  \\
+    OADP       &  145  & 146   & 147   & 148   & 149   \\
+    ADP        &  379  & 809 & 1526 & 2556 & 4062 \\
+    \hline
+    \multicolumn{6}{|c|}{Euclidean Error} \\
+    \hline
+    SP         &  188  & 139   & 112   & 91   & 84   \\
+    AP         &  31  & 27   & 12  & 11   & 14  \\
+    OADP       &  21  & 16   & 12   & 9   & 10   \\
+    ADP        &  0  & 0 & 0 & 0 & 0 \\
     \hline
   \end{tabular}
   \caption{
-    Reference runtimes for the simulated data as the reference size increases.
-    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
-    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
-  }
-  \label{tbl:nChg-runtimes-ref}
+    The runtimes and errors of the four methods
+    as the reference size increases.
+    Errors are measured as the Euclidean distance of
+    The number of variants is 100,000,
+    and the study sample size is 200.
+    Only the top 4 PCs are calculated.
+    The data is simulated by the GGS software \citep{mathieson2012differential}.
+    }
 \end{table}
 
-\begin{table}
+\begin{table}[h]
   \centering
-  \begin{tabular}{|l|l|l|l|l|l|}
+  \begin{tabular}{|r|r|r|r|r|}
     \hline
-    Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
+    Method & \multicolumn{2}{|c|}{Runtime} & \multicolumn{2}{|c|}{Error} \\
+    & Global & European & Global & European \\
     \hline
-    ADP        & 391  &  130 &  222 &  339 &  486 \\
-    OADP       & 15   &  136 &  230 &  350 &  499 \\
-    SP         & 16   &  130 &  222 &  339 &  486 \\
-    AP         & 34   &  130 &  222 &  339 &  486 \\
+    SP         &  62   & 48  &     & 450 \\ 
+    AP         &  65   & 48  &     & 33  \\
+    OADP       &  363  & 349 &     & 32  \\
+    ADP        &  6745 & 518 &     & 0   \\
     \hline
   \end{tabular}
   \caption{
-    Study runtimes for simulated data as the reference size increases.
-    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
-    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
-  }
-  \label{tbl:nChg-runtimes-study}
+    The study runtimes (in seconds) and erros for the four methods
+    for 500 randomly selected study samples
+    in the UK Biobank data.
+    Errors are measured as the Euclidean distance of
+    the PC scores predicted by each method
+    to those predicted by ADP.
+    The 2492 samples from the 1000 Genomes data
+    are used as the reference.
+    The number of variants in common is 145,282.
+    Only the top 4 PCs are calculated.
+    }
 \end{table}
 
-\begin{table}
+\begin{figure}[h]
   \centering
-  \begin{tabular}{|l|l|l|l|l|l|}
-    \hline
-    Study Size & 1000  & 1500 & 2000 & 2500 & 3000 \\
-    \hline
-    ADP        & 0.00  & 0.00 & 0.00 & 0.00 & 0.00 \\
-    OADP       & 0.23  & 0.15 & 0.11 & 0.08 & 0.07 \\
-    SP         & 6.00  & 4.34 & 3.43 & 2.75 & 2.34 \\
-    AP         & 0.46  & 0.37 & 0.31 & 0.26 & 0.22 \\
-    \hline
-  \end{tabular}
+  \includegraphics[width=0.98\textwidth]{img/ggsim_runtimes.png}
+  \includegraphics[width=0.98\textwidth]{img/ggsim_errors.png}
   \caption{
-    Golden standard error for the simulated data as the reference size increases.
-    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
-    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+    The runtimes (in seconds) and errors (Euclidean distance from ADP's PC scores) for the four methods
+    as the reference size increases.
+    The number of variants is 100,000,
+    and the study sample size is 200.
+    Only the top 4 PCs are calculated.
+    The data is simulated by the GGS software \citep{mathieson2012differential}.
   }
-  \label{tbl:nChg-accuracy-gold}
-\end{table}
-
-\begin{table}
-  \centering
-  \begin{tabular}{|l|l|l|l|l|l|}
-    \hline
-    Reference Size & 1000  & 1500 & 2000 & 2500 & 3000 \\
-    \hline
-    ADP        & 4.53  & 4.13 & 3.81 & 3.59 & 3.23 \\
-    OADP       & 4.43  & 4.06 & 3.77 & 3.55 & 3.20 \\
-    SP         & 5.79  & 4.51 & 3.89 & 3.56 & 3.19 \\
-    AP         & 4.59  & 4.10 & 3.76 & 3.57 & 3.24 \\
-    \hline
-  \end{tabular}
-  \caption{
-    Geographic center error for the simulated data as the reference size increases.
-    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
-    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
-  }
-  \label{tbl:nChg-accuracy-ctr}
-\end{table}
-
-\begin{table}
-  \centering
-  \begin{tabular}{|l|l|l|l|l|l|}
-    \hline
-    Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
-    \hline
-    ADP        & 507  & 758 & 1011 & 1262 & 1549 \\
-    OADP       &  73  & 108 &  156 &  189 &  282 \\
-    SP         &  44  &  64 &   84 &  103 &  131 \\
-    AP         &  66  &  81 &  100 &  117 &  146 \\
-    \hline
-  \end{tabular}
-  \caption{
-    Study runtimes for the simulated data as the study size increases.
-    The reference size is fixed to 600 and the number of SNPs is 100,000 (1000 per genealogy). 
-    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
-  }
-  \label{tbl:mChg-runtimes-study}
-\end{table}
-
-\begin{figure}[p]
-  \centering
-  \includegraphics[width=0.98\textwidth]{ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_sp}
-  \caption{EUR samples in UK Biobank data by SP}
 \end{figure}
 
-
-\begin{figure}[p]
+\begin{figure}[h]
   \centering
-  \includegraphics[width=0.98\textwidth]{ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_ap}
-  \caption{EUR samples in UK Biobank data by AP}
-\end{figure}
-
-
-\begin{figure}[p]
-  \centering
-  \includegraphics[width=0.98\textwidth]{ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_oadp}
-  \caption{EUR samples in UK Biobank data by oadp}
+  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_sp}
+  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_ap}
+  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_oadp}
+  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_adp}
+  \caption{PC scores of 500 randomly selected global samples in UK Biobank data (circles) predicted by the four methods with the global samples in the 1000 Genomes data (squares) as the reference.}
 \end{figure}
 
 \begin{figure}[p]
   \centering
-  \includegraphics[width=0.98\textwidth]{ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_adp}
-  \caption{EUR samples in UK Biobank data by adp}
+  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_sp}
+  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_ap}
+  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_oadp}
+  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_adp}
+  \caption{PC scores of the European in the 500 randomly selected global samples UK Biobank data (circles) predicted by the four methods with the European samples in the 1000 Genomes data (squares) as the reference.}
 \end{figure}
 
+\end{document}
 
 
+% \begin{figure}[p]
+%   \centering
+%   \includegraphics[width=0.98\textwidth]{n1000}
+%   \caption{
+%     Predicted PC scores on top of reference PC scores.
+%     The four populations in the $2 \times 2$ grid simulated by the GGS software can be clearly identified.
+%     Reference individuals are in color,
+%     while predicted PC scores for the study individuals are in gray.
+%     Two measurements of deviations (accuracy) are used.
+%     The reference center error is the square root of the average squared distance between the study individuals and the population centers, which are the means of the PC scores of the reference individuals by the populations.
+%     The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADP.
+%     The reference size is 1000 and the study size is 200.
+%     There are 100,000 loci (1000 per genealogy) and the migration rate is 100.
+%   }
+%   \label{fig:n1000}
+% \end{figure}
 
-\begin{figure}[p]
-  \centering
-  \includegraphics[width=0.98\textwidth]{n1000}
-  \caption{
-    Predicted PC scores on top of reference PC scores.
-    The four populations in the $2 \times 2$ grid simulated by the GGS software can be clearly identified.
-    Reference individuals are in color,
-    while predicted PC scores for the study individuals are in gray.
-    Two measurements of deviations (accuracy) are used.
-    The reference center error is the square root of the average squared distance between the study individuals and the population centers, which are the means of the PC scores of the reference individuals by the populations.
-    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADP.
-    The reference size is 1000 and the study size is 200.
-    There are 100,000 loci (1000 per genealogy) and the migration rate is 100.
-  }
-  \label{fig:n1000}
-\end{figure}
+% \begin{figure}[p]
+%   \centering
+%   \includegraphics[width=0.98\textwidth]{ukb}
+%   \caption{
+%     The reference individuals are from the 1000 Genomes dataset with 2492 unrelated individuals from 5 superpopulations: African, American, East Asian, European, and South Asian. 
+%     The study sample contain 1000 individuals from the UKBioBank dataset.
+%     There are about 125,000 loci shared by the reference and study data.
+%     The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADP.
+%   }
+%   \label{fig:ukb}
+% \end{figure}
 
-\begin{figure}[p]
-  \centering
-  \includegraphics[width=0.98\textwidth]{ukb}
-  \caption{
-    The reference individuals are from the 1000 Genomes dataset with 2492 unrelated individuals from 5 superpopulations: African, American, East Asian, European, and South Asian. 
-    The study sample contain 1000 individuals from the UKBioBank dataset.
-    There are about 125,000 loci shared by the reference and study data.
-    The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADP.
-  }
-  \label{fig:ukb}
-\end{figure}
+% \begin{figure}[p]
+%   \centering
+%   \includegraphics[width=0.98\textwidth]{img/nChg}
+%   \caption{
+%     Runtimes and deviations for different methods as the reference sample size increases.
+%     The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
+%     Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+%   }
+%   \label{fig:nChg}
+% \end{figure}
 
-\begin{figure}[p]
-  \centering
-  \includegraphics[width=0.98\textwidth]{nChg}
-  \caption{
-    Runtimes and deviations for different methods as the reference sample size increases.
-    The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
-    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
-  }
-  \label{fig:nChg}
-\end{figure}
-
-\begin{figure}[p]
-  \centering
-  \includegraphics[width=0.98\textwidth]{mChg}
-  \caption{
-    Runtimes and deviations for different methods as the study sample size increases.
-    The reference sample size is fixed to 600 and the number of SNPs is 100,000 (1000 per genealogy).
-    Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
-  }
-  \label{fig:mChg}
-\end{figure}
+% \begin{figure}[p]
+%   \centering
+%   \includegraphics[width=0.98\textwidth]{img/mChg}
+%   \caption{
+%     Runtimes and deviations for different methods as the study sample size increases.
+%     The reference sample size is fixed to 600 and the number of SNPs is 100,000 (1000 per genealogy).
+%     Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+%   }
+%   \label{fig:mChg}
+% \end{figure}
 
 % \includegraphics[width=0.98\textwidth]{runtimes_rand}
 
@@ -881,11 +801,152 @@ to further improve the performance of our software.
 
 % \includegraphics[width=0.98\textwidth]{kgn_allChr_ukb_orphans_ukb_1k_comb}
 
-\newpage
- 
 % \includegraphics[width=0.98\textwidth]{kgn_allChr_ukb_orphans_ukb_1k_rand}
 
-\newpage
+% \begin{table} 
+%   \centering
+%   \begin{tabular}{|l|l|l|l|l|}
+%     \hline
+%     Method & Reference Runtimes (n=2492) & Study Runtimes (m=1000)& Golden Standard Error \\ 
+%     \hline
+%     ADP & 411 & 29813 & 0.00 \\
+%     \hline
+%     OADP & 2518 & 103 & 0.40 \\
+%     \hline
+%     SP & 411 & 425 & 1.95 \\
+%     \hline
+%     AP & 411 & 482 & 1.12 \\
+%     \hline
+%   \end{tabular}
+%   \caption{
+%     Comparison of runtimes and accuracy for different methods applied to the real-life datasets.
+%     The reference individuals are from the 1000 Genomes dataset with 2492 unrelated individuals.
+%     The study sample contain 1000 individuals from the UKBioBank dataset.
+%     There are about 125,000 loci shared by the reference and study data.
+%     The golden standard error is the square root of the averate squared distance between the study individuals' PC scores predicted by different methods compared to the golden standard result, which in our case is the PC scores predicted by ADP.
+%   }
+%   \label{tbl:ukb}
+% \end{table} 
+
+% \begin{table}
+%   \centering
+%   \begin{tabular}{|l|l|l|l|l|l|}
+%     \hline
+%     Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
+%     \hline
+%     ADP        &  68  & 1263 & 2871 & 5720 & 9737 \\
+%     OADP       &  72  & 18   & 19   & 22   & 24   \\
+%     SP         &  68  & 26   & 42   & 67   & 96   \\
+%     AP         &  68  & 69   & 107  & 91   & 119  \\
+%     \hline
+%   \end{tabular}
+%   \caption{
+%     Reference runtimes for the simulated data as the reference size increases.
+%     The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
+%     Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+%   }
+%   \label{tbl:nChg-runtimes-ref}
+% \end{table}
+
+% \begin{table}
+%   \centering
+%   \begin{tabular}{|l|l|l|l|l|l|}
+%     \hline
+%     Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
+%     \hline
+%     ADP        & 391  &  130 &  222 &  339 &  486 \\
+%     OADP       & 15   &  136 &  230 &  350 &  499 \\
+%     SP         & 16   &  130 &  222 &  339 &  486 \\
+%     AP         & 34   &  130 &  222 &  339 &  486 \\
+%     \hline
+%   \end{tabular}
+%   \caption{
+%     Study runtimes for simulated data as the reference size increases.
+%     The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
+%     Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+%   }
+%   \label{tbl:nChg-runtimes-study}
+% \end{table}
+
+% \begin{table}
+%   \centering
+%   \begin{tabular}{|l|l|l|l|l|l|}
+%     \hline
+%     Study Size & 1000  & 1500 & 2000 & 2500 & 3000 \\
+%     \hline
+%     ADP        & 0.00  & 0.00 & 0.00 & 0.00 & 0.00 \\
+%     OADP       & 0.23  & 0.15 & 0.11 & 0.08 & 0.07 \\
+%     SP         & 6.00  & 4.34 & 3.43 & 2.75 & 2.34 \\
+%     AP         & 0.46  & 0.37 & 0.31 & 0.26 & 0.22 \\
+%     \hline
+%   \end{tabular}
+%   \caption{
+%     Golden standard error for the simulated data as the reference size increases.
+%     The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
+%     Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+%   }
+%   \label{tbl:nChg-accuracy-gold}
+% \end{table}
+
+% \begin{table}
+%   \centering
+%   \begin{tabular}{|l|l|l|l|l|l|}
+%     \hline
+%     Reference Size & 1000  & 1500 & 2000 & 2500 & 3000 \\
+%     \hline
+%     ADP        & 4.53  & 4.13 & 3.81 & 3.59 & 3.23 \\
+%     OADP       & 4.43  & 4.06 & 3.77 & 3.55 & 3.20 \\
+%     SP         & 5.79  & 4.51 & 3.89 & 3.56 & 3.19 \\
+%     AP         & 4.59  & 4.10 & 3.76 & 3.57 & 3.24 \\
+%     \hline
+%   \end{tabular}
+%   \caption{
+%     Geographic center error for the simulated data as the reference size increases.
+%     The study size is fixed to 200 and the number of SNPs is 100,000 (1000 per genealogy). 
+%     Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+%   }
+%   \label{tbl:nChg-accuracy-ctr}
+% \end{table}
+
+% \begin{table}
+%   \centering
+%   \begin{tabular}{|l|l|l|l|l|l|}
+%     \hline
+%     Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
+%     \hline
+%     ADP        & 507  & 758 & 1011 & 1262 & 1549 \\
+%     OADP       &  73  & 108 &  156 &  189 &  282 \\
+%     SP         &  44  &  64 &   84 &  103 &  131 \\
+%     AP         &  66  &  81 &  100 &  117 &  146 \\
+%     \hline
+%   \end{tabular}
+%   \caption{
+%     Study runtimes for the simulated data as the study size increases.
+%     The reference size is fixed to 600 and the number of SNPs is 100,000 (1000 per genealogy). 
+%     Simulation is done on a $2 \times 2$ grid with a migration rate of 100 by the GGS software. 
+%   }
+%   \label{tbl:mChg-runtimes-study}
+% \end{table}
 
 
-\end{document}
+% \section{Randomized SVD}\label{sec:randsvd}
+
+% In addition to estimating the PC scores of the study individuals,
+% we have another algorithm that aims at improving the decomposition of the
+% training data.
+% For SP, AP, ADP, and OADP, we need to find the covariance matrix of the training
+% data, which has dimension $n \times n$, and conduct eigendecomosition on it.
+% However, when $n$ is exceedingly large,
+% computation and memory cost of PCA on the reference samples can be enormous.
+% A randomized SVD (RSVD) algorithm has been developed to handle this issue.
+% When the reference sample size is small, RSVD can be slower than standard SVD,
+% but it is scalable to large sample size.
+% For the details of the RSVD algorithm, see \citet{halko2011finding}.
+
+% Notice that the randomized SVD method on the training data
+% only calculates the first $k$ eigenvalues.
+% However, in order to use adjusted projection,
+% all the eigenvalues of the training data are required.
+% Thus for the missing eigenvalues,
+% we predict them by regressing their log-scale values on the ranks
+% and using the first $k$ eigenvalues for training the linear regression.
