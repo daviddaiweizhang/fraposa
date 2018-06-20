@@ -43,7 +43,7 @@ NUM_CORES = mp.cpu_count()
 
 PLOT_ALPHA_REF=0.05
 PLOT_ALPHA_STU=0.40
-PLOT_MARKERS = ['.', '+', 'x', '*', 'd', 's']
+PLOT_MARKERS = ['.', '+', 'x', 'd', '*', 's']
 LOG_LEVEL = 'info'
 
 # DIM_SVDRAND = DIM_STU * 4
@@ -52,6 +52,22 @@ NP_OUTPUT_FMT = '%.4f'
 DELIMITER = '\t'
 # DIR_TMP = mkdtemp()
 DIR_TMP = 'tmp'
+
+# def pca_stu_io(
+#         i, stu_filepref_list, ref_filepref, path_tmp, method,
+#         X_mean, X_std, U, s, V, pcs_ref,
+#         dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
+#     stu_filepref = stu_filepref_list[i]
+#     W = read_bed(stu_filepref, bed_store='memory', dtype=np.int8)[0]
+#     pcs_stu = pca_stu(
+#         W, X_mean, X_std, method=method, path_tmp=path_tmp,
+#         U=U, s=s, V=V, pcs_ref=pcs_ref,
+#         dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
+#     ref_basepref = os.path.basename(ref_filepref)
+#     out_filepref = stu_filepref + '_sturef_' + ref_basepref
+#     pcs_stu_filename = out_filepref + '_stu_' + method +'.pcs'
+#     np.savetxt(pcs_stu_filename, pcs_stu, fmt=NP_OUTPUT_FMT, delimiter='\t')
+#     return pcs_stu
 
 
 # def split_bed_indiv(filepref, chunklevel):
@@ -183,6 +199,25 @@ def procrustes(Y_mat, X_mat, return_transformed=False):
         return R, rho, c, X_new
     else:
         return R, rho, c
+
+def geocenter_coordinate(X, X_ctr):
+    p = X.shape[1]
+    X_ctr_unique = np.unique(X_ctr)
+    X_ctr_unique_n = len(X_ctr_unique)
+    X_ctr_unique_coord = np.zeros((X_ctr_unique_n, p))
+    for i,ctr in enumerate(X_ctr_unique):
+        X_ctr_unique_coord[i] = np.mean(X[X_ctr == ctr], axis=0)
+    X_ctr_coord_dic = {X_ctr_unique[i] : X_ctr_unique_coord[i] for i in range(X_ctr_unique_n)}
+    return X_ctr_coord_dic
+
+def geocenter_similarity(Y, Y_ctr, X, X_ctr):
+    assert X.shape[1] == Y.shape[1]
+    X_ctr_coord_dic = geocenter_coordinate(X, X_ctr)
+    Y_ctr_coord_dic = geocenter_coordinate(Y, Y_ctr)
+    dist = 0
+    for ctr in Y_ctr_coord_dic:
+        dist += np.sum((Y_ctr_coord_dic[ctr] - X_ctr_coord_dic[ctr])**2)
+    return dist
 
 def procrustes_similarity(Y_mat, X_mat):
     X = np.array(X_mat, dtype=np.double, copy=True)
@@ -449,7 +484,7 @@ def adj_hdpc_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX
         U[:, i] /= shrinkage[i] # TODO: Adjust angles too?
 
 
-def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref, markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU, plot_lim=None, plot_dim=float('inf')):
+def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref, markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU, plot_lim=None, plot_dim=float('inf'), plot_size=None, plot_title=None, plot_color_stu=None, plot_legend=True, plot_centers=False):
     if type(pcs_stu_list) is not list:
         pcs_stu_list = [pcs_stu_list]
     if type(popu_stu_list) is not list:
@@ -469,12 +504,24 @@ def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pr
         plt.ylabel('PC' + str(j*2+2))
         for i,popu in enumerate(popu_unique):
             ref_is_this_popu = popu_ref == popu
-            plt.scatter(pcs_ref[ref_is_this_popu, j*2], pcs_ref[ref_is_this_popu, j*2+1], marker=markers[-1], alpha=alpha_ref, color=plot_colors_unique[i], label=str(popu))
+            pcs_ref_this_popu = pcs_ref[ref_is_this_popu, (j*2):(j*2+2)]
+            plot_color_this = plot_colors_unique[i]
+            if plot_centers:
+                label = None
+            else:
+                label = str(popu)
+            plt.scatter(pcs_ref_this_popu[:,0], pcs_ref_this_popu[:,1], marker=markers[-1], alpha=alpha_ref, color=plot_color_this, label=label)
+            if plot_centers:
+                pcs_ref_this_popu_mean = np.mean(pcs_ref_this_popu, axis=0)
+                plt.scatter(pcs_ref_this_popu_mean[0], pcs_ref_this_popu_mean[1], marker=markers[-2], color=plot_color_this, edgecolor='xkcd:grey', s=300, label=str(popu))
         if len(pcs_stu_list) > 0:
             for k,pcs_stu in enumerate(pcs_stu_list):
                 popu_stu = popu_stu_list[k]
                 method = method_list[k]
-                plot_colors_stu = np.array([plot_colors_unique[popu_unique.index(popu_this)] for popu_this in popu_stu], dtype=np.object)
+                if plot_color_stu is None:
+                    plot_color_stu_list = np.array([plot_colors_unique[popu_unique.index(popu_this)] for popu_this in popu_stu], dtype=np.object)
+                else:
+                    plot_color_stu_list = np.array([plot_color_stu] * pcs_stu.shape[0], dtype=np.object)
                 a = 5
                 for i in range(a):
                     if i == 0:
@@ -484,33 +531,28 @@ def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pr
                     indiv_shuffled_this = np.arange(pcs_stu.shape[0]) % a == i
                     plt.scatter(pcs_stu[indiv_shuffled_this, j*2],
                                 pcs_stu[indiv_shuffled_this, j*2+1],
-                                color=plot_colors_stu[indiv_shuffled_this],
+                                color=plot_color_stu_list[indiv_shuffled_this],
                                 marker=markers[k], alpha=alpha_stu, label=label)
+                if plot_centers:
+                    for i,popu in enumerate(popu_unique):
+                        stu_is_this_popu = popu_stu == popu
+                        pcs_stu_this_popu = pcs_stu[stu_is_this_popu, (j*2):(j*2+2)]
+                        pcs_stu_this_popu_mean = np.mean(pcs_stu_this_popu, axis=0)
+                        plt.scatter(pcs_stu_this_popu_mean[0], pcs_stu_this_popu_mean[1], marker=markers[-2], color='xkcd:grey', s=100)
         if plot_lim is not None:
             plt.xlim(plot_lim[:,j*2])
             plt.ylim(plot_lim[:,j*2+1])
-    plt.legend()
+    if plot_legend:
+        plt.legend()
+    if plot_title is not None:
+        plt.title(str(method)+' '+plot_title, fontsize=30)
     plt.tight_layout()
+    if plot_size is not None:
+        fig.set_size_inches(plot_size)
     fig_filename = out_pref+'_'.join([''] + method_list)+'.png'
     plt.savefig(fig_filename, dpi=300)
     plt.close('all')
     logging.info('PC plots saved to ' + fig_filename)
-
-def pca_stu_io(
-        i, stu_filepref_list, ref_filepref, path_tmp, method,
-        X_mean, X_std, U, s, V, pcs_ref,
-        dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
-    stu_filepref = stu_filepref_list[i]
-    W = read_bed(stu_filepref, bed_store='memory', dtype=np.int8)[0]
-    pcs_stu = pca_stu(
-        W, X_mean, X_std, method=method, path_tmp=path_tmp,
-        U=U, s=s, V=V, pcs_ref=pcs_ref,
-        dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
-    ref_basepref = os.path.basename(ref_filepref)
-    out_filepref = stu_filepref + '_sturef_' + ref_basepref
-    pcs_stu_filename = out_filepref + '_stu_' + method +'.pcs'
-    np.savetxt(pcs_stu_filename, pcs_stu, fmt=NP_OUTPUT_FMT, delimiter='\t')
-    return pcs_stu
 
 
 def pca_stu(W, X_mean, X_std, method, path_tmp,

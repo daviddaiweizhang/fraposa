@@ -12,10 +12,10 @@ print('Number of cores: ' + str(NUM_CORES))
 # fpt.convert_ggsim(4)
 # for i in range(5):
 #     fpt.test_pca_ggsim(i)
-# fpt.test_merge_array_results()
 # fpt.test_split_bed_indiv()
 
 
-fpt.test_pca_ggsim()
+# fpt.test_pca_ggsim()
 # fpt.test_pca_5c()
 # fpt.test_pca_5c_EUR()
+fpt.test_merge_array_results()
