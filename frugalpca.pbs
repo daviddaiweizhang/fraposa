@@ -1,14 +1,14 @@
 #!/bin/bash
 ####  PBS preamble
 
-#PBS -N fpt.5c
-#PBS -l nodes=1:ppn=1,mem=4,walltime=01:00:00
-# use this for array: #PBS -t 0-4
+#PBS -N fp.5c.EUR
+#PBS -l nodes=1:ppn=1,mem=4gb,walltime=00:20:00
+#### #PBS -t 0-99
 
 #PBS -M daiweiz@umich.edu
 #PBS -j oe
-#PBS -o log/
-#PBS -e log/
+#PBS -o logs/
+#PBS -e logs/
 #PBS -m abe
 #PBS -V
 #PBS -A leeshawn_fluxod
@@ -16,20 +16,38 @@
 #PBS -l qos=flux
 ####  End PBS preamble
 
+
+set -e
+# Print system info
 #  Change to the directory you submitted from
 if [ -n "$PBS_O_WORKDIR" ]; then cd $PBS_O_WORKDIR; fi
-
 #  Show list of CPUs you ran on, if you're running under PBS
 if [ -n "$PBS_NODEFILE" ]; then cat $PBS_NODEFILE; fi
-
 # Print job and array ids
 echo $PBS_JOBID
 echo $PBS_ARRAYID
-id="${PBS_JOBID:0:8}"
+jobid="${PBS_JOBID:0:8}"
+# module load R mkl/11.3.3 gcc/5.4.0 armadillo plink
+
+# PBS_ARRAYID=16
+
+# #  Put your job commands here:
+# method=ap
+# pref_ref=../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR
+# pref_stu=../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR
+# n_chunks=100
+# i=$PBS_ARRAYID
+# date
+# python -c "import frugalpca_tests as fpt; fpt.test_pca_array('${pref_ref}', '${pref_stu}', '${method}', ${n_chunks}, ${i})"
+# date
 
 #  Put your job commands here:
+# python -c "import frugalpca_tests as fpt; fpt.test_pca_5c()"
+python -c "import frugalpca_tests as fpt; fpt.test_pca_5c_EUR()"
+# python -c "import frugalpca_tests as fpt; fpt.test_pca_ggsim()"
 
-date
-# module load R mkl/11.3.3 gcc/5.4.0 armadillo plink
-python -c "import frugalpca_tests as fpt; fpt.test_pca_ggsim()"
-date
+# #  Put your job commands here:
+# pref_ref=../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR
+# pref_stu=../data/ukb_snpscap_kgn_bial_orphans_pred_EUR_chunksize5000/ukb_snpscap_kgn_bial_orphans_pred_EUR_chunksize5000_`printf "%04d" ${i}`
+# method=oadp
+# python -c "import frugalpca as fp; fp.run_pca('${pref_ref}', '${pref_stu}', '${method}')"
