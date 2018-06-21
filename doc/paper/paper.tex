@@ -18,10 +18,13 @@
 \newcommand{\ostu}{\operatorname{stu}}
 \newcommand{\oref}{\operatorname{ref}}
 \newcommand{\argmin}[1]{\underset{#1}{\operatorname{arg\;min}}\;}
-\newcommand{\todo}[1]{{\color{red} (#1)}}
+\newcommand{\todo}[1]{{\color{red} (TODO: #1)}}
 
-\title{Computational Methods for Principle Component Analysis Applied to
-  Genotype Data}
+\title{
+  Fast and robust ancestry inference
+  using principal component analysis
+}
+\author{Daiwei Zhang, Rounak Dey, Seunggeun Lee}
 \date{}
 
 \begin{document}
@@ -32,7 +35,7 @@
     
  Population stratification (PS) is a major confounder in genome-wide association studies (GWAS) and can lead to false positive associations. To adjust for PS, principal component analysis (PCA)-based ancestry prediction has been widely used. This approach first performs PCA on the reference samples with detailed ancestry information and then uses the reference sample PCA results to predict the PC scores of the study samples. Simple Projection (SP) and Augmentation-Decomposition-Transformation (ADP), such as LASER and TRACE, are popular methods for predicting PC scores. However, they are either biased or computationally expensive. For example, the predicted PC scores from SP can be biased toward NULL. On the other hand, since ADP requires running PCA separately for each study sample on the augmented dataset, its computational cost is high.
 
-To address these problems, we propose two alternative approaches, Adjusted Projection (AP) and Online ADP (OADP), implemented in the genoPCA software. Using random matrix theory results, AP asymptotically estimates and adjusts for the bias of SP. Moreover, OADP uses online singular value decomposition, which can greatly reduce the computation cost of ADP. We carried out extensive simulation studies to show that these alternative approaches are unbiased and that the computation times are 10-100 times faster than ADP when 2000 reference samples are used. We also applied our approaches to 500,000 study samples from the UK biobank data with 2,500 samples from the 1000 Genomes data as the reference. AP and OADP required 16 and 92 CPU hours, respectively, while the projected computation time of ADP is 1,933 CPU hours. Furthermore, when we only used the European reference samples in the 1000 Genomes to infer sub-European ancestry, SP clearly showed bias, unlike the proposed approaches. By using AP and OADP, we can infer ancestry and adjust for PS in GWAS robustly and efficiently   
+To address these problems, we propose two alternative approaches, Adjusted Projection (AP) and Online ADP (OADP), implemented in the genoPCA software. Using random matrix theory results, AP asymptotically estimates and adjusts for the bias of SP. Moreover, OADP uses online singular value decomposition, which can greatly reduce the computation cost of ADP. We carried out extensive simulation studies to show that these alternative approaches are unbiased and that the computation times are 10-100 times faster than ADP when 2000 reference samples are used. We also applied our approaches to 500,000 study samples from the UK biobank data with 2,500 samples from the 1000 Genomes data as the reference. AP and OADP required 16 and 90 CPU hours, respectively, while the projected computation time of ADP is 1,828 CPU hours. Furthermore, when we only used the European reference samples in the 1000 Genomes to infer sub-European ancestry, SP clearly showed bias, unlike the proposed approaches. By using AP and OADP, we can infer ancestry and adjust for PS in GWAS robustly and efficiently   
     
 \end{abstract}
 
@@ -336,8 +339,8 @@ The total computational complexity is
 $\bO[pn^2 + m(np + n^3)]$
 given that $lk \ll n \ll p$.
 
-ADP is regarded as the most accurate method for predicting study PC scores.
-It is does not have SP's shrinkage bias.
+ADP is regarded as the most accurate method for predicting study PC scores \todo{Find citation}.
+It does not have SP's shrinkage bias.
 However, the major disadvantage of ADP
 is its high computational complexity.
 In particular,
@@ -371,49 +374,50 @@ The algorithm for this method is as follows:
 \begin{enumerate}
 \item Compute $X^T X$.
   (Computational complexity: $\bO[n^2p]$.)  
-\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$.
+\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$,
+  where $D$ and $V$ only need their first $k$ columns.
   ($\bO[n^3]$.)
-\item Calculate $U_3 = X V_3 D_3^{-1}$,
-  where $V_3$ is the first $k_3$ columns of $V$,
-  and $D_3$ is the diagonal matrix of the first $k_3$ diagonal entries of $D$.
-  ($\bO[k_3 n p]$.)
+\item Calculate $U = X V D^{-1}$ but for the first $k$ columns only.
+  ($\bO[k n p]$.)
 \item Calculate 
   \[
-    L = U_3^T y \quad \text{and} \quad K = y^T H,
+    L = U^T y \quad \text{and} \quad K = y^T H,
   \]
-  where $H$ is the normalized  $y - U_3L$
-  ($\bO[k_3 p]$.)
+  where $H$ is the normalized  $y - UL$
+  ($\bO[k p]$.)
 \item Calculate $Q^T Q$, where
   \[
     Q = 
     \begin{bmatrix}
-      D_3 & L \\
+      D & L \\
       0 & K
     \end{bmatrix}.
   \]
-  ($\bO[k_3^3]$.)
-\item Apply eigendecomosition to $Q^T Q$ to get $Q^T Q = \ddot{V}_3 \ddot{D}^2_3 \ddot{V}^T_3$.
-  ($\bO[k_3^3]$.)
+  ($\bO[k^3]$.)
+\item Apply eigendecomosition to $Q^T Q$ to get $Q^T Q = \ddot{V} \ddot{D}^2 \ddot{V}^T$.
+  ($\bO[k^3]$.)
 \item Calculate
   \[
-    \tilde{V}_3 =
+    \tilde{V} =
     \begin{bmatrix}
-      V_3 & 0 \\
+      V & 0 \\
       0 & 1
     \end{bmatrix}
-    \ddot{V}_3.
+    \ddot{V}.
   \]
-  ($\bO[nk_3^2]$.)
-\item Project the first $k_2$ columns of $\tilde{V}_3$ to the first $k_1$ columns of $V$ by using Procrustes analysis to get the transformed PC scores of the study individual,
-  where $k_1 < k_2  < k_3 \ll n$.
-  (Computational complexity is ignorable if $k_2$ is not large compared to $n$.)
+  ($\bO[nk^2]$.)
+\item Transform the first $k_2$ columns of $\tilde{V}$ to the first $k_1$ columns of $V$ by using Procrustes analysis to get the transformed PC scores of the study individual,
+  where $k_1 < k_2  < k \ll n$.
+  (Computational complexity is negligible if $k_2$ is small compared to $n$.)
   \item Go to step 4 for the next study individual.
 \end{enumerate}
 
-Total computational complexity: $\bO[n^2p + n^3 + k_3np + m(k_3p + k_3^3 + nk_3^2]) \approx \bO[n^2p + m(k_3p + k_3^2n)]$, provided $k_3 \ll n \ll p$.
-
-The computational complexity of OADP for the study individuals increases linearly with respect to the reference sample size, which makes the computation time of OADP close to those of SP.
-The closeness between the results given by OADP and ADP will be empirically shown later.
+The total computational complexity is $\bO[n^2p + m(kp + k^2n)]$
+provided $k \ll n \ll p$.
+The computational complexity of OADP for the study individuals increases linearly with respect to the reference sample size,
+which is much more efficient than ADP's cubic increasing rate.
+The closeness between the results given by OADP and ADP
+will be empirically shown in \Cref{sec:results}.
 
 A comparison of computational complexities of the four PCA methods are shown in \Cref{tbl:cplx}.
 
@@ -459,7 +463,11 @@ For the comparison of computational cost,
 we recorded each method's runtime for analyzing the study samples.
 (The runtime for PCA on the reference samples
 and for reading or writing files are not included.)
-All the methods were run on a single CPU core.
+We used our genoPCA software,
+which implemented SP, AP, and OADP in Python.
+and TRACE by \citet{wang2015improved},
+which implemented ADP in C++.
+All the programs were run on a single CPU core.
 
 \subsection{UK Biobank data analysis}
 
@@ -487,14 +495,14 @@ The same measurements for accuracy and computational cost
 from the simulation study
 was applied here.
 
-\section{Results}
+\section{Results}\label{sec:results}.
 
 \subsection{Simulation studies}
 
 For the simulation study,
 the PC scores predicted by AP, OADP, and ADP
 are very close to each other
-for every choice of reference sample size.
+for every choice of reference sample size (\Cref{fig:ggsim}).
 Compared to their results,
 SP exhibits a strong shrinkage
 when the reference sample size is 1000.
@@ -509,7 +517,7 @@ the reference sample dimension to the reference sample size
 decreases \citep{dey2016asymptotic}.
 
 The accuracy of the four methods were compared
-by using their ADP errors and center errors.
+by using their ADP errors and center errors (\Cref{tbl:ggsim}).
 Compared to SP,
 the other three methods' errors are very small
 and close to each other.
@@ -521,14 +529,14 @@ As the reference size increased,
 the errors of all the four methods decreased.
 SP exhibited the fastest decrease in both errors,
 and the four methods' difference in accuracy
-became smaller and smaller.
+became smaller and smaller (\Cref{fig:ggsim_trend}).
 
-For computational cost,
+For computational cost (\Cref{tbl:ggsim}),
 we observed that the runtime for ADP increases faster than linearly
 as the reference sample size increases.
 This is consistent
 with the theoretical computational complexity of ADP,
-which expects the runtime to increase at the rate of $\bO[n^3]$.
+which expects the runtime to increase at the rate of $\bO[n^3]$ (\Cref{tbl:cplx}).
 When the reference sample size reached 3000,
 ADP's runtime was 27 times of OADP's
 and 225 times of SP's and AP's.
@@ -542,7 +550,7 @@ Their runtimes were approximately only one-eighth of OADP's.
 
 When we used the 500 randomly selected global samples
 in the UK Biobank data,
-we found that the PC scores predicted by the four methods' are almost identical.
+we found that the PC scores predicted by the four methods' are almost identical (\Cref{fig:ukb_500}).
 The separation of the ethnic groups was clear,
 and the shrinkage bias of SP was not obvious,
 which is consistent with the theoretical understanding
@@ -552,7 +560,7 @@ as the signal-to-noise ratio increases \todo{Find citation}.
 However, when we focused on the European (EUR) samples
 among these 500 UK Biobank samples,
 (of which there are 475 many,)
-the results given by SP were clearly inaccurate.
+the results given by SP were clearly inaccurate (\Cref{fig:ukb_500_eur}).
 The samples from British in England and Scotland (GBR)
 and those from Utah residents with northern and western European ancestry	(CEU)
 drifted very close to NULL.
@@ -569,12 +577,6 @@ are approximately in the middle
 between the TSI reference samples and NULL.
 Thus most of the the study samples predicted by ADP to be TSI
 were classified by SP as IBS.
-The same patterns for the accuracy
-of SP, AP, and OADP
-discussed above
-were observed
-when we used all the 488,000 study samples in the UK Biobank dataset
-and those predicted to be Europeans among them.
 
 For AP and OADP, their predicted PC1 and PC2 scores
 for the European study samples
@@ -592,9 +594,14 @@ in the PC scores for these two groups' study samples
 could easily change the classification from one group to the other.
 This is a problem inherent to the population structure
 and is not caused by the limitations of our methods.
+The patterns discussed above
+were still observed
+when we used all the 488,000 study samples in the UK Biobank dataset
+and those predicted to be Europeans among them (\Cref{fig:ukb,fig:ukb_eur}).
+
 
 Just as in the simulation study,
-SP's errors were the greatest.
+SP's errors were the greatest (\Cref{tbl:ukb}).
 Its ADP error
 was twice of SP's and 9 times of OADP's for the global samples,
 and 14 times of SP's and OADP's for the European samples.
@@ -611,7 +618,7 @@ ADP's runtime was 1.5 times of OADP's and 10 times of AP's and SP's
 when only the European samples
 of the 500 random global study samples
 and the 498 European reference samples of the 1000 Genomes data
-were used.
+were used (\Cref{tbl:ukb}).
 This difference increased to 18 times, 103 times, and 108 times
 when we studied the all the 500 random global samples
 with all the 2492 1000 Genomes reference samples.
@@ -623,17 +630,46 @@ which makes ADP very computational costly to use in practice.
 
 \section{Discussion}
 
+From the simulation study and the study on the UK Biobank data,
+we see that AP and OADP have achieved the accuracy of ADP
+and the computational efficiency of SP.
+The advantage of AP's and OADP's accuracy
+is the most clear
+when the ratio of the reference sample size
+to the number of features is low
+or the signal-to-noise ratio is low.
+On the other hand,
+the advantage of AP's and OADP's computational efficiency
+is the most observable when the reference sample size is large.
+After the comparison of the four methods,
+we conclude that for a very small reference size,
+SP is unreliable since the shrinkage would be great,
+and ADP is a decent method to use
+because its computational inefficiency is negligible,
+but AP and OADP would still be much faster than ADP
+and their accuracy would be very close to ADP's.
+As the reference sample size increases
+(with respect to the number of variants),
+all the four methods' accuracy converge together,
+and SP becomes more and more accurate,
+although for genotype data,
+due to its high dimensions,
+the reference size must be extremely large
+in order for SP to achieve an accuracy
+that is at the same level as the other three methods.
+Therefore, for the sample sizes
+of the data sets that we have currently,
+OADP and SP are the most robust and fast methods
+for ancestry inference by PCA.
+
 For the future, we would like
-to improve the parallelization of our software.
-Currently it uses the poor-man’s parallelism,
-that is,
-dividing the study dataset into multiple smaller files on the hard drive,
-applying the analysis to each of them,
-and merge the results.
-This parallelism saves both the memory usage and the runtime.
-However, we would like to utilize
-more sophisticated parallel computation techniques
-to further improve the performance of our software.
+to improve the parallelism of our genoPCA software.
+We are also interested in applying randomized SVD algorithms
+such as the one by \citet{halko2011finding}
+for PCA on the reference data,
+since as the reference sample size becomes larger and larger,
+it becomes impractical to load such a large matrix into memory
+to compute its SVD or ED.
 
 \newpage
 
@@ -752,6 +788,7 @@ to further improve the performance of our software.
   and the study sample size is 200.
   Only the top 4 PCs are calculated.
   The data is simulated by the GGS software \citep{mathieson2012differential}.
+  \label{fig:ggsim}
 }
 \end{figure}
 
@@ -786,7 +823,7 @@ to further improve the performance of our software.
     \hline
     Reference Size & 1000 & 1500 & 2000 & 2500 & 3000 \\
     \hline
-    \multicolumn{6}{|c|}{Study Runtime} \\
+    \multicolumn{6}{|c|}{Runtime (sec)} \\
     \hline
     SP         &  17  & 17   & 16   & 18   & 18   \\
     AP         &  18  & 16   & 18  & 16   & 17  \\
@@ -809,7 +846,7 @@ to further improve the performance of our software.
     \hline
   \end{tabular}
   \caption{
-    The runtimes and errors of the four methods
+    The study runtimes and errors of the four methods
     as the reference size increases.
     Runtimes are measured in seconds.
     Errors (ADP) are the Euclidean distances from
@@ -823,6 +860,7 @@ to further improve the performance of our software.
     Only the top 4 PCs are calculated.
     The data is simulated by the GGS software \citep{mathieson2012differential}.
     }
+    \label{tbl:ggsim}
 \end{table}
 
 \begin{figure}[h]
@@ -845,6 +883,7 @@ to further improve the performance of our software.
     and the study sample size is 200.
     Only the top 4 PCs are calculated.
     The data is simulated by the GGS software \citep{mathieson2012differential}.
+    \label{fig:ggsim_trend}
   }
 \end{figure}
 
@@ -884,6 +923,7 @@ to further improve the performance of our software.
     Only the top 4 PCs are calculated.
     *Estimated from the runtime of ADP for the 500 global samples.
     }
+    \label{tbl:ukb}
 \end{table}
 
 \begin{figure}[p]
@@ -893,6 +933,7 @@ to further improve the performance of our software.
   \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_oadp}
   \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_adp}
   \caption{PC scores of 500 randomly selected global samples in UK Biobank data (circles) predicted by the four methods with the global samples in the 1000 Genomes data (squares) as the reference.}
+  \label{fig:ukb_500}
 \end{figure}
 
 \begin{figure}[p]
@@ -902,6 +943,7 @@ to further improve the performance of our software.
   \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_oadp}
   \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_adp}
   \caption{PC scores of the European in the 500 randomly selected global samples UK Biobank data (circles) predicted by the four methods with the European samples in the 1000 Genomes data (squares) as the reference.}
+  \label{fig:ukb_500_eur}
 \end{figure}
 
 \begin{figure}[p]
@@ -910,6 +952,7 @@ to further improve the performance of our software.
   \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_nchunks100_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_ap.png}
   \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_nchunks100_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_oadp.png}
   \caption{All the 488366 samples in the UK Biobank data.}
+  \label{fig:ukb}
 \end{figure}
 
 \begin{figure}[p]
@@ -918,6 +961,7 @@ to further improve the performance of our software.
   \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_ap.png}
   \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_oadp.png}
   \caption{All the 462284 European samples in the UK Biobank data.}
+  \label{fig:ukb_eur}
 \end{figure}
 
 
