@@ -550,7 +550,7 @@ def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pr
     if plot_size is not None:
         fig.set_size_inches(plot_size)
     fig_filename = out_pref+'_'.join([''] + method_list)+'.png'
-    plt.savefig(fig_filename, dpi=300)
+    plt.savefig(fig_filename, dpi=75)
     plt.close('all')
     logging.info('PC plots saved to ' + fig_filename)
 
