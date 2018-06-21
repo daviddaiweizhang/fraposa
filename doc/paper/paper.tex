@@ -33,9 +33,9 @@
 
 \begin{abstract}
     
- Population stratification (PS) is a major confounder in genome-wide association studies (GWAS) and can lead to false positive associations. To adjust for PS, principal component analysis (PCA)-based ancestry prediction has been widely used. This approach first performs PCA on the reference samples with detailed ancestry information and then uses the reference sample PCA results to predict the PC scores of the study samples. Simple Projection (SP) and Augmentation-Decomposition-Transformation (ADP), such as LASER and TRACE, are popular methods for predicting PC scores. However, they are either biased or computationally expensive. For example, the predicted PC scores from SP can be biased toward NULL. On the other hand, since ADP requires running PCA separately for each study sample on the augmented dataset, its computational cost is high.
+ Population stratification (PS) is a major confounder in genome-wide association studies (GWAS) and can lead to false positive associations. To adjust for PS, principal component analysis (PCA)-based ancestry prediction has been widely used. This approach first performs PCA on the reference samples with detailed ancestry information and then uses the reference sample PCA results to predict the PC scores of the study samples. Simple Projection (SP) and Augmentation-Decomposition-Transformation (ADP), such as LASER and TRACE, are popular methods for predicting PC scores. However, they are either biased or computationally expensive. For example, the predicted PC scores from SP can be biased toward NULL. On the other hand, since ADP requires running PCA separately for each study sample on the augmented data set, its computational cost is high.
 
-To address these problems, we propose two alternative approaches, Adjusted Projection (AP) and Online ADP (OADP), implemented in the genoPCA software. Using random matrix theory results, AP asymptotically estimates and adjusts for the bias of SP. Moreover, OADP uses online singular value decomposition, which can greatly reduce the computation cost of ADP. We carried out extensive simulation studies to show that these alternative approaches are unbiased and that the computation times are 10-100 times faster than ADP when 2000 reference samples are used. We also applied our approaches to 500,000 study samples from the UK biobank data with 2,500 samples from the 1000 Genomes data as the reference. AP and OADP required 16 and 90 CPU hours, respectively, while the projected computation time of ADP is 1,828 CPU hours. Furthermore, when we only used the European reference samples in the 1000 Genomes to infer sub-European ancestry, SP clearly showed bias, unlike the proposed approaches. By using AP and OADP, we can infer ancestry and adjust for PS in GWAS robustly and efficiently   
+To address these problems, we propose two alternative approaches, Adjusted Projection (AP) and Online ADP (OADP), implemented in the genoPCA software. Using random matrix theory results, AP asymptotically estimates and adjusts for the bias of SP. Moreover, OADP uses online singular value decomposition, which can greatly reduce the computation cost of ADP. We carried out extensive simulation studies to show that these alternative approaches are unbiased and that the computation times are 10-100 times faster than ADP when 2000 reference samples are used. We also applied our approaches to 500,000 study samples from the UK Biobank data with 2,500 samples from the 1000 Genomes data as the reference. AP and OADP required 16 and 90 CPU hours, respectively, while the projected computation time of ADP is 1,828 CPU hours. Furthermore, when we only used the European reference samples in the 1000 Genomes to infer sub-European ancestry, SP clearly showed bias, unlike the proposed approaches. By using AP and OADP, we can infer ancestry and adjust for PS in GWAS robustly and efficiently   
     
 \end{abstract}
 
@@ -56,7 +56,7 @@ An alternative approach for doing PCA is
 predicting the PC scores of the study samples
 by using some reference genotyped samples with detailed ancestry information.
 This prediction-based approach allows not only adjustment for PS
-but also infererence of the ancestry memberships of the study samples. 
+but also inference of the ancestry memberships of the study samples. 
 
 The standard way of predicting PC scores is to find the PC loadings of the reference samples and project the study samples onto them.
 We call this method simple projection (SP).
@@ -201,7 +201,7 @@ given that $k \ll n \ll p$.
 The computational complexity for each study sample is $\bO[pk]$,
 which is the lowest among all the methods discussed in this paper.
 However, though computationally efficient,
-a major disadvantae of SP is the loss of accuracy when the number of features $p$ greatly exceeds the reference sample size $n$,
+a major disadvantage of SP is the loss of accuracy when the number of features $p$ greatly exceeds the reference sample size $n$,
 a situation that is not uncommon for genotype data.
 \citet{dey2016asymptotic} have shown that when $n \ll p$,
 especially when the signals in the reference samples are not strong,
@@ -248,12 +248,11 @@ Thus the adjustment for the shrinkage bias in AP
 does not increase the computational complexity of SP
 (though it does slightly increase the empirical runtimes).
 A minor disadvantage of AP is that
-while the computatinal complexity and memory usage of SP
+while the computational complexity and memory usage of SP
 can be further reduced
 by using some truncated SVD algorithm
 (such as the randomized SVD algorithm
 by \citet{halko2011finding}
-as discussed in \cref{sec:randsvd})
 to compute the SVD for only the top $k$ PCs of the reference matrix,
 AP requires all the eigenvalues
 and thus a full SVD or EGD of the reference matrix.
@@ -328,7 +327,7 @@ The algorithm is summarized as follows.
   (CC: $\bO[pn]$.)
 \item Apply EGD to $\tilde{X}^T \tilde{X}$ to get $\tilde{X}^T \tilde{X} = \tilde{V} \tilde{D}^2 \tilde{V}^T$.
   (CC: $\bO[n^3]$.)
-\item Find the Procrutes transformation
+\item Find the Procrustes transformation
 from the first $lk$ columns of $\tilde{V}$
 to the first $k$ columns of $V$.
   (CC: $\bO[nk^2]$)
@@ -346,7 +345,7 @@ is its high computational complexity.
 In particular,
 as the reference size increases,
 the computational cost for a study sample
-increases cubically.
+increases cubicly.
 Fortunately, this disadvantage can be mitigated by taking some computational shortcuts,
 as in the OADP method.
 
@@ -374,7 +373,7 @@ The algorithm for this method is as follows:
 \begin{enumerate}
 \item Compute $X^T X$.
   (Computational complexity: $\bO[n^2p]$.)  
-\item Apply eigendecomposition to $X^T X$ to get $X^T X = V D^2 V^T$,
+\item Apply EGD to $X^T X$ to get $X^T X = V D^2 V^T$,
   where $D$ and $V$ only need their first $k$ columns.
   ($\bO[n^3]$.)
 \item Calculate $U = X V D^{-1}$ but for the first $k$ columns only.
@@ -394,7 +393,7 @@ The algorithm for this method is as follows:
     \end{bmatrix}.
   \]
   ($\bO[k^3]$.)
-\item Apply eigendecomosition to $Q^T Q$ to get $Q^T Q = \ddot{V} \ddot{D}^2 \ddot{V}^T$.
+\item Apply EGD to $Q^T Q$ to get $Q^T Q = \ddot{V} \ddot{D}^2 \ddot{V}^T$.
   ($\bO[k^3]$.)
 \item Calculate
   \[
@@ -596,7 +595,7 @@ This is a problem inherent to the population structure
 and is not caused by the limitations of our methods.
 The patterns discussed above
 were still observed
-when we used all the 488,000 study samples in the UK Biobank dataset
+when we used all the 488,000 study samples in the UK Biobank data set
 and those predicted to be Europeans among them (\Cref{fig:ukb,fig:ukb_eur}).
 
 
@@ -669,7 +668,7 @@ such as the one by \citet{halko2011finding}
 for PCA on the reference data,
 since as the reference sample size becomes larger and larger,
 it becomes impractical to load such a large matrix into memory
-to compute its SVD or ED.
+to compute its SVD or EGD.
 
 \newpage
 
@@ -863,13 +862,13 @@ to compute its SVD or ED.
     \label{tbl:ggsim}
 \end{table}
 
-\begin{figure}[h]
+\begin{figure}[ht]
   \centering
-  \includegraphics[width=.98\linewidth]{img/ggsim_runtimes.png}
+  \includegraphics[width=.90\linewidth]{img/ggsim_runtimes.png}
   \centering
-  \includegraphics[width=.98\linewidth]{img/ggsim_errors_adp.png}
+  \includegraphics[width=.90\linewidth]{img/ggsim_errors_adp.png}
   \centering
-  \includegraphics[width=.98\linewidth]{img/ggsim_errors_ctr.png}
+  \includegraphics[width=.90\linewidth]{img/ggsim_errors_ctr.png}
   \caption{
     The runtimes and errors of the four methods
     as the reference size increases.
@@ -928,20 +927,20 @@ to compute its SVD or ED.
 
 \begin{figure}[p]
   \centering
-  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_sp}
-  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_ap}
-  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_oadp}
-  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_adp}
+  \includegraphics[width=0.90\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_sp}
+  \includegraphics[width=0.90\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_ap}
+  \includegraphics[width=0.90\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_oadp}
+  \includegraphics[width=0.90\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_adp}
   \caption{PC scores of 500 randomly selected global samples in UK Biobank data (circles) predicted by the four methods with the global samples in the 1000 Genomes data (squares) as the reference.}
   \label{fig:ukb_500}
 \end{figure}
 
 \begin{figure}[p]
   \centering
-  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_sp}
-  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_ap}
-  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_oadp}
-  \includegraphics[width=0.98\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_adp}
+  \includegraphics[width=0.9\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_sp}
+  \includegraphics[width=0.9\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_ap}
+  \includegraphics[width=0.9\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_oadp}
+  \includegraphics[width=0.9\textwidth]{img/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_adp}
   \caption{PC scores of the European in the 500 randomly selected global samples UK Biobank data (circles) predicted by the four methods with the European samples in the 1000 Genomes data (squares) as the reference.}
   \label{fig:ukb_500_eur}
 \end{figure}
