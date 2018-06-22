@@ -12,7 +12,6 @@
 \usepackage{subcaption}
 \usepackage{color}
 
-
 \newcommand{\bO}{\mathcal{O}}
 \newcommand{\bR}{\mathbb{R}}
 \newcommand{\ostu}{\operatorname{stu}}
@@ -24,16 +23,14 @@
   Fast and robust ancestry inference
   using principal component analysis
 }
-\author{Daiwei Zhang, Rounak Dey, Seunggeun Lee}
+\author{Daiwei Zhang, Rounak Dey, Sehee Kim, Seunggeun Lee}
 \date{}
 
 \begin{document}
-
 \maketitle
 
 \begin{abstract}
-    
- Population stratification (PS) is a major confounder in genome-wide association studies (GWAS) and can lead to false positive associations. To adjust for PS, principal component analysis (PCA)-based ancestry prediction has been widely used. This approach first performs PCA on the reference samples with detailed ancestry information and then uses the reference sample PCA results to predict the PC scores of the study samples. Simple Projection (SP) and Augmentation-Decomposition-Transformation (ADP), such as LASER and TRACE, are popular methods for predicting PC scores. However, they are either biased or computationally expensive. For example, the predicted PC scores from SP can be biased toward NULL. On the other hand, since ADP requires running PCA separately for each study sample on the augmented data set, its computational cost is high.
+Population stratification (PS) is a major confounder in genome-wide association studies (GWAS) and can lead to false positive associations. To adjust for PS, principal component analysis (PCA)-based ancestry prediction has been widely used. This approach first performs PCA on the reference samples with detailed ancestry information and then uses the reference sample PCA results to predict the PC scores of the study samples. Simple Projection (SP) and Augmentation-Decomposition-Transformation (ADP), such as LASER and TRACE, are popular methods for predicting PC scores. However, they are either biased or computationally expensive. For example, the predicted PC scores from SP can be biased toward NULL. On the other hand, since ADP requires running PCA separately for each study sample on the augmented data set, its computational cost is high.
 
 To address these problems, we propose two alternative approaches, Adjusted Projection (AP) and Online ADP (OADP), implemented in the genoPCA software. Using random matrix theory results, AP asymptotically estimates and adjusts for the bias of SP. Moreover, OADP uses online singular value decomposition, which can greatly reduce the computation cost of ADP. We carried out extensive simulation studies to show that these alternative approaches are unbiased and that the computation times are 10-100 times faster than ADP when 2000 reference samples are used. We also applied our approaches to 500,000 study samples from the UK Biobank data with 2,500 samples from the 1000 Genomes data as the reference. AP and OADP required 16 and 90 CPU hours, respectively, while the projected computation time of ADP is 1,828 CPU hours. Furthermore, when we only used the European reference samples in the 1000 Genomes to infer sub-European ancestry, SP clearly showed bias, unlike the proposed approaches. By using AP and OADP, we can infer ancestry and adjust for PS in GWAS robustly and efficiently   
     
