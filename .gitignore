@@ -23,7 +23,6 @@ cache/
 *.o28*
 *.e28*
 *~
-*.png
 *.memmap
 *.012
 logs/
