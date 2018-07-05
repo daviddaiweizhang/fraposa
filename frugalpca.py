@@ -41,7 +41,7 @@ PROCRUSTES_EPSILON_MIN = 1e-6
 NUM_CORES = mp.cpu_count()
 
 
-PLOT_ALPHA_REF=0.05
+PLOT_ALPHA_REF=0.2
 PLOT_ALPHA_STU=0.40
 PLOT_MARKERS = ['.', '+', 'x', 'd', '*', 's']
 LOG_LEVEL = 'info'
@@ -166,7 +166,7 @@ def svd_online(U1, d1, V1, b, l=None):
     R = np.concatenate((np.diag(d1), U1.transpose() @ b), axis = 1)
     R_tail = np.concatenate((np.zeros((1,k)), b_tilde.transpose() @ b), axis = 1)
     R = np.concatenate((R, R_tail), axis = 0)
-    d2, R_Vt = np.linalg.svd(R, full_matrices=False)[1:] 
+    d2, R_Vt = np.linalg.svd(R, full_matrices=False)[1:]
     # TODO: Try using chomsky decomposition on R to speed up
     # Since R is triangular
     # Eigencomposition's runtime is the same as svd's
@@ -457,12 +457,28 @@ def get_pcs_stu_this(output, i, W, X_mean, X_std, U, s, V, method, dim_ref=DIM_R
     output.put((i, pcs_stu_this))
 
 
-def pred_popu_stu(pcs_ref, popu_ref, pcs_stu):
+def pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=None, rowhead_df=None):
     logging.info('Predicting populations for study individuals...')
+    popu_list = np.sort(np.unique(popu_ref))
+    popu_dic = {popu_list[i] : i for i in range(len(popu_list))}
     knn = KNeighborsClassifier(n_neighbors=N_NEIGHBORS)
     knn.fit(pcs_ref, popu_ref)
     popu_stu_pred = knn.predict(pcs_stu)
-    return popu_stu_pred
+    popu_stu_proba_list = knn.predict_proba(pcs_stu)
+    popu_stu_proba = [popu_stu_proba_list[i, popu_dic[popu_stu_pred[i]]] for i in range(pcs_stu.shape[0])]
+    if out_filename is not None:
+        popuproba_df = pd.DataFrame({'popu':popu_stu_pred, 'proba':popu_stu_proba})
+        popu_stu_pred_df = pd.concat([rowhead_df, popuproba_df], axis=1)
+        popu_stu_pred_df.to_csv(out_filename, sep=DELIMITER, header=False, index=False)
+    return popu_stu_pred, popu_stu_proba
+
+def pred_popu_ref(pcs_ref, n_clusters, out_filename=None, rowhead_df=None):
+    popu_ref = KMeans(n_clusters=N_NEIGHBORS).fit_predict(pcs_ref)
+    if out_filename is not None:
+        popu_ref_df = pd.DataFrame({'popu':popu_ref})
+        popu_ref_df = pd.concat([rowhead_df, popu_ref_df], axis=1)
+        popu_ref_df.to_csv(out_filename, sep=DELIMITER, header=False, index=False)
+    return popu_ref
 
 def load_pcs(pref, methods):
     logging.info('Loading existing reference and study PC scores...')
@@ -474,14 +490,13 @@ def load_pcs(pref, methods):
         pcs_stu_list += [pcs_stu_this]
     return pcs_ref, pcs_stu_list
 
-def adj_hdpc_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX, hdpca_n_spikes=HDPCA_N_SPIKES, dim_ref=DIM_REF):
-    logging.info('Estimating PC shrinkage and adjusting PC loadings...')
-    # hdpc_est_result  = hdpc_est(s**2, p_ref, n_ref, n_spikes_max=hdpca_n_spikes_max)
-    hdpc_est_result  = hdpc_est(s**2, p_ref, n_ref, n_spikes=hdpca_n_spikes)
+def hdpca_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes=None, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX):
+    if hdpca_n_spikes is None:
+        hdpc_est_result  = hdpc_est(s**2, p_ref, n_ref, n_spikes_max=hdpca_n_spikes_max)
+    else:
+        hdpc_est_result  = hdpc_est(s**2, p_ref, n_ref, n_spikes=hdpca_n_spikes)
     shrinkage = np.array(hdpc_est_result[-1])
-    n_pc_adjusted = min(dim_ref, len(shrinkage))
-    for i in range(n_pc_adjusted):
-        U[:, i] /= shrinkage[i] # TODO: Adjust angles too?
+    return shrinkage
 
 
 def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref, markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU, plot_lim=None, plot_dim=float('inf'), plot_size=None, plot_title=None, plot_color_stu=None, plot_legend=True, plot_centers=False):
@@ -550,7 +565,7 @@ def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pr
     if plot_size is not None:
         fig.set_size_inches(plot_size)
     fig_filename = out_pref+'_'.join([''] + method_list)+'.png'
-    plt.savefig(fig_filename, dpi=75)
+    plt.savefig(fig_filename, dpi=300)
     plt.close('all')
     logging.info('PC plots saved to ' + fig_filename)
 
@@ -563,7 +578,6 @@ def pca_stu(W, X_mean, X_std, method, path_tmp,
     p_stu, n_stu = W.shape
     pcs_stu = np.zeros((n_stu, dim_ref))
 
-    elapse_load = 0.0
     elapse_standardize = 0.0
     elapse_method = 0.0
 
@@ -579,10 +593,11 @@ def pca_stu(W, X_mean, X_std, method, path_tmp,
         logging.error(Method + ' is not one of sp, ap, adp, or oadp.')
         assert False
 
-    for i in range(W.shape[1]):
+    for i in range(n_stu):
         t0 = time.time()
         w = W[:,i].astype(np.float64).reshape((-1,1))
         standardize(w, X_mean, X_std, miss=3)
+        elapse_standardize += time.time() - t0
         t0 = time.time()
         logging.debug('Method...')
         if method == 'oadp':
@@ -596,22 +611,19 @@ def pca_stu(W, X_mean, X_std, method, path_tmp,
         else:
             logging.error(Method + ' is not one of sp, ap, adp, or oadp.')
             assert False
-        if (i+1) % 1000 == 0:
-            logging.info('Finished ' + str(i) + ' study samples.')
+        if (i+1) % 1000 == (0 or n_stu):
+            logging.info('Finished ' + str(i+1) + ' study samples.')
         elapse_method += time.time() - t0
 
-    logging.info('Finished analyzing all study samples.')
-    # logging.info('Runtimes: ')
-    # logging.info('Splitting: ' + str(elapse_split))
-    # logging.info('Loading: ' + str(elapse_load))
-    # logging.info('Standardizing: ' + str(elapse_standardize))
-    # logging.info(method + ': ' + str(elapse_method))
+    logging.info('Runtimes: ')
+    logging.info('Standardizing: ' + str(elapse_standardize))
+    logging.info(method + ': ' + str(elapse_method))
 
     del W
     return pcs_stu
 
 def pca(ref_filepref, stu_filepref, method, path_tmp,
-        dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX,
+        dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, hdpca_n_spikes=None, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX,
         use_memmap=False, load_saved_ref_decomp=True):
 
     out_filepref = stu_filepref + '_sturef_' + os.path.basename(ref_filepref)
@@ -619,9 +631,9 @@ def pca(ref_filepref, stu_filepref, method, path_tmp,
     s_filename = ref_filepref + '_s.dat'
     V_filename = ref_filepref + '_V.dat'
     U_filename = ref_filepref + '_U.dat'
-    Uadj_filename = ref_filepref + '_Uadj.dat'
     pcs_ref_filename = ref_filepref + '_ref.pcs'
-    ref_decomp_filenames = [Xmnsd_filename, s_filename, V_filename, U_filename, Uadj_filename, pcs_ref_filename]
+    ref_decomp_filenames = [Xmnsd_filename, s_filename, V_filename, U_filename, pcs_ref_filename]
+    shrinkage_filename = ref_filepref + '_shrinkage.dat'
     ref_decomp_allexist = all([os.path.isfile(filename) for filename in ref_decomp_filenames])
 
     if ref_decomp_allexist and load_saved_ref_decomp:
@@ -630,10 +642,9 @@ def pca(ref_filepref, stu_filepref, method, path_tmp,
         X_mean = Xmnsd[:,0].reshape((-1,1))
         X_std = Xmnsd[:,1].reshape((-1,1))
         s = np.loadtxt(s_filename)
-        V = np.loadtxt(V_filename)
-        pcs_ref = np.loadtxt(pcs_ref_filename)
-        U = np.loadtxt(U_filename)
-        Uadj = np.loadtxt(Uadj_filename) # TODO: Change to save/load shrinkage
+        V = np.loadtxt(V_filename)[:, :dim_stu_high]
+        pcs_ref = np.loadtxt(pcs_ref_filename)[:, :dim_ref]
+        U = np.loadtxt(U_filename)[:, :dim_stu_high]
     else:
         logging.info('Reading reference samples...')
         if use_memmap:
@@ -659,24 +670,19 @@ def pca(ref_filepref, stu_filepref, method, path_tmp,
         logging.info('Calculating PC loadings...')
         U = X @ (V[:,:dim_stu_high] / s[:dim_stu_high])
         np.savetxt(U_filename, U, fmt=NP_OUTPUT_FMT)
-        Uadj = np.copy(U)
-        p_ref = X_mean.shape[0]
-        n_ref = V.shape[0]
-        adj_hdpc_shrinkage(Uadj, s, p_ref, n_ref, dim_ref)
-        np.savetxt(Uadj_filename, Uadj, fmt=NP_OUTPUT_FMT)
 
     if method == 'ap':
-        U = Uadj
-
-
-    # logging.info('Splitting study data...')
-    # W_bim, W_fam = read_bed(stu_filepref, bed_store=None)[1:3]
-    # n_stu = W_fam.shape[0]
-    # chunk_n_stu = int(np.ceil(n_stu / SAMPLE_CHUNK_SIZE_STU))
-    # logging.info(' '. join([str(SAMPLE_CHUNK_SIZE_STU), 'samples per chunk x', str(chunk_n_stu), 'chunks']))
-    # bashout = subprocess.run(['bash', 'split_fam.sh', stu_filepref, str(SAMPLE_CHUNK_SIZE_STU)], stdout=subprocess.PIPE)
-    # stu_filepref_chunk_list = bashout.stdout.decode('utf-8').split('\n')[-2].split()
-    # assert len(stu_filepref_chunk_list) == chunk_n_stu
+        if os.path.isfile(shrinkage_filename) and load_saved_ref_decomp:
+            shrinkage = np.loadtxt(shrinkage_filename)
+        else:
+            logging.info('Calculating PC shrinkage...')
+            p_ref = X_mean.shape[0]
+            n_ref = V.shape[0]
+            shrinkage = hdpca_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes=hdpca_n_spikes)
+            np.savetxt(shrinkage_filename, shrinkage, fmt=NP_OUTPUT_FMT)
+        n_pc_adjusted = min(dim_ref, len(shrinkage))
+        for i in range(n_pc_adjusted):
+            U[:, i] /= shrinkage[i]
 
     print('>'*30)
     logging.info('Predicting study PC scores (method: ' + method + ')...')
@@ -712,7 +718,7 @@ def pca(ref_filepref, stu_filepref, method, path_tmp,
     return pcs_ref, pcs_stu, pcs_ref_filename, pcs_stu_filename
 
 
-def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, log_level='info', plot_results=False):
+def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, log_level='info', plot_results=False, hdpca_n_spikes=None, n_clusters=None):
     print('='*30)
     t0 = time.time()
     base_ref = os.path.basename(pref_ref)
@@ -730,29 +736,27 @@ def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU,
     # Intersect ref and stu snps
     pref_ref_commsnpsrefal, pref_stu_commsnpsrefal = intersect_ref_stu_snps(pref_ref, pref_stu, path_tmp)
 
+    X_bim, X_fam = read_bed(pref_ref_commsnpsrefal, bed_store=None)[1:3]
     W_bim, W_fam = read_bed(pref_stu_commsnpsrefal, bed_store=None)[1:3]
 
     # do PCA
-    pca_result = pca(pref_ref_commsnpsrefal, pref_stu_commsnpsrefal, method, path_tmp, dim_ref, dim_stu, dim_stu_high, use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp)
+    pca_result = pca(pref_ref_commsnpsrefal, pref_stu_commsnpsrefal, method, path_tmp, dim_ref, dim_stu, dim_stu_high, use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, hdpca_n_spikes=hdpca_n_spikes)
     pcs_ref, pcs_stu, pcs_ref_filename, pcs_stu_filename = pca_result
 
     # Read or predict ref populations
-    popu_ref_filename = pref_ref + '.popu'
-    if os.path.isfile(popu_ref_filename):
+    if n_clusters is None:
+        popu_ref_filename = pref_ref + '.popu'
         logging.info('Reading reference population from ' + popu_ref_filename)
         popu_ref = pd.read_table(popu_ref_filename, header=None).iloc[:,2]
     else:
+        popu_ref_filename = pref_ref + '_pred.popu'
         logging.info('Predicting reference population...')
-        popu_ref = KMeans(n_clusters=N_NEIGHBORS).fit_predict(pcs_ref)
-        popu_ref_df = pd.DataFrame({'fid':X_fam['fid'], 'iid':X_fam['iid'], 'popu':popu_ref})
-        popu_ref_df.to_csv(popu_ref_filename, sep=DELIMITER, header=False, index=False)
+        popu_ref = pred_popu_ref(pcs_ref, n_clusters, out_filename=popu_ref_filename, rowhead_df=X_fam[['fid','iid']])
         logging.info('Reference population prediction saved to ' + popu_ref_filename)
 
     # Predict stu population
     popu_stu_filename = pref_out + '_pred_' + method + '.popu'
-    popu_stu_pred = pred_popu_stu(pcs_ref, popu_ref, pcs_stu)
-    popu_stu_pred_df = pd.DataFrame({'fid':W_fam['fid'], 'iid':W_fam['iid'], 'popu':popu_stu_pred})
-    popu_stu_pred_df.to_csv(popu_stu_filename, sep=DELIMITER, header=False, index=False)
+    popu_stu_pred, popu_stu_proba = pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=popu_stu_filename, rowhead_df=W_fam[['fid','iid']])
     logging.info('Study population prediction saved to ' + popu_stu_filename)
 
     # Plot PC scores
@@ -761,6 +765,12 @@ def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU,
 
     logging.info('Total runtime: ' + str(time.time() - t0))
     return pcs_ref, pcs_stu, popu_ref, popu_stu_pred, pcs_ref_filename, pcs_stu_filename, popu_ref_filename, popu_stu_filename
+
+def concat_files(inlist, out):
+    with open(out, 'w') as outfile:
+        for fname in inlist:
+            with open(fname) as infile:
+                outfile.write(infile.read())
 
 def merge_array_results(ref_filepref, stu_filepref, method, n_chunks):
     ref_basepref = os.path.basename(ref_filepref)
@@ -771,14 +781,8 @@ def merge_array_results(ref_filepref, stu_filepref, method, n_chunks):
     stu_popu_filename = stu_filepref + '_sturef_' + ref_basepref + '_pred_' + method + '.popu'
     ref_pcs_filename = ref_filepref + '_ref.pcs'
     ref_popu_filename = ref_filepref + '.popu'
-    with open(stu_pcs_filename, 'w') as outfile:
-        for fname in stu_pcs_filename_list:
-            with open(fname) as infile:
-                outfile.write(infile.read())
-    with open(stu_popu_filename, 'w') as outfile:
-        for fname in stu_popu_filename_list:
-            with open(fname) as infile:
-                outfile.write(infile.read())
+    concat_files(stu_pcs_filename_list, stu_pcs_filename)
+    concat_files(stu_popu_filename_list, stu_popu_filename)
     ref_pcs = np.loadtxt(ref_pcs_filename)
     stu_pcs = np.loadtxt(stu_pcs_filename)
     ref_popu = np.loadtxt(ref_popu_filename, dtype=np.object)[:,2]

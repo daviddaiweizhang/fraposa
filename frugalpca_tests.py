@@ -3,6 +3,22 @@ import numpy as np
 import frugalpca as fp
 import subprocess
 import os.path
+from sklearn.cluster import KMeans
+
+def plot_results(pref_ref, pref_stu):
+    pcs_ref = np.loadtxt(pref_ref + '_ref.pcs')
+    pcs_stu_sp = np.loadtxt(pref_stu + '_stu_sp.pcs')
+    pcs_stu_ap = np.loadtxt(pref_stu + '_stu_ap.pcs')
+    pcs_stu_oadp = np.loadtxt(pref_stu + '_stu_oadp.pcs')
+    popu_ref = np.loadtxt(pref_ref + '.popu', dtype=np.object)[:,2]
+    popu_stu_pred_sp = np.loadtxt(pref_stu + '_pred_sp.popu', dtype=np.object)[:,2]
+    popu_stu_pred_ap = np.loadtxt(pref_stu + '_pred_ap.popu', dtype=np.object)[:,2]
+    popu_stu_pred_oadp = np.loadtxt(pref_stu + '_pred_oadp.popu', dtype=np.object)[:,2]
+    method_list = ['sp', 'ap', 'oadp']
+    pcs_stu_list = [pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp]
+    popu_stu_list = [pcs_stu_pred_sp, pcs_stu_pred_ap, pcs_stu_pred_oadp]
+    fp.plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref=pref_stu)
+
 
 def test_standardize():
     print('Testing standardize...')
@@ -37,6 +53,60 @@ def test_standardize():
     fp.standardize(y, x_mean_crct, x_std_crct, miss=3)
     assert np.allclose(y, y_standardized_crct)
 
+def add_pure_stu():
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
+    ref_merged_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR'
+    sturef_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
+    pure_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_pure'
+    n_chunks = 100
+
+    # # Create popu for pure study samples
+    # popu = pd.read_table(sturef_filepref+'_pred_oadp.popu', header=None)
+    # popu_pure = popu.loc[popu[3]>0.99]
+    # popu_pure_TSI = popu_pure.loc[popu_pure[2] == 'TSI'].sample(frac=0.1, replace=False)
+    # popu_pure_nonTSI = popu_pure.loc[popu_pure[2] != 'TSI']
+    # popu_pure_thin = pd.concat((popu_pure_TSI, popu_pure_nonTSI), axis=0)
+    # popu_pure_thin = popu_pure_thin.iloc[:,:3]
+    # popu_pure_thin.to_csv(pure_filepref+'.popu', sep='\t', header=False, index=False)
+
+    # # Create bed, bim, fam for pure study samples
+    # subprocess.run(
+    #         ['plink', '--keep-allele-order', '--make-bed',
+    #         '--indiv-sort', 'file', pure_filepref+'.popu',
+    #         '--bfile', stu_filepref,
+    #         '--keep', pure_filepref+'.popu',
+    #         '--out', pure_filepref])
+
+    # # Merge pure study samples with reference samples
+    # subprocess.run(
+    #     ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
+    #     '--bfile', ref_filepref,
+    #     '--bmerge', pure_filepref+'.bed', pure_filepref+'.bim', pure_filepref+'.fam',
+    #     '--out', ref_merged_filepref])
+    # fp.concat_files([ref_filepref+'.popu', pure_filepref+'.popu'], ref_merged_filepref+'.popu')
+
+    # # Remove pure study samples from study samples
+    # filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
+    # subprocess.run(
+    #     ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
+    #      '--bfile', filepref,
+    #      '--remove', pure_filepref+'.popu',
+    #      '--out', filepref+'_impure'])
+
+    # Remove pure study samples from study samples
+    stu_filepref_chunk = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100'
+    impure_filepref_chunk = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100'
+    for i in range(n_chunks):
+        stu_filepref_chunk_this = stu_filepref_chunk + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
+        os.makedirs(impure_filepref_chunk, exist_ok=True)
+        impure_filepref_chunk_this = impure_filepref_chunk + '/' + os.path.basename(impure_filepref_chunk) + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
+        subprocess.run(
+            ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
+            '--bfile', stu_filepref_chunk_this,
+            '--remove', pure_filepref+'.popu',
+             '--out', impure_filepref_chunk_this])
+        os.remove(impure_filepref_chunk_this+'.log')
 
 def test_online_svd_procrust():
     np.random.seed(21)
@@ -124,7 +194,7 @@ def test_online_svd_procrust():
     print('Passed!')
 
 
-def test_pca(pref_ref, pref_stu, cmp_trace=True, load_results=False, assert_results=False, pref_out_trace=None, dim_ref=4, plot_dim=4, plot_size=None, plot_title=None, plot_color_stu=None, plot_legend=True, alpha_stu=0.4, plot_centers=False):
+def test_pca(pref_ref, pref_stu, cmp_trace=True, load_pcs=False, load_popu=True, assert_results=False, pref_out_trace=None, dim_ref=4, plot_dim=4, plot_size=None, plot_title=None, plot_color_stu=None, plot_legend=True, alpha_stu=0.4, plot_centers=False, hdpca_n_spikes=None, n_clusters=None):
     print('Reference: ' + pref_ref)
     print('Study: ' + pref_stu)
     popu_filename_ref = pref_ref + '.popu'
@@ -141,19 +211,34 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True, load_results=False, assert_resu
     use_memmap = False
     load_saved_ref_decomp = True
 
-    if load_results:
+    if load_pcs:
         pcs_ref = np.loadtxt(pref_ref + '_ref.pcs')
         pcs_stu_sp = np.loadtxt(pref_out + '_stu_sp.pcs')
         pcs_stu_ap = np.loadtxt(pref_out + '_stu_ap.pcs')
         pcs_stu_oadp = np.loadtxt(pref_out + '_stu_oadp.pcs')
-        popu_ref = np.loadtxt(pref_ref + '.popu', dtype=np.object)[:,2]
-        popu_stu_pred_sp = np.loadtxt(pref_out + '_pred_sp.popu', dtype=np.object)[:,2]
-        popu_stu_pred_ap = np.loadtxt(pref_out + '_pred_ap.popu', dtype=np.object)[:,2]
-        popu_stu_pred_oadp = np.loadtxt(pref_out + '_pred_ap.popu', dtype=np.object)[:,2]
+
+        if n_clusters is None:
+            popu_ref = np.loadtxt(pref_ref + '.popu', dtype=np.object)[:,2]
+        else:
+            fam_ref = pd.read_table(pref_ref+'.fam', header=None, delimiter=' ').iloc[:,:2]
+            assert fam_ref.shape[0] == pcs_ref.shape[0]
+            popu_ref = fp.pred_popu_ref(pcs_ref, n_clusters, out_filename=pref_ref+'_pred.popu', rowhead_df=fam_ref)
+
+        if load_popu:
+            popu_stu_pred_sp = np.loadtxt(pref_out + '_pred_sp.popu', dtype=np.object)[:,2]
+            popu_stu_pred_ap = np.loadtxt(pref_out + '_pred_ap.popu', dtype=np.object)[:,2]
+            popu_stu_pred_oadp = np.loadtxt(pref_out + '_pred_ap.popu', dtype=np.object)[:,2]
+        else:
+            fam_stu = pd.read_table(pref_stu+'.fam', header=None, delimiter=' ').iloc[:,:2]
+            assert fam_stu.shape[0] == pcs_stu_sp.shape[0]
+            popu_stu_pred_sp = fp.pred_popu_stu(pcs_ref, popu_ref, pcs_stu_sp, pref_out+'_pred_sp.popu', fam_stu)[0]
+            popu_stu_pred_ap = fp.pred_popu_stu(pcs_ref, popu_ref, pcs_stu_ap, pref_out+'_pred_ap.popu', fam_stu)[0]
+            popu_stu_pred_oadp = fp.pred_popu_stu(pcs_ref, popu_ref, pcs_stu_oadp, pref_out+'_pred_oadp.popu', fam_stu)[0]
     else:
+        pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap = fp.run_pca(pref_ref, pref_stu, method='ap', dim_ref=dim_ref, hdpca_n_spikes=hdpca_n_spikes)[:4]
         pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp = fp.run_pca(pref_ref, pref_stu, method='sp', dim_ref=dim_ref)[:4]
-        pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap = fp.run_pca(pref_ref, pref_stu, method='ap', dim_ref=dim_ref)[:4]
         pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp = fp.run_pca(pref_ref, pref_stu, method='oadp', dim_ref=dim_ref)[:4]
+
 
     pcs_min = np.vstack((pcs_ref, pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp)).min(axis=0)
     pcs_max = np.vstack((pcs_ref, pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp)).max(axis=0)
@@ -161,10 +246,6 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True, load_results=False, assert_resu
     fp.plot_pcs(pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp, 'sp', out_pref=pref_out, plot_lim=plot_lim, plot_dim=plot_dim, plot_size=plot_size, plot_title=plot_title, plot_color_stu=plot_color_stu, plot_legend=plot_legend, alpha_stu=alpha_stu, plot_centers=plot_centers)
     fp.plot_pcs(pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap, 'ap', out_pref=pref_out, plot_lim=plot_lim, plot_dim=plot_dim, plot_size=plot_size, plot_title=plot_title, plot_color_stu=plot_color_stu, plot_legend=plot_legend, alpha_stu=alpha_stu, plot_centers=plot_centers)
     fp.plot_pcs(pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp, 'oadp', out_pref=pref_out, plot_lim=plot_lim, plot_dim=plot_dim, plot_size=plot_size, plot_title=plot_title, plot_color_stu=plot_color_stu, plot_legend=plot_legend, alpha_stu=alpha_stu, plot_centers=plot_centers)
-
-    method_list = ['sp', 'ap', 'oadp']
-    pcs_stu_list = [pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp]
-    popu_stu_list = [popu_stu_pred_sp, popu_stu_pred_ap, popu_stu_pred_oadp]
 
     if cmp_trace:
         pcs_ref_trace = fp.load_trace(pcs_trace_ref_filename, isref=True)
@@ -174,13 +255,8 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True, load_results=False, assert_resu
             sign = np.sign(corr)
             pcs_ref_trace[:,i] *= sign
             pcs_stu_trace[:,i] *= sign
-        popu_stu_pred_trace = fp.pred_popu_stu(pcs_ref_trace, popu_ref, pcs_stu_trace)
+        popu_stu_pred_trace = fp.pred_popu_stu(pcs_ref_trace, popu_ref, pcs_stu_trace)[0]
         fp.plot_pcs(pcs_ref, pcs_stu_trace, popu_ref, popu_stu_pred_trace, 'adp', out_pref=pref_out, plot_lim=plot_lim, plot_dim=plot_dim, plot_size=plot_size, plot_title=plot_title, plot_color_stu=plot_color_stu, plot_legend=plot_legend, alpha_stu=alpha_stu, plot_centers=plot_centers)
-        method_list += ['adp']
-        pcs_stu_list += [pcs_stu_trace]
-        popu_stu_list += [popu_stu_pred_trace]
-
-    # fp.plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref=pref_out)
 
     if cmp_trace:
         print('Accuracy comparison (procrustes, ADP, geocenter): ')
@@ -214,24 +290,10 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True, load_results=False, assert_resu
             assert np.allclose(pcs_stu_ap, pcs_stu_trace, 1e-1, 5e-2)
             assert np.allclose(pcs_stu_oadp, pcs_stu_trace, 1e-1, 5e-2)
 
-def test_pca_subpopu(pref_ref, pref_stu, popu_name_this, cmp_trace=True, load_results=False, plot_size=None, plot_title=None):
+def test_pca_subpopu(pref_ref, pref_stu, popu_name_this, cmp_trace=True, load_pcs=False, plot_size=None, plot_title=None):
     bashout=subprocess.run(['bash', 'keep_popu.sh', pref_ref, pref_stu, popu_name_this], stdout=subprocess.PIPE)
     pref_ref_this, pref_stu_this = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
-    test_pca(pref_ref_this, pref_stu_this, cmp_trace=cmp_trace, load_results=load_results, plot_size=plot_size, plot_title=plot_title)
-
-def plot_results(pref_ref, pref_stu):
-    pcs_ref = np.loadtxt(pref_ref + '_ref.pcs')
-    pcs_stu_sp = np.loadtxt(pref_stu + '_stu_sp.pcs')
-    pcs_stu_ap = np.loadtxt(pref_stu + '_stu_ap.pcs')
-    pcs_stu_oadp = np.loadtxt(pref_stu + '_stu_oadp.pcs')
-    popu_ref = np.loadtxt(pref_ref + '.popu', dtype=np.object)[:,2]
-    popu_stu_pred_sp = np.loadtxt(pref_stu + '_pred_sp.popu', dtype=np.object)[:,2]
-    popu_stu_pred_ap = np.loadtxt(pref_stu + '_pred_ap.popu', dtype=np.object)[:,2]
-    popu_stu_pred_oadp = np.loadtxt(pref_stu + '_pred_oadp.popu', dtype=np.object)[:,2]
-    method_list = ['sp', 'ap', 'oadp']
-    pcs_stu_list = [pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp]
-    popu_stu_list = [pcs_stu_pred_sp, pcs_stu_pred_ap, pcs_stu_pred_oadp]
-    fp.plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref=pref_stu)
+    test_pca(pref_ref_this, pref_stu_this, cmp_trace=cmp_trace, load_pcs=load_pcs, plot_size=plot_size, plot_title=plot_title)
 
 def convert_ggsim(i):
     n = 1000 + i * 500
@@ -265,21 +327,22 @@ def test_merge_array_results():
     cmp_trace=False
     traceout_filepref=None
 
-    # fp.merge_array_results(ref_filepref, stu_filepref, 'sp', n_chunks)
-    # fp.merge_array_results(ref_filepref, stu_filepref, 'ap', n_chunks)
-    # fp.merge_array_results(ref_filepref, stu_filepref, 'oadp', n_chunks)
-    test_pca(ref_filepref, stu_filepref, cmp_trace=cmp_trace, load_results=True, assert_results=False, pref_out_trace=traceout_filepref, plot_centers=False, plot_size=(12,4))
-
     n_chunks = 100
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
     stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100'
     cmp_trace=False
     traceout_filepref=None
 
-    # fp.merge_array_results(ref_filepref, stu_filepref, 'sp', n_chunks)
-    # fp.merge_array_results(ref_filepref, stu_filepref, 'ap', n_chunks)
-    # fp.merge_array_results(ref_filepref, stu_filepref, 'oadp', n_chunks)
-    test_pca(ref_filepref, stu_filepref, cmp_trace=cmp_trace, load_results=True, assert_results=False, pref_out_trace=traceout_filepref, plot_centers=False, plot_size=(12,4))
+    n_chunks = 100
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100'
+    cmp_trace=False
+    traceout_filepref=None
+
+    fp.merge_array_results(ref_filepref, stu_filepref, 'sp', n_chunks)
+    fp.merge_array_results(ref_filepref, stu_filepref, 'ap', n_chunks)
+    fp.merge_array_results(ref_filepref, stu_filepref, 'oadp', n_chunks)
+    test_pca(ref_filepref, stu_filepref, cmp_trace=cmp_trace, load_pcs=True, load_popu=False, assert_results=False, plot_centers=False, plot_size=(12,4), hdpca_n_spikes=4)
 
 def test_split_bed_indiv():
     filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
@@ -293,14 +356,34 @@ def test_pca_ggsim():
         n = 1000 + i * 500
         pref_ref = '../data/ggsim'+str(n)+'/ggsim'+str(n)+'_100000_'+str(n)+'_2_1_100_0'
         pref_stu = '../data/ggsim'+str(n)+'/ggsim'+str(n)+'_100000_'+'200'+'_2_1_100_1'
-        test_pca(pref_ref, pref_stu, cmp_trace=True, load_results=True, dim_ref=dim_ref, plot_title=str(n), plot_size=(6,6), plot_color_stu='k', plot_legend=True, alpha_stu=0.9, plot_dim=2, plot_centers=True)
+        test_pca(pref_ref, pref_stu, cmp_trace=True, load_pcs=True, dim_ref=dim_ref, plot_title=str(n), plot_size=(6,6), plot_color_stu='k', plot_legend=True, alpha_stu=0.9, plot_dim=2, plot_centers=True)
 
 def test_pca_5c():
     pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb'
     pref_stu = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
-    test_pca(pref_ref, pref_stu, cmp_trace=True, load_results=True, plot_size=(12,4))
+    test_pca(pref_ref, pref_stu, cmp_trace=True, load_pcs=True, load_popu=False, plot_size=(12,4))
 
 def test_pca_5c_EUR():
-    pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb'
-    pref_stu = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
-    test_pca_subpopu(pref_ref, pref_stu, 'EUR', cmp_trace=True, load_results=True, plot_size=(12,4))
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR'
+    test_pca(ref_filepref, stu_filepref, cmp_trace=True, load_pcs=False, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4)
+
+def test_pca_EUR_pure():
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_pure'
+    test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=True, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4)
+
+def test_pca_5c_EUR_impure():
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_impure'
+    test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=True, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4)
+
+def test_pca_5c_EUR_impure_predrefpopu():
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_impure'
+    test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=True, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4, n_clusters=5)
+
+def test_pca_5c_EUR_impure_ref_homogen():
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure_homogen'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_impure'
+    test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=False, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4)

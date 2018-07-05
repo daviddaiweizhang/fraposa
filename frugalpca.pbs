@@ -1,9 +1,9 @@
 #!/bin/bash
 ####  PBS preamble
 
-#PBS -N fp.5c.EUR
-#PBS -l nodes=1:ppn=1,mem=4gb,walltime=00:20:00
-#### #PBS -t 0-99
+#PBS -N fp.EUR.merged.oadp
+#PBS -l nodes=1:ppn=1,mem=4gb,walltime=02:00:00
+#PBS -t 0-99
 
 #PBS -M daiweiz@umich.edu
 #PBS -j oe
@@ -16,8 +16,8 @@
 #PBS -l qos=flux
 ####  End PBS preamble
 
+set -e -o pipefail
 
-set -e
 # Print system info
 #  Change to the directory you submitted from
 if [ -n "$PBS_O_WORKDIR" ]; then cd $PBS_O_WORKDIR; fi
@@ -29,7 +29,7 @@ echo $PBS_ARRAYID
 jobid="${PBS_JOBID:0:8}"
 # module load R mkl/11.3.3 gcc/5.4.0 armadillo plink
 
-# PBS_ARRAYID=16
+# PBS_ARRAYID=5
 
 # #  Put your job commands here:
 # method=ap
@@ -43,11 +43,18 @@ jobid="${PBS_JOBID:0:8}"
 
 #  Put your job commands here:
 # python -c "import frugalpca_tests as fpt; fpt.test_pca_5c()"
-python -c "import frugalpca_tests as fpt; fpt.test_pca_5c_EUR()"
+# python -c "import frugalpca_tests as fpt; fpt.test_pca_5c_EUR()"
 # python -c "import frugalpca_tests as fpt; fpt.test_pca_ggsim()"
 
+#  Put your job commands here:
+i=$PBS_ARRAYID
+method=oadp
+pref_ref=../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure
+pref_stu=../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100_`printf "%04d" ${i}`
+python -c "import frugalpca as fp; fp.run_pca('${pref_ref}', '${pref_stu}', '${method}')"
+
 # #  Put your job commands here:
-# pref_ref=../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR
-# pref_stu=../data/ukb_snpscap_kgn_bial_orphans_pred_EUR_chunksize5000/ukb_snpscap_kgn_bial_orphans_pred_EUR_chunksize5000_`printf "%04d" ${i}`
-# method=oadp
-# python -c "import frugalpca as fp; fp.run_pca('${pref_ref}', '${pref_stu}', '${method}')"
+# for i in `seq 0 99`; do
+#     id=`printf "%04d" ${i}`
+#     plink --bfile ../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100_${id} --keep-allele-order --remove ../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_EUR_pure.popu --out ../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100_${id} --make-bed
+# done
