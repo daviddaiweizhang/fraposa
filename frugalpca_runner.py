@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import subprocess
 import multiprocessing as mp
-from joblib import Parallel, delayed
 NUM_CORES = mp.cpu_count()
 
 print('Number of cores: ' + str(NUM_CORES))
@@ -18,11 +17,12 @@ print('Number of cores: ' + str(NUM_CORES))
 
 # fpt.test_pca_ggsim()
 # fpt.test_pca_5c()
-fpt.test_pca_5c_EUR()
-
 # fpt.test_merge_array_results()
+
 # fpt.add_pure_stu()
+fpt.test_pca_5c_EUR()
 # fpt.test_pca_EUR_pure()
-fpt.test_pca_5c_EUR_impure()
+# fpt.test_pca_5c_EUR_impure()
 # fpt.test_pca_5c_EUR_impure_predrefpopu()
+# fpt.test_pca_EUR_pure_homogen()
 # fpt.test_pca_5c_EUR_impure_ref_homogen()

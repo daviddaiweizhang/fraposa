@@ -26,8 +26,8 @@ import sys
 import logging
 import filecmp
 import multiprocessing as mp
-from joblib import Parallel, delayed
 
+PYTHONHASHSEED = 24
 DIM_REF = 4
 DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
@@ -466,11 +466,15 @@ def pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=None, rowhead_df=None
     popu_stu_pred = knn.predict(pcs_stu)
     popu_stu_proba_list = knn.predict_proba(pcs_stu)
     popu_stu_proba = [popu_stu_proba_list[i, popu_dic[popu_stu_pred[i]]] for i in range(pcs_stu.shape[0])]
+    popu_stu_dist = knn.kneighbors(pcs_stu)[0][:,-1]
+    popu_stu_dist = np.round(popu_stu_dist, 3)
     if out_filename is not None:
-        popuproba_df = pd.DataFrame({'popu':popu_stu_pred, 'proba':popu_stu_proba})
+        popuproba_df = pd.DataFrame({'popu':popu_stu_pred, 'proba':popu_stu_proba, 'dist':popu_stu_dist})
+        popuproba_df = popuproba_df[['popu', 'proba', 'dist']]
         popu_stu_pred_df = pd.concat([rowhead_df, popuproba_df], axis=1)
         popu_stu_pred_df.to_csv(out_filename, sep=DELIMITER, header=False, index=False)
-    return popu_stu_pred, popu_stu_proba
+        logging.info('Predicted study populations saved to ' + out_filename)
+    return popu_stu_pred, popu_stu_proba, popu_stu_dist
 
 def pred_popu_ref(pcs_ref, n_clusters, out_filename=None, rowhead_df=None):
     popu_ref = KMeans(n_clusters=N_NEIGHBORS).fit_predict(pcs_ref)
@@ -499,18 +503,35 @@ def hdpca_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes=None, hdpca_n_spikes_max=
     return shrinkage
 
 
-def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref, markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU, plot_lim=None, plot_dim=float('inf'), plot_size=None, plot_title=None, plot_color_stu=None, plot_legend=True, plot_centers=False):
-    if type(pcs_stu_list) is not list:
-        pcs_stu_list = [pcs_stu_list]
-    if type(popu_stu_list) is not list:
-        popu_stu_list = [popu_stu_list]
-    if type(method_list) is not list:
-        method_list = [method_list]
-    assert len(pcs_stu_list) == len(popu_stu_list) == len(method_list)
+def str2color(s):
+    colormap = plt.get_cmap('Set1')
+    color = colormap(hash(s) % 9)
+    return color
+
+def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, method, out_pref, markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU, plot_lim=None, plot_dim=float('inf'), plot_size=None, plot_title=None, plot_color_stu=None, plot_legend=True, plot_centers=False):
     popu_unique = list(set(popu_ref))
     popu_n = len(popu_unique)
-    plot_colors_unique = plt.rcParams['axes.prop_cycle'].by_key()['color']
     dim_ref = pcs_ref.shape[1]
+
+    # Plotting may need to change the signs of PC scores
+    # Make a copy to avoid modifying original arrays
+    pcs_ref = np.copy(pcs_ref)
+    pcs_stu = np.copy(pcs_stu)
+    plot_lim = np.copy(plot_lim)
+
+    # Make sure the same population has the same PC score "shape" when analyzed by different methods
+    geocenter_coord = geocenter_coordinate(pcs_ref, popu_ref).values()
+    geocenter_coord = list(geocenter_coord)
+    geocenter_dist = np.array([np.linalg.norm(v) for v in geocenter_coord])
+    geocenter_farthest_sign = np.sign(geocenter_coord[geocenter_dist.argmax()])
+    for i in range(dim_ref):
+        sign_this = geocenter_farthest_sign[i]
+        if sign_this < 0:
+            pcs_ref[:,i] *= sign_this
+            pcs_stu[:,i] *= sign_this
+            plot_lim[:,i] *= sign_this
+            plot_lim[:,i] = plot_lim[:,i][::-1]
+
     n_subplot = int(min(dim_ref, plot_dim) / 2)
     fig, ax = plt.subplots(ncols=n_subplot)
     for j in range(n_subplot):
@@ -520,7 +541,7 @@ def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pr
         for i,popu in enumerate(popu_unique):
             ref_is_this_popu = popu_ref == popu
             pcs_ref_this_popu = pcs_ref[ref_is_this_popu, (j*2):(j*2+2)]
-            plot_color_this = plot_colors_unique[i]
+            plot_color_this = str2color(popu)
             if plot_centers:
                 label = None
             else:
@@ -529,31 +550,28 @@ def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pr
             if plot_centers:
                 pcs_ref_this_popu_mean = np.mean(pcs_ref_this_popu, axis=0)
                 plt.scatter(pcs_ref_this_popu_mean[0], pcs_ref_this_popu_mean[1], marker=markers[-2], color=plot_color_this, edgecolor='xkcd:grey', s=300, label=str(popu))
-        if len(pcs_stu_list) > 0:
-            for k,pcs_stu in enumerate(pcs_stu_list):
-                popu_stu = popu_stu_list[k]
-                method = method_list[k]
-                if plot_color_stu is None:
-                    plot_color_stu_list = np.array([plot_colors_unique[popu_unique.index(popu_this)] for popu_this in popu_stu], dtype=np.object)
+        if pcs_stu is not None:
+            if plot_color_stu is None:
+                plot_color_stu_list = np.array([str2color(popu_this) for popu_this in popu_stu], dtype=np.object)
+            else:
+                plot_color_stu_list = np.array([plot_color_stu] * pcs_stu.shape[0], dtype=np.object)
+            a = 5
+            for i in range(a):
+                if i == 0:
+                    label = method
                 else:
-                    plot_color_stu_list = np.array([plot_color_stu] * pcs_stu.shape[0], dtype=np.object)
-                a = 5
-                for i in range(a):
-                    if i == 0:
-                        label = method
-                    else:
-                        label = None
-                    indiv_shuffled_this = np.arange(pcs_stu.shape[0]) % a == i
-                    plt.scatter(pcs_stu[indiv_shuffled_this, j*2],
-                                pcs_stu[indiv_shuffled_this, j*2+1],
-                                color=plot_color_stu_list[indiv_shuffled_this],
-                                marker=markers[k], alpha=alpha_stu, label=label)
-                if plot_centers:
-                    for i,popu in enumerate(popu_unique):
-                        stu_is_this_popu = popu_stu == popu
-                        pcs_stu_this_popu = pcs_stu[stu_is_this_popu, (j*2):(j*2+2)]
-                        pcs_stu_this_popu_mean = np.mean(pcs_stu_this_popu, axis=0)
-                        plt.scatter(pcs_stu_this_popu_mean[0], pcs_stu_this_popu_mean[1], marker=markers[-2], color='xkcd:grey', s=100)
+                    label = None
+                indiv_shuffled_this = np.arange(pcs_stu.shape[0]) % a == i
+                plt.scatter(pcs_stu[indiv_shuffled_this, j*2],
+                            pcs_stu[indiv_shuffled_this, j*2+1],
+                            color=plot_color_stu_list[indiv_shuffled_this].tolist(),
+                            marker=markers[0], alpha=alpha_stu, label=label)
+            if plot_centers:
+                for i,popu in enumerate(popu_unique):
+                    stu_is_this_popu = popu_stu == popu
+                    pcs_stu_this_popu = pcs_stu[stu_is_this_popu, (j*2):(j*2+2)]
+                    pcs_stu_this_popu_mean = np.mean(pcs_stu_this_popu, axis=0)
+                    plt.scatter(pcs_stu_this_popu_mean[0], pcs_stu_this_popu_mean[1], marker=markers[-2], color='xkcd:grey', s=100)
         if plot_lim is not None:
             plt.xlim(plot_lim[:,j*2])
             plt.ylim(plot_lim[:,j*2+1])
@@ -564,7 +582,7 @@ def plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pr
     plt.tight_layout()
     if plot_size is not None:
         fig.set_size_inches(plot_size)
-    fig_filename = out_pref+'_'.join([''] + method_list)+'.png'
+    fig_filename = out_pref + '_' + method + '.png'
     plt.savefig(fig_filename, dpi=300)
     plt.close('all')
     logging.info('PC plots saved to ' + fig_filename)
@@ -756,7 +774,7 @@ def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU,
 
     # Predict stu population
     popu_stu_filename = pref_out + '_pred_' + method + '.popu'
-    popu_stu_pred, popu_stu_proba = pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=popu_stu_filename, rowhead_df=W_fam[['fid','iid']])
+    popu_stu_pred, popu_stu_proba, popu_stu_dist = pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=popu_stu_filename, rowhead_df=W_fam[['fid','iid']])
     logging.info('Study population prediction saved to ' + popu_stu_filename)
 
     # Plot PC scores
