@@ -27,4 +27,5 @@ cache/
 *.012
 logs/
 old/
+frugalpca_runner.py
 

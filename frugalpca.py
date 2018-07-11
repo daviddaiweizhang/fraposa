@@ -509,9 +509,14 @@ def str2color(s):
     return color
 
 def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, method, out_pref, markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU, plot_lim=None, plot_dim=float('inf'), plot_size=None, plot_title=None, plot_color_stu=None, plot_legend=True, plot_centers=False):
-    popu_unique = list(set(popu_ref))
-    popu_n = len(popu_unique)
     dim_ref = pcs_ref.shape[1]
+
+    # Get the unique populations and assign plotting colors to them
+    popu_unique = sorted(list(set(popu_ref)))
+    popu_unique = sorted(popu_unique, key=len)
+    popu_n = len(popu_unique)
+    colormap = plt.get_cmap('Set1')
+    popu2color = dict(zip(popu_unique, colormap(range(popu_n))))
 
     # Plotting may need to change the signs of PC scores
     # Make a copy to avoid modifying original arrays
@@ -541,7 +546,7 @@ def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, method, out_pref, markers=PLO
         for i,popu in enumerate(popu_unique):
             ref_is_this_popu = popu_ref == popu
             pcs_ref_this_popu = pcs_ref[ref_is_this_popu, (j*2):(j*2+2)]
-            plot_color_this = str2color(popu)
+            plot_color_this = popu2color[popu]
             if plot_centers:
                 label = None
             else:
@@ -552,7 +557,7 @@ def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, method, out_pref, markers=PLO
                 plt.scatter(pcs_ref_this_popu_mean[0], pcs_ref_this_popu_mean[1], marker=markers[-2], color=plot_color_this, edgecolor='xkcd:grey', s=300, label=str(popu))
         if pcs_stu is not None:
             if plot_color_stu is None:
-                plot_color_stu_list = np.array([str2color(popu_this) for popu_this in popu_stu], dtype=np.object)
+                plot_color_stu_list = np.array([popu2color[popu_this] for popu_this in popu_stu], dtype=np.object)
             else:
                 plot_color_stu_list = np.array([plot_color_stu] * pcs_stu.shape[0], dtype=np.object)
             a = 5

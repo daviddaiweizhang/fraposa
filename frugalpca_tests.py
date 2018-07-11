@@ -91,25 +91,25 @@ def add_pure_stu():
         '--out', ref_merged_filepref])
     fp.concat_files([ref_filepref+'.popu', pure_filepref+'.popu'], ref_merged_filepref+'.popu')
 
-    # # Remove pure study samples from study samples
-    # filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
-    # subprocess.run(
-    #     ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
-    #      '--bfile', filepref,
-    #      '--remove', pure_filepref+'.popu',
-    #      '--out', filepref+'_impure'])
-
     # Remove pure study samples from study samples
-    for i in range(n_chunks):
-        stu_filepref_chunk_this = stu_filepref_chunk + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
-        os.makedirs(impure_filepref_chunk, exist_ok=True)
-        impure_filepref_chunk_this = impure_filepref_chunk + '/' + os.path.basename(impure_filepref_chunk) + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
-        subprocess.run(
-            ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
-            '--bfile', stu_filepref_chunk_this,
-            '--remove', pure_filepref+'.popu',
-             '--out', impure_filepref_chunk_this])
-        os.remove(impure_filepref_chunk_this+'.log')
+    filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
+    subprocess.run(
+        ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
+         '--bfile', filepref,
+         '--remove', pure_filepref+'.popu',
+         '--out', filepref+'_impure'])
+
+    # # Remove pure study samples from study samples
+    # for i in range(n_chunks):
+    #     stu_filepref_chunk_this = stu_filepref_chunk + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
+    #     os.makedirs(impure_filepref_chunk, exist_ok=True)
+    #     impure_filepref_chunk_this = impure_filepref_chunk + '/' + os.path.basename(impure_filepref_chunk) + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
+    #     subprocess.run(
+    #         ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
+    #         '--bfile', stu_filepref_chunk_this,
+    #         '--remove', pure_filepref+'.popu',
+    #          '--out', impure_filepref_chunk_this])
+    #     os.remove(impure_filepref_chunk_this+'.log')
 
 def test_online_svd_procrust():
     np.random.seed(21)
