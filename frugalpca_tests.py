@@ -53,13 +53,13 @@ def test_standardize():
     fp.standardize(y, x_mean_crct, x_std_crct, miss=3)
     assert np.allclose(y, y_standardized_crct)
 
-def plink_keep(bfile, keep):
+def plink_keep(bfile, keep, out):
     subprocess.run(
             ['plink', '--keep-allele-order', '--make-bed',
-            '--indiv-sort', 'file', pure_filepref+'.popu',
-            '--bfile', stu_filepref,
-            '--keep', pure_filepref+'.popu',
-            '--out', pure_filepref])
+            '--indiv-sort', 'file', keep,
+            '--bfile', bfile,
+            '--keep', keep,
+            '--out', out])
 
 def plink_merge(bfile, bmerge, out):
     subprocess.run(
@@ -67,15 +67,12 @@ def plink_merge(bfile, bmerge, out):
             '--bfile', bfile,
             '--bmerge', bmerge,
             '--out', out])
-    fp.concat_files([ref_filepref+'.popu', pure_filepref+'.popu'], ref_merged_filepref+'.popu')
-    if os.path.isfile(ref_merged_filepref+'_ref.pcs'):
-        os.remove(ref_merged_filepref+'_ref.pcs')
 
 def plink_remove(bfile, remove, out):
     subprocess.run(
         ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
         '--bfile', bfile,
-        '--remove', remove+'.popu',
+        '--remove', remove,
         '--out', out])
 
 def add_pure_stu():
@@ -119,6 +116,12 @@ def add_pure_stu():
     # # Create bed, bim, fam for pure study samples
     # plink_keep(stu_filepref, pure_filepref)
 
+    # Merge pure study samples with reference samples
+    plink_merge(ref_filepref, pure_filepref, ref_merged_filepref)
+    fp.concat_files([ref_filepref+'.popu', pure_filepref+'.popu'], ref_merged_filepref+'.popu')
+    if os.path.isfile(ref_merged_filepref+'_ref.pcs'):
+        os.remove(ref_merged_filepref+'_ref.pcs')
+
     # Select homogeneous samples within the pure samples
     merged_popu_df = pd.read_table(ref_merged_filepref+'.popu', header=None)
     merged_popu_df.columns = ['fid', 'iid', 'popu']
@@ -149,8 +152,8 @@ def add_pure_stu():
             # fp.plot_pcs(pp_ref_pcs, pp_stu_pcs, popu_stu=pp_stu_isin, method='sp', out_pref=ref_merged_filepref+'_'+pp_base)
     merged_popu_inlier_df.to_csv(ref_merged_homogen_filepref+'.popu', sep='\t', header=False, index=False)
 
-    # Create bed, bim, fam for pure and homogeneous study samples
-    plink_keep(ref_merged_filepref, ref_merged_homogen_filepref)
+    # Select the original reference samples and the homogeneous pure original study samples from the merged ref samples
+    plink_keep(ref_merged_filepref, ref_merged_homogen_filepref+'.popu', ref_merged_homogen_filepref)
 
     # Remove pure study samples from study samples
     bfile = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR'
@@ -448,7 +451,7 @@ def test_pca_5c_EUR_impure_predrefpopu():
 def test_pca_EUR_pure_homogen():
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
     stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_pure_homogen'
-    test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=True, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4)
+    test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=False, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4)
 
 
 def test_pca_5c_EUR_impure_ref_homogen():
