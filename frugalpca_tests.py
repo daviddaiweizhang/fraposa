@@ -99,15 +99,15 @@ def add_pure_stu():
     #         '--keep', pure_filepref+'.popu',
     #         '--out', pure_filepref])
 
-    # # Merge pure study samples with reference samples
-    # subprocess.run(
-    #     ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
-    #     '--bfile', ref_filepref,
-    #     '--bmerge', pure_filepref+'.bed', pure_filepref+'.bim', pure_filepref+'.fam',
-    #     '--out', ref_merged_filepref])
-    # fp.concat_files([ref_filepref+'.popu', pure_filepref+'.popu'], ref_merged_filepref+'.popu')
-    # if os.path.isfile(ref_merged_filepref+'_ref.pcs'):
-    #     os.remove(ref_merged_filepref+'_ref.pcs')
+    # Merge pure study samples with reference samples
+    subprocess.run(
+        ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
+        '--bfile', ref_filepref,
+        '--bmerge', pure_filepref+'.bed', pure_filepref+'.bim', pure_filepref+'.fam',
+        '--out', ref_merged_filepref])
+    fp.concat_files([ref_filepref+'.popu', pure_filepref+'.popu'], ref_merged_filepref+'.popu')
+    if os.path.isfile(ref_merged_filepref+'_ref.pcs'):
+        os.remove(ref_merged_filepref+'_ref.pcs')
 
     merged_popu_df = pd.read_table(ref_merged_filepref+'.popu', header=None)
     merged_popu_df.columns = ['fid', 'iid', 'popu']
@@ -125,7 +125,7 @@ def add_pure_stu():
 
  
     # Remove pure study samples from study samples
-    filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
+    filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR'
     subprocess.run(
         ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
          '--bfile', filepref,
@@ -375,9 +375,9 @@ def test_merge_array_results():
     # cmp_trace=False
     # traceout_filepref=None
 
-    fp.merge_array_results(ref_filepref, stu_filepref, 'sp', n_chunks)
-    fp.merge_array_results(ref_filepref, stu_filepref, 'ap', n_chunks)
-    fp.merge_array_results(ref_filepref, stu_filepref, 'oadp', n_chunks)
+    # fp.merge_array_results(ref_filepref, stu_filepref, 'sp', n_chunks)
+    # fp.merge_array_results(ref_filepref, stu_filepref, 'ap', n_chunks)
+    # fp.merge_array_results(ref_filepref, stu_filepref, 'oadp', n_chunks)
     test_pca(ref_filepref, stu_filepref, cmp_trace=cmp_trace, load_pcs=True, load_popu=False, assert_results=False, plot_centers=False, plot_size=(12,4), hdpca_n_spikes=4)
 
 def test_split_bed_indiv():
