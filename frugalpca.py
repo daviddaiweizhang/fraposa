@@ -31,7 +31,7 @@ PYTHONHASHSEED = 24
 DIM_REF = 4
 DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
-N_NEIGHBORS=5
+N_NEIGHBORS=23
 HDPCA_N_SPIKES_MAX = 18
 HDPCA_N_SPIKES = DIM_REF
 SAMPLE_CHUNK_SIZE_STU = 5000
@@ -41,8 +41,8 @@ PROCRUSTES_EPSILON_MIN = 1e-6
 NUM_CORES = mp.cpu_count()
 
 
-PLOT_ALPHA_REF=0.2
-PLOT_ALPHA_STU=0.40
+PLOT_ALPHA_REF=0.4
+PLOT_ALPHA_STU=0.2
 PLOT_MARKERS = ['.', '+', 'x', 'd', '*', 's']
 LOG_LEVEL = 'info'
 
@@ -201,6 +201,7 @@ def procrustes(Y_mat, X_mat, return_transformed=False):
         return R, rho, c
 
 def geocenter_coordinate(X, X_ctr):
+    X_ctr = np.array(X_ctr)
     p = X.shape[1]
     X_ctr_unique = np.unique(X_ctr)
     X_ctr_unique_n = len(X_ctr_unique)
@@ -271,7 +272,7 @@ def load_trace(filename, isref=False):
     trace_pcs = trace_df.iloc[:, n_col_skip:].values
     return trace_pcs
 
-def intersect_ref_stu_snps(pref_ref, pref_stu, path_tmp):
+def intersect_ref_stu_snps(pref_ref, pref_stu):
     snps_are_identical = filecmp.cmp(pref_ref+'.bim', pref_stu+'.bim')
     if snps_are_identical:
         logging.info('SNPs and alleles in reference and study samples are identical')
@@ -281,7 +282,7 @@ def intersect_ref_stu_snps(pref_ref, pref_stu, path_tmp):
         assert False
         logging.info('Intersecting SNPs in reference and study samples...')
         bashout = subprocess.run(
-            ['bash', 'intersect_bed.sh', pref_ref, pref_stu, path_tmp],
+            ['bash', 'intersect_bed.sh', pref_ref, pref_stu],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert len(bashout.stderr.decode('utf-8')) == 0
         pref_ref_commsnpsrefal, pref_stu_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
@@ -477,11 +478,13 @@ def pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=None, rowhead_df=None
     return popu_stu_pred, popu_stu_proba, popu_stu_dist
 
 def pred_popu_ref(pcs_ref, n_clusters, out_filename=None, rowhead_df=None):
-    popu_ref = KMeans(n_clusters=N_NEIGHBORS).fit_predict(pcs_ref)
+    popu_ref = KMeans(n_clusters=n_clusters).fit_predict(pcs_ref)
     if out_filename is not None:
         popu_ref_df = pd.DataFrame({'popu':popu_ref})
         popu_ref_df = pd.concat([rowhead_df, popu_ref_df], axis=1)
         popu_ref_df.to_csv(out_filename, sep=DELIMITER, header=False, index=False)
+        print('Reference clustering saved to ' + out_filename)
+    popu_ref = np.array([str(pp) for pp in popu_ref])
     return popu_ref
 
 def load_pcs(pref, methods):
@@ -521,8 +524,10 @@ def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, method, out_pref, markers=PLO
     # Plotting may need to change the signs of PC scores
     # Make a copy to avoid modifying original arrays
     pcs_ref = np.copy(pcs_ref)
-    pcs_stu = np.copy(pcs_stu)
-    plot_lim = np.copy(plot_lim)
+    if pcs_stu is not None:
+        pcs_stu = np.copy(pcs_stu)
+    if plot_lim is not None:
+        plot_lim = np.copy(plot_lim)
 
     # Make sure the same population has the same PC score "shape" when analyzed by different methods
     geocenter_coord = geocenter_coordinate(pcs_ref, popu_ref).values()
@@ -533,9 +538,11 @@ def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, method, out_pref, markers=PLO
         sign_this = geocenter_farthest_sign[i]
         if sign_this < 0:
             pcs_ref[:,i] *= sign_this
-            pcs_stu[:,i] *= sign_this
-            plot_lim[:,i] *= sign_this
-            plot_lim[:,i] = plot_lim[:,i][::-1]
+            if pcs_stu is not None:
+                pcs_stu[:,i] *= sign_this
+            if plot_lim is not None:
+                plot_lim[:,i] *= sign_this
+                plot_lim[:,i] = plot_lim[:,i][::-1]
 
     n_subplot = int(min(dim_ref, plot_dim) / 2)
     fig, ax = plt.subplots(ncols=n_subplot)
@@ -593,7 +600,7 @@ def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, method, out_pref, markers=PLO
     logging.info('PC plots saved to ' + fig_filename)
 
 
-def pca_stu(W, X_mean, X_std, method, path_tmp,
+def pca_stu(W, X_mean, X_std, method, 
             U=None, s=None, V=None, XTX=None, X=None, pcs_ref=None,
             dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
     p_ref = len(X_mean)
@@ -645,11 +652,14 @@ def pca_stu(W, X_mean, X_std, method, path_tmp,
     del W
     return pcs_stu
 
-def pca(ref_filepref, stu_filepref, method, path_tmp,
+def pca(ref_filepref, stu_filepref, method, 
         dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, hdpca_n_spikes=None, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX,
         use_memmap=False, load_saved_ref_decomp=True):
 
-    out_filepref = stu_filepref + '_sturef_' + os.path.basename(ref_filepref)
+    if stu_filepref is None:
+        out_filepref = ref_filepref
+    else:
+        out_filepref = stu_filepref + '_sturef_' + os.path.basename(ref_filepref)
     Xmnsd_filename = ref_filepref + '_mnsd.dat'
     s_filename = ref_filepref + '_s.dat'
     V_filename = ref_filepref + '_V.dat'
@@ -675,8 +685,6 @@ def pca(ref_filepref, stu_filepref, method, path_tmp,
         else:
             mem_out_type = 'memory'
         X, X_bim, X_fam = read_bed(ref_filepref, bed_store=mem_out_type, dtype=np.float32)
-        W_bim, W_fam = read_bed(stu_filepref, bed_store=None)[1:3]
-        assert W_bim.equals(X_bim)
 
         logging.info('Standardizing reference data...')
         X_mean, X_std = standardize(X)
@@ -707,11 +715,14 @@ def pca(ref_filepref, stu_filepref, method, path_tmp,
         for i in range(n_pc_adjusted):
             U[:, i] /= shrinkage[i]
 
+    if stu_filepref is None:
+        return pcs_ref, None, pcs_ref_filename, None
+
     print('>'*30)
     logging.info('Predicting study PC scores (method: ' + method + ')...')
-    W = read_bed(stu_filepref, bed_store='memory', dtype=np.int8)[0]
+    W, W_bim, W_fam = read_bed(stu_filepref, bed_store='memory', dtype=np.int8)
     t0 = time.time()
-    pcs_stu = pca_stu(W, X_mean, X_std, method=method, path_tmp=path_tmp,
+    pcs_stu = pca_stu(W, X_mean, X_std, method=method,
                       U=U, s=s, V=V, pcs_ref=pcs_ref,
                       dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
     elapse_stu = time.time() - t0
@@ -745,25 +756,30 @@ def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU,
     print('='*30)
     t0 = time.time()
     base_ref = os.path.basename(pref_ref)
-    dir_stu = os.path.dirname(pref_stu)
-    pref_out = pref_stu + '_sturef_' + base_ref
-    path_tmp = os.path.join(dir_stu, DIR_TMP)
+    if pref_stu is None:
+        pref_out = pref_ref
+    else:
+        dir_stu = os.path.dirname(pref_stu)
+        pref_out = pref_stu + '_sturef_' + base_ref
     log = create_logger(pref_out, log_level)
+
     assert 2 <= dim_ref <= dim_stu <= dim_stu_high
     logging.info('Using ' + str(NUM_CORES) + ' cores.')
     logging.info('Reference data: ' + pref_ref)
-    logging.info('Study data: ' + pref_stu)
-    logging.info('Method: ' + method)
-    logging.debug('Tmp path: ' + path_tmp)
-    subprocess.run(['mkdir', '-p', path_tmp])
-    # Intersect ref and stu snps
-    pref_ref_commsnpsrefal, pref_stu_commsnpsrefal = intersect_ref_stu_snps(pref_ref, pref_stu, path_tmp)
+    if pref_stu is None:
+        logging.info('PCA on reference samples only.')
+        X_bim, X_fam = read_bed(pref_ref, bed_store=None)[1:3]
+        pca_result = pca(pref_ref, None, method, dim_ref, dim_stu, dim_stu_high, use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, hdpca_n_spikes=hdpca_n_spikes)
+    else:
+        logging.info('Study data: ' + pref_stu)
+        logging.info('Method: ' + method)
+        # Intersect ref and stu snps
+        pref_ref_commsnpsrefal, pref_stu_commsnpsrefal = intersect_ref_stu_snps(pref_ref, pref_stu)
+        W_bim, W_fam = read_bed(pref_stu_commsnpsrefal, bed_store=None)[1:3]
+        X_bim, X_fam = read_bed(pref_ref_commsnpsrefal, bed_store=None)[1:3]
+        # do PCA
+        pca_result = pca(pref_ref_commsnpsrefal, pref_stu_commsnpsrefal, method, dim_ref, dim_stu, dim_stu_high, use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, hdpca_n_spikes=hdpca_n_spikes)
 
-    X_bim, X_fam = read_bed(pref_ref_commsnpsrefal, bed_store=None)[1:3]
-    W_bim, W_fam = read_bed(pref_stu_commsnpsrefal, bed_store=None)[1:3]
-
-    # do PCA
-    pca_result = pca(pref_ref_commsnpsrefal, pref_stu_commsnpsrefal, method, path_tmp, dim_ref, dim_stu, dim_stu_high, use_memmap=use_memmap, load_saved_ref_decomp=load_saved_ref_decomp, hdpca_n_spikes=hdpca_n_spikes)
     pcs_ref, pcs_stu, pcs_ref_filename, pcs_stu_filename = pca_result
 
     # Read or predict ref populations
@@ -778,13 +794,16 @@ def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU,
         logging.info('Reference population prediction saved to ' + popu_ref_filename)
 
     # Predict stu population
-    popu_stu_filename = pref_out + '_pred_' + method + '.popu'
-    popu_stu_pred, popu_stu_proba, popu_stu_dist = pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=popu_stu_filename, rowhead_df=W_fam[['fid','iid']])
-    logging.info('Study population prediction saved to ' + popu_stu_filename)
+    popu_stu_pred = None
+    popu_stu_filename = None
+    if  pref_stu is not None:
+        popu_stu_filename = pref_out + '_pred_' + method + '.popu'
+        popu_stu_pred, popu_stu_proba, popu_stu_dist = pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=popu_stu_filename, rowhead_df=W_fam[['fid','iid']])
+        logging.info('Study population prediction saved to ' + popu_stu_filename)
 
     # Plot PC scores
     if plot_results:
-        plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu_pred, method_list=method, out_pref=pref_out)
+        plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu_pred, method=method, out_pref=pref_out)
 
     logging.info('Total runtime: ' + str(time.time() - t0))
     return pcs_ref, pcs_stu, popu_ref, popu_stu_pred, pcs_ref_filename, pcs_stu_filename, popu_ref_filename, popu_stu_filename
