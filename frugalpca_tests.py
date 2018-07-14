@@ -53,9 +53,35 @@ def test_standardize():
     fp.standardize(y, x_mean_crct, x_std_crct, miss=3)
     assert np.allclose(y, y_standardized_crct)
 
+def plink_keep(bfile, keep):
+    subprocess.run(
+            ['plink', '--keep-allele-order', '--make-bed',
+            '--indiv-sort', 'file', pure_filepref+'.popu',
+            '--bfile', stu_filepref,
+            '--keep', pure_filepref+'.popu',
+            '--out', pure_filepref])
+
+def plink_merge(bfile, bmerge, out):
+    subprocess.run(
+        ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
+            '--bfile', bfile,
+            '--bmerge', bmerge,
+            '--out', out])
+    fp.concat_files([ref_filepref+'.popu', pure_filepref+'.popu'], ref_merged_filepref+'.popu')
+    if os.path.isfile(ref_merged_filepref+'_ref.pcs'):
+        os.remove(ref_merged_filepref+'_ref.pcs')
+
+def plink_remove(bfile, remove, out):
+    subprocess.run(
+        ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
+        '--bfile', bfile,
+        '--remove', remove+'.popu',
+        '--out', out])
+
 def add_pure_stu():
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
     ref_merged_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure'
+    ref_merged_homogen_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure_homogen'
     stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR'
     sturef_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
     pure_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_pure'
@@ -64,7 +90,6 @@ def add_pure_stu():
     n_chunks = 100
     n_pure_samples = 200
     popu_purity_threshold = 0.99
-    n_clusters = 6
 
     # Create popu for pure study samples
     # Find samples whose purity is greater than popu_purity_threshold
@@ -92,45 +117,46 @@ def add_pure_stu():
     popu_pure_near_df.to_csv(pure_filepref+'.popu', sep='\t', header=False, index=False)
 
     # # Create bed, bim, fam for pure study samples
-    # subprocess.run(
-    #         ['plink', '--keep-allele-order', '--make-bed',
-    #         '--indiv-sort', 'file', pure_filepref+'.popu',
-    #         '--bfile', stu_filepref,
-    #         '--keep', pure_filepref+'.popu',
-    #         '--out', pure_filepref])
+    # plink_keep(stu_filepref, pure_filepref)
 
-    # Merge pure study samples with reference samples
-    subprocess.run(
-        ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
-        '--bfile', ref_filepref,
-        '--bmerge', pure_filepref+'.bed', pure_filepref+'.bim', pure_filepref+'.fam',
-        '--out', ref_merged_filepref])
-    fp.concat_files([ref_filepref+'.popu', pure_filepref+'.popu'], ref_merged_filepref+'.popu')
-    if os.path.isfile(ref_merged_filepref+'_ref.pcs'):
-        os.remove(ref_merged_filepref+'_ref.pcs')
-
+    # Select homogeneous samples within the pure samples
     merged_popu_df = pd.read_table(ref_merged_filepref+'.popu', header=None)
     merged_popu_df.columns = ['fid', 'iid', 'popu']
-    merged_pcs = fp.run_pca(ref_merged_filepref, None, method='sp', load_saved_ref_decomp=True, plot_results=True)[0]
-#     merged_df['cluster'] = pd.Series(merged_cluster, index=merged_df.index)
-#     merged_popu_cluster = merged_df[['popu', 'cluster']].groupby('popu').agg(lambda x:x.value_counts().index[0])
-#     ori_clusters = []
-#     for index, row in merged_popu_cluster.iterrows():
-#         if row['popu'][-8:] != 'borrowed':
-#             ori_clusters += [row['cluster']]
-#     ori_clusters = list(set(ori_clusters))
-#     # Dangerous: for debugging only !!!!!!!
-#     ori_clusters = ['0', '1', '2', '4']
-#     ori_df = merged_df[merged_df['cluster'] is in ori_clusters]
+    merged_coord = fp.run_pca(ref_merged_filepref, None, method='sp', load_saved_ref_decomp=True, plot_results=True)[0]
+    merged_popu = merged_popu_df['popu']
+    merged_popu_uniq = np.unique(merged_popu)
+    dim_ref = merged_coord.shape[1]
+    dist_threshold = 3
+    merged_popu_inlier_df = merged_popu_df[0:0]
+    for pp in merged_popu_uniq:
+        if pp[-8:] == 'borrowed':
+            pp_base = pp[:3]
+            pp_ref_df = merged_popu_df[merged_popu == pp_base]
+            pp_stu_df = merged_popu_df[merged_popu == pp]
+            pp_ref_coord = merged_coord[merged_popu == pp_base]
+            pp_stu_coord = merged_coord[merged_popu == pp]
+            n_ref = pp_ref_coord.shape[0]
+            n_stu = pp_stu_coord.shape[0]
+            mn, std, U, s, V, pp_ref_pcs = fp.pca_ref(pp_ref_coord.T, dim_ref=dim_ref)
+            se = np.std(pp_ref_pcs, axis=0)
+            pp_stu_pcs = fp.pca_stu(pp_stu_coord.T, mn, std, 'sp', U)
+            pp_stu_dist = np.sqrt(np.sum(pp_stu_pcs**2 / se**2, axis=1))
+            pp_stu_isin = pp_stu_dist < dist_threshold
+            pp_stu_inlier_df = pp_stu_df[pp_stu_isin]
+            merged_popu_inlier_df = pd.concat((merged_popu_inlier_df, pp_ref_df, pp_stu_inlier_df), axis=0)
+            # print(se[:4])
+            # pp_stu_popu = pp_stu_isin
+            # fp.plot_pcs(pp_ref_pcs, pp_stu_pcs, popu_stu=pp_stu_isin, method='sp', out_pref=ref_merged_filepref+'_'+pp_base)
+    merged_popu_inlier_df.to_csv(ref_merged_homogen_filepref+'.popu', sep='\t', header=False, index=False)
 
- 
+    # Create bed, bim, fam for pure and homogeneous study samples
+    plink_keep(ref_merged_filepref, ref_merged_homogen_filepref)
+
     # Remove pure study samples from study samples
-    filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR'
-    subprocess.run(
-        ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
-         '--bfile', filepref,
-         '--remove', pure_filepref+'.popu',
-         '--out', filepref+'_impure'])
+    bfile = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR'
+    remove = ref_merged_homogen_filepref+'.popu'
+    out = bfile+'_impure'
+    plink_remove(bfile, remove, out)
 
     # # Remove pure study samples from study samples
     # for i in range(n_chunks):

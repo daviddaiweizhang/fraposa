@@ -53,67 +53,6 @@ DELIMITER = '\t'
 # DIR_TMP = mkdtemp()
 DIR_TMP = 'tmp'
 
-# def pca_stu_io(
-#         i, stu_filepref_list, ref_filepref, path_tmp, method,
-#         X_mean, X_std, U, s, V, pcs_ref,
-#         dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
-#     stu_filepref = stu_filepref_list[i]
-#     W = read_bed(stu_filepref, bed_store='memory', dtype=np.int8)[0]
-#     pcs_stu = pca_stu(
-#         W, X_mean, X_std, method=method, path_tmp=path_tmp,
-#         U=U, s=s, V=V, pcs_ref=pcs_ref,
-#         dim_ref=dim_ref, dim_stu=dim_stu, dim_stu_high=dim_stu_high)
-#     ref_basepref = os.path.basename(ref_filepref)
-#     out_filepref = stu_filepref + '_sturef_' + ref_basepref
-#     pcs_stu_filename = out_filepref + '_stu_' + method +'.pcs'
-#     np.savetxt(pcs_stu_filename, pcs_stu, fmt=NP_OUTPUT_FMT, delimiter='\t')
-#     return pcs_stu
-
-
-# def split_bed_indiv(filepref, chunklevel):
-#     fam = np.loadtxt(filepref+'.fam')
-#     n = fam.shape[0]
-#     if n > chunklevel:
-#         fam_0 = fam[:(n/2),:]
-#         fam_1 = fam[(n/2):,:]
-#         split_fam()
-#         extract_indivs(0)
-#         extract_indivs(1)
-#         split_bed_indiv(0)
-#         split_bed_indiv(1)
-
-# def submit_pca(pref_ref, pref_stu, popu_ref_filename=None, popu_ref_k=None, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, log_level='info'):
-#     submit_pca_on_flux
-
-
-# def run_pca_parallel(ref_filepref, stu_filepref, popu_ref_filename=None, popu_ref_k=None, chunksize=None, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, log_level='info'):
-#     stu_filepref_chunk_list = split_bed_indiv(stu_filepref, chunksize)
-#     n_chunks = len(stu_filepref_chunk_list)
-#     stu_pcspopu_filepref_list = np.chararray((n_chunks, 2))
-#     for i,stu_filepref_chunk in enumerate(stu_filepref_chunk_list):
-#         submit_pca(ref_filepref, stu_filepref_chunk, popu_ref_filename=None, popu_ref_k=None, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, log_level='info')
-#         stu_pcspopu_filename_list[i,:2] = [
-#             stu_filepref_chunk+'_stu_'+method+'.pcs',
-#             stu_filepref_chunk+'.popu']
-#     stu_pcs_filename = merge_pcs(stu_pcspopu_filename_list[:,0])
-#     stu_popu_filename = merge_popu(stu_pcspopu_filename_list[:,1])
-#     ref_pcs_filename = ref_filepref + '.pcs'
-#     ref_popu_filename = ref_filepref + '.popu'
-#     return variables, filenames
-
-        # pcs_stu[sample_start:sample_end, :] = Parallel(n_jobs=NUM_CORES)(delayed(get_pcs_stu_this)(i, W, X_mean, X_std, U, s, V, method, dim_ref, dim_stu, dim_stu_high) for i in range(W.shape[1]))
-
-        # output = mp.Queue()
-        # processes = [mp.Process(target=get_pcs_stu_this, args=(output, i, W, X_mean, X_std, U, s, V, method, dim_ref, dim_stu, dim_stu_high)) for i in range(W.shape[1])]
-        # for p in processes:
-        #     p.start()
-        # for p in processes:
-        #     p.join()
-        # results = [output.get() for p in processes]
-        # for (i, pcs_stu_this) in results:
-        #     pcs_stu[sample_start + i, :] = pcs_stu_this
-
-
 def create_logger(prefix='frugalpca', level='info'):
     log = logging.getLogger()
     if level == 'info':
@@ -141,7 +80,6 @@ def create_logger(prefix='frugalpca', level='info'):
     ch.setFormatter(formatter)
     log.addHandler(ch)
     return log
-
 
 def svd_eigcov(XTX):
     ssq, V = np.linalg.eigh(XTX)
@@ -395,7 +333,7 @@ def standardize_ref(X):
     X[np.isnan(X)] = 0
     return X_mean, X_std
 
-def pca_ref(X):
+def eig_ref(X):
     logging.info('Calculating covariance matrix...')
     XTX = X.T @ X
     logging.info('Eigendecomposition on covariance matrix...')
@@ -506,16 +444,25 @@ def hdpca_shrinkage(U, s, p_ref, n_ref, hdpca_n_spikes=None, hdpca_n_spikes_max=
     return shrinkage
 
 
-def str2color(s):
-    colormap = plt.get_cmap('Set1')
-    color = colormap(hash(s) % 9)
-    return color
-
-def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, method, out_pref, markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU, plot_lim=None, plot_dim=float('inf'), plot_size=None, plot_title=None, plot_color_stu=None, plot_legend=True, plot_centers=False):
-    dim_ref = pcs_ref.shape[1]
+def plot_pcs(pcs_ref, pcs_stu=None, popu_ref=None, popu_stu=None, method=None, out_pref=None, markers=PLOT_MARKERS, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU, plot_lim=None, plot_dim=float('inf'), plot_size=None, plot_title=None, plot_color_stu=None, plot_legend=True, plot_centers=False):
+    n_ref, dim_ref = pcs_ref.shape
+    if pcs_stu is None:
+        n_stu = 0
+    else:
+        n_stu = pcs_stu.shape[0]
+    if method is None:
+        method = 'stu'
+    if popu_ref is None:
+        popu_ref = np.array(['ref'] * n_ref)
+    else:
+        popu_ref = np.array(popu_ref, dtype='str')
+    if popu_stu is None:
+        popu_stu = np.array([popu_ref[0]] * n_stu)
+    else:
+        popu_stu = np.array(popu_stu, dtype='str')
 
     # Get the unique populations and assign plotting colors to them
-    popu_unique = sorted(list(set(popu_ref)))
+    popu_unique = sorted(list(set(np.concatenate((popu_ref, popu_stu)))))
     popu_unique = sorted(popu_unique, key=len)
     popu_n = len(popu_unique)
     colormap = plt.get_cmap('Set1')
@@ -570,7 +517,7 @@ def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, method, out_pref, markers=PLO
             a = 5
             for i in range(a):
                 if i == 0:
-                    label = method
+                    label = 'stu (' + method + ')'
                 else:
                     label = None
                 indiv_shuffled_this = np.arange(pcs_stu.shape[0]) % a == i
@@ -594,17 +541,20 @@ def plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, method, out_pref, markers=PLO
     plt.tight_layout()
     if plot_size is not None:
         fig.set_size_inches(plot_size)
-    fig_filename = out_pref + '_' + method + '.png'
-    plt.savefig(fig_filename, dpi=300)
+    if out_pref is not None:
+        fig_filename = out_pref + '_' + method + '.png'
+        plt.savefig(fig_filename, dpi=300)
+        logging.info('PC plots saved to ' + fig_filename)
+    else:
+        logging.info('No output path specified.')
+        plt.show()
     plt.close('all')
-    logging.info('PC plots saved to ' + fig_filename)
 
 
 def pca_stu(W, X_mean, X_std, method, 
             U=None, s=None, V=None, XTX=None, X=None, pcs_ref=None,
             dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH):
     p_ref = len(X_mean)
-    n_ref = len(s)
     p_stu, n_stu = W.shape
     pcs_stu = np.zeros((n_stu, dim_ref))
 
@@ -652,7 +602,15 @@ def pca_stu(W, X_mean, X_std, method,
     del W
     return pcs_stu
 
-def pca(ref_filepref, stu_filepref, method, 
+def pca_ref(X, dim_ref=DIM_REF, dim_stu_high=DIM_STU_HIGH):
+    X_mean, X_std = standardize(X)
+    s, V = eig_ref(X)[:2]
+    V = V[:, :dim_stu_high]
+    pcs_ref = V[:, :dim_ref] * s[:dim_ref]
+    U = X @ (V[:,:dim_stu_high] / s[:dim_stu_high])
+    return X_mean, X_std, U, s, V, pcs_ref
+
+def pca(ref_filepref, stu_filepref, method,
         dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, hdpca_n_spikes=None, hdpca_n_spikes_max=HDPCA_N_SPIKES_MAX,
         use_memmap=False, load_saved_ref_decomp=True):
 
@@ -686,21 +644,14 @@ def pca(ref_filepref, stu_filepref, method,
             mem_out_type = 'memory'
         X, X_bim, X_fam = read_bed(ref_filepref, bed_store=mem_out_type, dtype=np.float32)
 
-        logging.info('Standardizing reference data...')
-        X_mean, X_std = standardize(X)
+        logging.info('PCA on reference data...')
+        X_mean, X_std, U, s, V, pcs_ref = pca_ref(X, dim_ref=dim_ref, dim_stu_high=dim_stu_high)
         np.savetxt(Xmnsd_filename, np.hstack((X_mean, X_std)), fmt=NP_OUTPUT_FMT)
-
-        s, V, XTX = pca_ref(X)
-        V = V[:, :dim_stu_high]
-        pcs_ref = V[:, :dim_ref] * s[:dim_ref]
         np.savetxt(s_filename, s, fmt=NP_OUTPUT_FMT)
         np.savetxt(V_filename, V, fmt=NP_OUTPUT_FMT)
         np.savetxt(pcs_ref_filename, pcs_ref, fmt=NP_OUTPUT_FMT)
-        logging.info('Reference PC scores saved to ' + pcs_ref_filename)
-
-        logging.info('Calculating PC loadings...')
-        U = X @ (V[:,:dim_stu_high] / s[:dim_stu_high])
         np.savetxt(U_filename, U, fmt=NP_OUTPUT_FMT)
+        logging.info('Reference PC scores saved to ' + pcs_ref_filename)
 
     if method == 'ap':
         if os.path.isfile(shrinkage_filename) and load_saved_ref_decomp:
