@@ -146,14 +146,19 @@ def add_pure_stu():
             pp_stu_dist = np.sqrt(np.sum(pp_stu_pcs**2 / se**2, axis=1))
             pp_stu_isin = pp_stu_dist < dist_threshold
             pp_stu_inlier_df = pp_stu_df[pp_stu_isin]
-            merged_popu_inlier_df = pd.concat((merged_popu_inlier_df, pp_ref_df, pp_stu_inlier_df), axis=0)
+            merged_popu_inlier_df = pd.concat((merged_popu_inlier_df, pp_stu_inlier_df), axis=0)
             # print(se[:4])
             # pp_stu_popu = pp_stu_isin
             # fp.plot_pcs(pp_ref_pcs, pp_stu_pcs, popu_stu=pp_stu_isin, method='sp', out_pref=ref_merged_filepref+'_'+pp_base)
+        else:
+            pp_ref_df = merged_popu_df[merged_popu == pp]
+        merged_popu_inlier_df = pd.concat((merged_popu_inlier_df, pp_ref_df), axis=0)
     merged_popu_inlier_df.to_csv(ref_merged_homogen_filepref+'.popu', sep='\t', header=False, index=False)
 
     # Select the original reference samples and the homogeneous pure original study samples from the merged ref samples
     plink_keep(ref_merged_filepref, ref_merged_homogen_filepref+'.popu', ref_merged_homogen_filepref)
+    if os.path.isfile(ref_merged_homogen_filepref+'_ref.pcs'):
+        os.remove(ref_merged_homogen_filepref+'_ref.pcs')
 
     # Remove pure study samples from study samples
     bfile = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR'
