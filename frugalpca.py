@@ -767,19 +767,23 @@ def concat_files(inlist, out):
 
 def merge_array_results(ref_filepref, stu_filepref, method, n_chunks):
     ref_basepref = os.path.basename(ref_filepref)
-    stu_filepref_list = [stu_filepref + '_' + str(i).zfill(SAMPLE_SPLIT_PREF_LEN) + '_sturef_' + ref_basepref for i in range(n_chunks)]
+    endcode_list = [str(i).zfill(SAMPLE_SPLIT_PREF_LEN) for i in range(n_chunks)]
+    stu_filepref_list = [stu_filepref + '_' + endcode_list[i] + '_sturef_' + ref_basepref for i in range(n_chunks)]
     stu_pcs_filename_list = [fpref + '_stu_' + method + '.pcs' for fpref in stu_filepref_list]
     stu_popu_filename_list = [fpref + '_pred_' + method + '.popu' for fpref in stu_filepref_list]
+    stu_fam_filename_list = [stu_filepref + '_' + endcode_list[i] + '.fam' for i in range(n_chunks)]
     stu_pcs_filename = stu_filepref + '_sturef_' + ref_basepref + '_stu_' + method + '.pcs'
     stu_popu_filename = stu_filepref + '_sturef_' + ref_basepref + '_pred_' + method + '.popu'
-    ref_pcs_filename = ref_filepref + '_ref.pcs'
-    ref_popu_filename = ref_filepref + '.popu'
+    stu_fam_filename = stu_filepref + '.fam'
     concat_files(stu_pcs_filename_list, stu_pcs_filename)
     concat_files(stu_popu_filename_list, stu_popu_filename)
-    ref_pcs = np.loadtxt(ref_pcs_filename)
-    stu_pcs = np.loadtxt(stu_pcs_filename)
-    ref_popu = np.loadtxt(ref_popu_filename, dtype=np.object)[:,2]
-    stu_popu = np.loadtxt(stu_popu_filename, dtype=np.object)[:,2]
+    concat_files(stu_fam_filename_list, stu_fam_filename)
+    # ref_pcs_filename = ref_filepref + '_ref.pcs'
+    # ref_popu_filename = ref_filepref + '.popu'
+    # ref_pcs = np.loadtxt(ref_pcs_filename)
+    # stu_pcs = np.loadtxt(stu_pcs_filename)
+    # ref_popu = np.loadtxt(ref_popu_filename, dtype=np.object)[:,2]
+    # stu_popu = np.loadtxt(stu_popu_filename, dtype=np.object)[:,2]
     # plot_pcs(ref_pcs, stu_pcs, ref_popu, stu_popu, method, out_pref=stu_filepref)
 
 def split_bed_indiv(filepref, n_chunks, i):

@@ -175,9 +175,9 @@ def add_pure_stu(n_pure_samples=200, popu_purity_threshold=0.99, homogen_dist_th
     # Remove pure study samples from study samples
     for i in range(n_chunks):
         stu_filepref_chunk_this = stu_filepref_chunk + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
-        os.makedirs(impure_filepref_chunk, exist_ok=True)
-        heterogen_filepref_chunk_this = heterogen_filepref_chunk + '/' + os.path.basename(impure_filepref_chunk) + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
-        plink_remove(stu_filepref_chunk_this, pure_filepref+'.popu', impure_filepref_chunk_this)
+        os.makedirs(heterogen_filepref_chunk, exist_ok=True)
+        heterogen_filepref_chunk_this = heterogen_filepref_chunk + '/' + os.path.basename(heterogen_filepref_chunk) + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
+        plink_remove(stu_filepref_chunk_this, pure_filepref+'.popu', heterogen_filepref_chunk_this)
         # subprocess.run(
         #     ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
         #     '--bfile', stu_filepref_chunk_this,
@@ -409,14 +409,14 @@ def test_merge_array_results():
     cmp_trace=False
     traceout_filepref=None
 
-    # n_chunks = 100
-    # ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure'
-    # stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100'
-    # cmp_trace=False
-    # traceout_filepref=None
+    n_chunks = 100
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure_homogen'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_heterogen_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_heterogen_nchunks100'
+    cmp_trace=False
+    traceout_filepref=None
 
-    # fp.merge_array_results(ref_filepref, stu_filepref, 'sp', n_chunks)
-    # fp.merge_array_results(ref_filepref, stu_filepref, 'ap', n_chunks)
+    fp.merge_array_results(ref_filepref, stu_filepref, 'sp', n_chunks)
+    fp.merge_array_results(ref_filepref, stu_filepref, 'ap', n_chunks)
     # fp.merge_array_results(ref_filepref, stu_filepref, 'oadp', n_chunks)
     test_pca(ref_filepref, stu_filepref, cmp_trace=cmp_trace, load_pcs=True, load_popu=False, assert_results=False, plot_centers=False, plot_size=(12,4), hdpca_n_spikes=4)
 

@@ -1,8 +1,8 @@
 #!/bin/bash
 ####  PBS preamble
 
-#PBS -N fp.EUR.merged.oadp
-#PBS -l nodes=1:ppn=1,mem=4gb,walltime=02:00:00
+#PBS -N fp.EUR.homogen.sp
+#PBS -l nodes=1:ppn=1,mem=4gb,walltime=00:30:00
 #PBS -t 0-99
 
 #PBS -M daiweiz@umich.edu
@@ -29,8 +29,6 @@ echo $PBS_ARRAYID
 jobid="${PBS_JOBID:0:8}"
 # module load R mkl/11.3.3 gcc/5.4.0 armadillo plink
 
-# PBS_ARRAYID=5
-
 # #  Put your job commands here:
 # method=ap
 # pref_ref=../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR
@@ -48,9 +46,11 @@ jobid="${PBS_JOBID:0:8}"
 
 #  Put your job commands here:
 i=$PBS_ARRAYID
-method=oadp
-pref_ref=../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure
-pref_stu=../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100_`printf "%04d" ${i}`
+method=sp
+pref_ref=../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure_homogen
+pref_stu=../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_heterogen_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_heterogen_nchunks100
+pref_stu=${pref_stu}_`printf "%04d" ${i}`
+# pref_stu=../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100_`printf "%04d" ${i}`
 python -c "import frugalpca as fp; fp.run_pca('${pref_ref}', '${pref_stu}', '${method}')"
 
 # #  Put your job commands here:
