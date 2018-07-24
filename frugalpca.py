@@ -544,7 +544,7 @@ def plot_pcs(pcs_ref, pcs_stu=None, popu_ref=None, popu_stu=None, method=None, o
     if out_pref is not None:
         fig_filename = out_pref + '_' + method + '.png'
         plt.savefig(fig_filename, dpi=300)
-        logging.info('PC plots saved to ' + fig_filename)
+        logging.info(('PC plots saved to ' + fig_filename)
     else:
         logging.info('No output path specified.')
         plt.show()

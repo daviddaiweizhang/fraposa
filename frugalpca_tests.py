@@ -169,20 +169,20 @@ def add_pure_stu(n_pure_samples=200, popu_purity_threshold=0.99, homogen_dist_th
     # Remove pure study samples from study samples
     bfile = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR'
     remove = ref_merged_homogen_filepref+'.popu'
-    out = bfile+'_impure'
+    out = bfile+'_heterogen'
     plink_remove(bfile, remove, out)
 
-    # Remove pure study samples from study samples
-    for i in range(n_chunks):
-        stu_filepref_chunk_this = stu_filepref_chunk + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
-        os.makedirs(heterogen_filepref_chunk, exist_ok=True)
-        heterogen_filepref_chunk_this = heterogen_filepref_chunk + '/' + os.path.basename(heterogen_filepref_chunk) + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
-        plink_remove(stu_filepref_chunk_this, pure_filepref+'.popu', heterogen_filepref_chunk_this)
-        # subprocess.run(
-        #     ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
-        #     '--bfile', stu_filepref_chunk_this,
-        #     '--remove', pure_filepref+'.popu',
-        #      '--out', impure_filepref_chunk_this])
+    # # Remove pure study samples from study samples
+    # for i in range(n_chunks):
+    #     stu_filepref_chunk_this = stu_filepref_chunk + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
+    #     os.makedirs(heterogen_filepref_chunk, exist_ok=True)
+    #     heterogen_filepref_chunk_this = heterogen_filepref_chunk + '/' + os.path.basename(heterogen_filepref_chunk) + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
+    #     plink_remove(stu_filepref_chunk_this, pure_filepref+'.popu', heterogen_filepref_chunk_this)
+    #     # subprocess.run(
+    #     #     ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
+    #     #     '--bfile', stu_filepref_chunk_this,
+    #     #     '--remove', pure_filepref+'.popu',
+    #     #      '--out', impure_filepref_chunk_this])
 
 def test_online_svd_procrust():
     np.random.seed(21)
@@ -289,8 +289,8 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True, load_pcs=False, load_popu=True,
 
     if load_pcs:
         pcs_ref = np.loadtxt(pref_ref + '_ref.pcs')
-        pcs_stu_sp = np.loadtxt(pref_out + '_stu_sp.pcs')
         pcs_stu_ap = np.loadtxt(pref_out + '_stu_ap.pcs')
+        pcs_stu_sp = np.loadtxt(pref_out + '_stu_sp.pcs')
         # pcs_stu_oadp = np.loadtxt(pref_out + '_stu_oadp.pcs')
 
         if n_clusters is None:
@@ -301,14 +301,14 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True, load_pcs=False, load_popu=True,
             popu_ref = fp.pred_popu_ref(pcs_ref, n_clusters, out_filename=pref_ref+'_pred.popu', rowhead_df=fam_ref)
 
         if load_popu:
-            popu_stu_pred_sp = np.loadtxt(pref_out + '_pred_sp.popu', dtype=np.object)[:,2]
             popu_stu_pred_ap = np.loadtxt(pref_out + '_pred_ap.popu', dtype=np.object)[:,2]
+            popu_stu_pred_sp = np.loadtxt(pref_out + '_pred_sp.popu', dtype=np.object)[:,2]
             # popu_stu_pred_oadp = np.loadtxt(pref_out + '_pred_oadp.popu', dtype=np.object)[:,2]
         else:
             fam_stu = pd.read_table(pref_stu+'.fam', header=None, delimiter=' ').iloc[:,:2]
             assert fam_stu.shape[0] == pcs_stu_sp.shape[0]
-            popu_stu_pred_sp = fp.pred_popu_stu(pcs_ref, popu_ref, pcs_stu_sp, pref_out+'_pred_sp.popu', fam_stu)[0]
             popu_stu_pred_ap = fp.pred_popu_stu(pcs_ref, popu_ref, pcs_stu_ap, pref_out+'_pred_ap.popu', fam_stu)[0]
+            popu_stu_pred_sp = fp.pred_popu_stu(pcs_ref, popu_ref, pcs_stu_sp, pref_out+'_pred_sp.popu', fam_stu)[0]
             # popu_stu_pred_oadp = fp.pred_popu_stu(pcs_ref, popu_ref, pcs_stu_oadp, pref_out+'_pred_oadp.popu', fam_stu)[0]
     else:
         pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap = fp.run_pca(pref_ref, pref_stu, method='ap', dim_ref=dim_ref, hdpca_n_spikes=hdpca_n_spikes, load_saved_ref_decomp=load_saved_ref_decomp)[:4]
@@ -319,8 +319,8 @@ def test_pca(pref_ref, pref_stu, cmp_trace=True, load_pcs=False, load_popu=True,
     pcs_min = np.vstack((pcs_ref, pcs_stu_ap)).min(axis=0)
     pcs_max = np.vstack((pcs_ref, pcs_stu_ap)).max(axis=0)
     plot_lim = np.vstack((pcs_min, pcs_max)) * 1.20
-    fp.plot_pcs(pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp, 'sp', out_pref=pref_out, plot_lim=plot_lim, plot_dim=plot_dim, plot_size=plot_size, plot_title=plot_title, plot_color_stu=plot_color_stu, plot_legend=plot_legend, alpha_stu=alpha_stu, plot_centers=plot_centers)
     fp.plot_pcs(pcs_ref, pcs_stu_ap, popu_ref, popu_stu_pred_ap, 'ap', out_pref=pref_out, plot_lim=plot_lim, plot_dim=plot_dim, plot_size=plot_size, plot_title=plot_title, plot_color_stu=plot_color_stu, plot_legend=plot_legend, alpha_stu=alpha_stu, plot_centers=plot_centers)
+    fp.plot_pcs(pcs_ref, pcs_stu_sp, popu_ref, popu_stu_pred_sp, 'sp', out_pref=pref_out, plot_lim=plot_lim, plot_dim=plot_dim, plot_size=plot_size, plot_title=plot_title, plot_color_stu=plot_color_stu, plot_legend=plot_legend, alpha_stu=alpha_stu, plot_centers=plot_centers)
     # fp.plot_pcs(pcs_ref, pcs_stu_oadp, popu_ref, popu_stu_pred_oadp, 'oadp', out_pref=pref_out, plot_lim=plot_lim, plot_dim=plot_dim, plot_size=plot_size, plot_title=plot_title, plot_color_stu=plot_color_stu, plot_legend=plot_legend, alpha_stu=alpha_stu, plot_centers=plot_centers)
 
     if cmp_trace:
@@ -408,15 +408,16 @@ def test_merge_array_results():
     stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100'
     cmp_trace=False
     traceout_filepref=None
+    # test_pca(ref_filepref, stu_filepref, cmp_trace=cmp_trace, load_pcs=True, load_popu=False, assert_results=False, plot_centers=False, plot_size=(12,4), hdpca_n_spikes=4)
 
     n_chunks = 100
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure_homogen'
     stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_heterogen_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_heterogen_nchunks100'
     cmp_trace=False
     traceout_filepref=None
-
-    fp.merge_array_results(ref_filepref, stu_filepref, 'sp', n_chunks)
-    fp.merge_array_results(ref_filepref, stu_filepref, 'ap', n_chunks)
+ 
+    # fp.merge_array_results(ref_filepref, stu_filepref, 'sp', n_chunks)
+    # fp.merge_array_results(ref_filepref, stu_filepref, 'ap', n_chunks)
     # fp.merge_array_results(ref_filepref, stu_filepref, 'oadp', n_chunks)
     test_pca(ref_filepref, stu_filepref, cmp_trace=cmp_trace, load_pcs=True, load_popu=False, assert_results=False, plot_centers=False, plot_size=(12,4), hdpca_n_spikes=4)
 
@@ -449,7 +450,7 @@ def test_pca_EUR_pure():
     stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_pure'
     test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=False, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4)
 
-def test_pca_5c_EUR_impure():
+def test_pca_5c_EUR_impure_ref_pure():
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure'
     stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_impure'
     test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=False, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4, load_saved_ref_decomp=False)
@@ -465,10 +466,10 @@ def test_pca_EUR_pure_homogen():
     test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=False, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4)
 
 
-def test_pca_5c_EUR_impure_ref_homogen():
+def test_pca_5c_EUR_heterogen_ref_homogen():
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure_homogen'
-    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_impure'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_heterogen'
     test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=False, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4)
 
 def test_add_pure_stu():
-    add_pure_stu(remember_borrowed=False)
+    add_pure_stu(remember_borrowed=True)
