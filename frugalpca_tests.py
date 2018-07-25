@@ -61,7 +61,7 @@ def plink_keep(bfile, keep, out):
             '--keep', keep,
             '--out', out],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    assert len(bashout.stderr.decode('utf-8')) == 0
+    assert bashout.stderr.decode('utf-8')[:5] is not 'Error'
     # keyword = bashout.stdout.decode('utf-8').split('\n')[-1][:5]
     # assert keyword is not 'Error'
     os.remove(out+'.log')
@@ -73,7 +73,7 @@ def plink_merge(bfile, bmerge, out):
             '--bmerge', bmerge,
             '--out', out],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    assert len(bashout.stderr.decode('utf-8')) == 0
+    assert bashout.stderr.decode('utf-8')[:5] is not 'Error'
     os.remove(out+'.log')
 
 def plink_remove(bfile, remove, out):
@@ -83,11 +83,58 @@ def plink_remove(bfile, remove, out):
         '--remove', remove,
         '--out', out],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    assert len(bashout.stderr.decode('utf-8')) == 0
+    assert bashout.stderr.decode('utf-8')[:5] is not 'Error'
     os.remove(out+'.log')
 
+def get_homogen(ref_merged_filepref, homogen_dist_threshold=5):
+    merged_popu_df = pd.read_table(ref_merged_filepref+'.popu', header=None)
+    merged_popu_df.columns = ['fid', 'iid', 'popu']
+    merged_coord = fp.run_pca(ref_merged_filepref, None, method='sp', load_saved_ref_decomp=False, plot_results=True)[0]
+    dim_ref = merged_coord.shape[1]
+    merged_coord_df = pd.DataFrame(merged_coord)
+    merged_coord_df = pd.DataFrame(merged_coord)
+    merged_df = pd.concat([merged_popu_df, merged_coord_df], axis=1)
+    merged_popu = merged_df['popu']
+    merged_popu_uniq = np.unique(merged_popu)
+    merged_inlier_df = merged_df[0:0]
+    for pp in merged_popu_uniq:
+        if pp[-8:] == 'borrowed':
+            pp_base = pp[:3]
+            pp_ref_df = merged_df[merged_popu == pp_base]
+            pp_stu_df = merged_df[merged_popu == pp]
+            pp_ref_coord = merged_coord[merged_popu == pp_base]
+            pp_stu_coord = merged_coord[merged_popu == pp]
+            n_ref = pp_ref_coord.shape[0]
+            n_stu = pp_stu_coord.shape[0]
+            mn, std, U, s, V, pp_ref_pcs = fp.pca_ref(pp_ref_coord.T, dim_ref=dim_ref)
+            se = np.std(pp_ref_pcs, axis=0)
+            pp_stu_pcs = fp.pca_stu(pp_stu_coord.T, mn, std, 'sp', U)
+            pp_stu_dist = np.sqrt(np.sum(pp_stu_pcs**2 / se**2, axis=1))
+            pp_stu_isin = pp_stu_dist < homogen_dist_threshold
+            pp_stu_inlier_df = pp_stu_df[pp_stu_isin]
+            # if not remember_borrowed:
+            #    pp_stu_inlier_df['popu'] = pp_base
+            merged_inlier_df = pd.concat((merged_inlier_df, pp_stu_inlier_df), axis=0)
+            # print(se[:4])
+            # pp_stu_popu = pp_stu_isin
+            # fp.plot_pcs(pp_ref_pcs, pp_stu_pcs, popu_stu=pp_stu_isin, method='sp', out_pref=ref_merged_filepref+'_'+pp_base)
+        else:
+            pp_ref_df = merged_df[merged_popu == pp]
+            merged_inlier_df = pd.concat((merged_inlier_df, pp_ref_df), axis=0)
+    # print(merged_df.groupby('popu').count().iloc[:,0])
+    # print('Number of samples: ' + str(merged_df.shape[0]))
+    # print(merged_inlier_df.groupby('popu').count().iloc[:,0])
+    # print('Number of inliers: ' + str(merged_inlier_df.shape[0]))
+    print('Samples left: ' + str(merged_inlier_df.shape[0]) + '/' + str(merged_df.shape[0]))
+    merged_inlier_df.iloc[:,:3].to_csv(ref_merged_filepref+'.popu', sep='\t', header=False, index=False)
+    plink_keep(ref_merged_filepref, ref_merged_filepref+'.popu', ref_merged_filepref)
+    # if os.path.isfile(ref_merged_filepref+'_ref.pcs'):
+    #     os.remove(ref_merged_filepref+'_ref.pcs')
+    if merged_inlier_df.shape[0] != merged_df.shape[0]:
+        get_homogen(ref_merged_filepref)
 
-def add_pure_stu(n_pure_samples=100, popu_purity_threshold=0.99, homogen_dist_threshold = 3, remember_borrowed=True, rm_nchunks=False):
+
+def add_pure_stu(n_pure_samples=4000, popu_purity_threshold=0.75, n_iter_max=10, emember_borrowed=True, rm_nchunks=False):
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
     ref_merged_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure'
     ref_merged_homogen_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure_homogen'
@@ -98,8 +145,6 @@ def add_pure_stu(n_pure_samples=100, popu_purity_threshold=0.99, homogen_dist_th
     impure_filepref_chunk = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100'
     heterogen_filepref_chunk = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_heterogen_nchunks100'
     n_chunks = 100
-    popu_purity_threshold = 0.99
-    n_iter_max = 10
 
     # Create popu for pure study samples
     # Find samples whose purity is greater than popu_purity_threshold
@@ -142,60 +187,8 @@ def add_pure_stu(n_pure_samples=100, popu_purity_threshold=0.99, homogen_dist_th
     # Select homogeneous samples within the pure samples
     print('Select homogeneous samples within the pure samples...')
     print('='*80)
-    merged_popu_df = pd.read_table(ref_merged_filepref+'.popu', header=None)
-    merged_popu_df.columns = ['fid', 'iid', 'popu']
-    merged_coord = fp.run_pca(ref_merged_filepref, None, method='sp', load_saved_ref_decomp=False, plot_results=True)[0]
-    dim_ref = merged_coord.shape[1]
-    merged_coord_df = pd.DataFrame(merged_coord)
-    merged_df = pd.concat([merged_popu_df, merged_coord_df], axis=1)
-    merged_inlier_df = merged_popu_df[0:0]
-
-    for i in range(n_iter_max):
-        print('.'*40)
-        print('n_iter: ' + str(i))
-        merged_coord_df = pd.DataFrame(merged_coord)
-        merged_popu = merged_df['popu']
-        merged_popu_uniq = np.unique(merged_popu)
-        for pp in merged_popu_uniq:
-            if pp[-8:] == 'borrowed':
-                pp_base = pp[:3]
-                pp_ref_df = merged_df[merged_popu == pp_base]
-                pp_stu_df = merged_df[merged_popu == pp]
-                pp_ref_coord = merged_coord[merged_popu == pp_base]
-                pp_stu_coord = merged_coord[merged_popu == pp]
-                n_ref = pp_ref_coord.shape[0]
-                n_stu = pp_stu_coord.shape[0]
-                mn, std, U, s, V, pp_ref_pcs = fp.pca_ref(pp_ref_coord.T, dim_ref=dim_ref)
-                se = np.std(pp_ref_pcs, axis=0)
-                pp_stu_pcs = fp.pca_stu(pp_stu_coord.T, mn, std, 'sp', U)
-                pp_stu_dist = np.sqrt(np.sum(pp_stu_pcs**2 / se**2, axis=1))
-                pp_stu_isin = pp_stu_dist < homogen_dist_threshold
-                pp_stu_inlier_df = pp_stu_df[pp_stu_isin]
-                # if not remember_borrowed:
-                #    pp_stu_inlier_df['popu'] = pp_base
-                merged_inlier_df = pd.concat((merged_inlier_df, pp_stu_inlier_df), axis=0)
-                # print(se[:4])
-                # pp_stu_popu = pp_stu_isin
-                # fp.plot_pcs(pp_ref_pcs, pp_stu_pcs, popu_stu=pp_stu_isin, method='sp', out_pref=ref_merged_filepref+'_'+pp_base)
-            else:
-                pp_ref_df = merged_df[merged_popu == pp]
-                merged_inlier_df = pd.concat((merged_inlier_df, pp_ref_df), axis=0)
-        print(merged_inlier_df.groupby('popu').count()[:,0])
-        print('Number of samples left: ' + str(merged_inlier_df.shape[0]))
-        if merged_inlier_df.shape[0] == merged_df.shape[1]:
-            break
-        else:
-            merged_df = merged_inlier_df
-            merged_coord = merged_df.iloc[:,3:].values
-            merged_coord = fp.pca_ref(merged_coord.T)[-1]
-
-    print('Finished selecting homogenous samples.')
-    merged_inlier_df.to_csv(ref_merged_homogen_filepref+'.popu', sep='\t', header=False, index=False)
-
-    # Select the original reference samples and the homogeneous pure original study samples from the merged ref samples
-    plink_keep(ref_merged_filepref, ref_merged_homogen_filepref+'.popu', ref_merged_homogen_filepref)
-    if os.path.isfile(ref_merged_homogen_filepref+'_ref.pcs'):
-        os.remove(ref_merged_homogen_filepref+'_ref.pcs')
+    get_homogen(ref_merged_filepref)
+    print('Homogeneous samples save to ' + ref_merged_filepref)
 
     print('Removing selected samples from the study set...')
     print('='*80)
@@ -486,7 +479,7 @@ def test_pca_5c_EUR_impure_ref_pure():
 def test_pca_5c_EUR_impure_predrefpopu():
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure'
     stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR_impure'
-    test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=True, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4, n_clusters=5)
+    test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=False, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4, n_clusters=5)
 
 def test_pca_EUR_pure_homogen():
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'

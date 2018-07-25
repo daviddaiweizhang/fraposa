@@ -465,7 +465,7 @@ def plot_pcs(pcs_ref, pcs_stu=None, popu_ref=None, popu_stu=None, method=None, o
     popu_unique = sorted(list(set(np.concatenate((popu_ref, popu_stu)))))
     popu_unique = sorted(popu_unique, key=len)
     popu_n = len(popu_unique)
-    colormap = plt.get_cmap('Set1')
+    colormap = plt.get_cmap('tab10')
     popu2color = dict(zip(popu_unique, colormap(range(popu_n))))
 
     # Plotting may need to change the signs of PC scores
