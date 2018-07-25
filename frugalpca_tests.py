@@ -54,32 +54,40 @@ def test_standardize():
     assert np.allclose(y, y_standardized_crct)
 
 def plink_keep(bfile, keep, out):
-    subprocess.run(
+    bashout = subprocess.run(
             ['plink', '--keep-allele-order', '--make-bed',
             '--indiv-sort', 'file', keep,
             '--bfile', bfile,
             '--keep', keep,
-            '--out', out])
+            '--out', out],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert len(bashout.stderr.decode('utf-8')) == 0
+    # keyword = bashout.stdout.decode('utf-8').split('\n')[-1][:5]
+    # assert keyword is not 'Error'
     os.remove(out+'.log')
 
 def plink_merge(bfile, bmerge, out):
-    subprocess.run(
-        ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
+    bashout = subprocess.run(
+            ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
             '--bfile', bfile,
             '--bmerge', bmerge,
-            '--out', out])
+            '--out', out],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert len(bashout.stderr.decode('utf-8')) == 0
     os.remove(out+'.log')
 
 def plink_remove(bfile, remove, out):
-    subprocess.run(
+    bashout = subprocess.run(
         ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
         '--bfile', bfile,
         '--remove', remove,
-        '--out', out])
+        '--out', out],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert len(bashout.stderr.decode('utf-8')) == 0
     os.remove(out+'.log')
 
 
-def add_pure_stu(n_pure_samples=200, popu_purity_threshold=0.99, homogen_dist_threshold = 3, remember_borrowed=True):
+def add_pure_stu(n_pure_samples=100, popu_purity_threshold=0.99, homogen_dist_threshold = 3, remember_borrowed=True, rm_nchunks=False):
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
     ref_merged_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure'
     ref_merged_homogen_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure_homogen'
@@ -90,11 +98,13 @@ def add_pure_stu(n_pure_samples=200, popu_purity_threshold=0.99, homogen_dist_th
     impure_filepref_chunk = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100'
     heterogen_filepref_chunk = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_heterogen_nchunks100'
     n_chunks = 100
-    n_pure_samples = 200
     popu_purity_threshold = 0.99
+    n_iter_max = 10
 
     # Create popu for pure study samples
     # Find samples whose purity is greater than popu_purity_threshold
+    print('Finding pure study samples...')
+    print('='*80)
     popu_df = pd.read_table(sturef_filepref+'_pred_ap.popu', header=None)
     proba = popu_df[3]
     popu_is_pure = proba > popu_purity_threshold
@@ -103,6 +113,8 @@ def add_pure_stu(n_pure_samples=200, popu_purity_threshold=0.99, homogen_dist_th
     popu_pure = popu_pure_df[2]
 
     # Select the top nearest n_pure_samples individuals in each population by distance to neighbors
+    print('Select samples with closest neighbors...')
+    print('='*80)
     popu_pure_unique = np.unique(popu_pure)
     popu_pure_near_df = popu_pure_df[0:0]
     for pp in popu_pure_unique:
@@ -118,8 +130,8 @@ def add_pure_stu(n_pure_samples=200, popu_purity_threshold=0.99, homogen_dist_th
     print(np.unique(popu_pure_near, return_counts=True))
     popu_pure_near_df.to_csv(pure_filepref+'.popu', sep='\t', header=False, index=False)
 
-    # # Create bed, bim, fam for pure study samples
-    # plink_keep(stu_filepref, pure_filepref)
+    # Create bed, bim, fam for pure study samples
+    plink_keep(stu_filepref, pure_filepref+'.popu', pure_filepref)
 
     # Merge pure study samples with reference samples
     plink_merge(ref_filepref, pure_filepref, ref_merged_filepref)
@@ -128,65 +140,81 @@ def add_pure_stu(n_pure_samples=200, popu_purity_threshold=0.99, homogen_dist_th
         os.remove(ref_merged_filepref+'_ref.pcs')
 
     # Select homogeneous samples within the pure samples
+    print('Select homogeneous samples within the pure samples...')
+    print('='*80)
     merged_popu_df = pd.read_table(ref_merged_filepref+'.popu', header=None)
     merged_popu_df.columns = ['fid', 'iid', 'popu']
-    merged_coord = fp.run_pca(ref_merged_filepref, None, method='sp', load_saved_ref_decomp=True, plot_results=True)[0]
-    merged_popu = merged_popu_df['popu']
-    merged_popu_uniq = np.unique(merged_popu)
+    merged_coord = fp.run_pca(ref_merged_filepref, None, method='sp', load_saved_ref_decomp=False, plot_results=True)[0]
     dim_ref = merged_coord.shape[1]
-    merged_popu_inlier_df = merged_popu_df[0:0]
-    for pp in merged_popu_uniq:
-        if pp[-8:] == 'borrowed':
-            pp_base = pp[:3]
-            pp_ref_df = merged_popu_df[merged_popu == pp_base]
-            pp_stu_df = merged_popu_df[merged_popu == pp]
-            pp_ref_coord = merged_coord[merged_popu == pp_base]
-            pp_stu_coord = merged_coord[merged_popu == pp]
-            n_ref = pp_ref_coord.shape[0]
-            n_stu = pp_stu_coord.shape[0]
-            mn, std, U, s, V, pp_ref_pcs = fp.pca_ref(pp_ref_coord.T, dim_ref=dim_ref)
-            se = np.std(pp_ref_pcs, axis=0)
-            pp_stu_pcs = fp.pca_stu(pp_stu_coord.T, mn, std, 'sp', U)
-            pp_stu_dist = np.sqrt(np.sum(pp_stu_pcs**2 / se**2, axis=1))
-            pp_stu_isin = pp_stu_dist < homogen_dist_threshold
-            pp_stu_inlier_df = pp_stu_df[pp_stu_isin]
-            if not remember_borrowed:
-                pp_stu_inlier_df['popu'] = pp_base
-            merged_popu_inlier_df = pd.concat((merged_popu_inlier_df, pp_stu_inlier_df), axis=0)
-            # print(se[:4])
-            # pp_stu_popu = pp_stu_isin
-            # fp.plot_pcs(pp_ref_pcs, pp_stu_pcs, popu_stu=pp_stu_isin, method='sp', out_pref=ref_merged_filepref+'_'+pp_base)
+    merged_coord_df = pd.DataFrame(merged_coord)
+    merged_df = pd.concat([merged_popu_df, merged_coord_df], axis=1)
+    merged_inlier_df = merged_popu_df[0:0]
+
+    for i in range(n_iter_max):
+        print('.'*40)
+        print('n_iter: ' + str(i))
+        merged_coord_df = pd.DataFrame(merged_coord)
+        merged_popu = merged_df['popu']
+        merged_popu_uniq = np.unique(merged_popu)
+        for pp in merged_popu_uniq:
+            if pp[-8:] == 'borrowed':
+                pp_base = pp[:3]
+                pp_ref_df = merged_df[merged_popu == pp_base]
+                pp_stu_df = merged_df[merged_popu == pp]
+                pp_ref_coord = merged_coord[merged_popu == pp_base]
+                pp_stu_coord = merged_coord[merged_popu == pp]
+                n_ref = pp_ref_coord.shape[0]
+                n_stu = pp_stu_coord.shape[0]
+                mn, std, U, s, V, pp_ref_pcs = fp.pca_ref(pp_ref_coord.T, dim_ref=dim_ref)
+                se = np.std(pp_ref_pcs, axis=0)
+                pp_stu_pcs = fp.pca_stu(pp_stu_coord.T, mn, std, 'sp', U)
+                pp_stu_dist = np.sqrt(np.sum(pp_stu_pcs**2 / se**2, axis=1))
+                pp_stu_isin = pp_stu_dist < homogen_dist_threshold
+                pp_stu_inlier_df = pp_stu_df[pp_stu_isin]
+                # if not remember_borrowed:
+                #    pp_stu_inlier_df['popu'] = pp_base
+                merged_inlier_df = pd.concat((merged_inlier_df, pp_stu_inlier_df), axis=0)
+                # print(se[:4])
+                # pp_stu_popu = pp_stu_isin
+                # fp.plot_pcs(pp_ref_pcs, pp_stu_pcs, popu_stu=pp_stu_isin, method='sp', out_pref=ref_merged_filepref+'_'+pp_base)
+            else:
+                pp_ref_df = merged_df[merged_popu == pp]
+                merged_inlier_df = pd.concat((merged_inlier_df, pp_ref_df), axis=0)
+        print(merged_inlier_df.groupby('popu').count()[:,0])
+        print('Number of samples left: ' + str(merged_inlier_df.shape[0]))
+        if merged_inlier_df.shape[0] == merged_df.shape[1]:
+            break
         else:
-            pp_ref_df = merged_popu_df[merged_popu == pp]
-            merged_popu_inlier_df = pd.concat((merged_popu_inlier_df, pp_ref_df), axis=0)
-    merged_popu_inlier_df.to_csv(ref_merged_homogen_filepref+'.popu', sep='\t', header=False, index=False)
+            merged_df = merged_inlier_df
+            merged_coord = merged_df.iloc[:,3:].values
+            merged_coord = fp.pca_ref(merged_coord.T)[-1]
+
+    print('Finished selecting homogenous samples.')
+    merged_inlier_df.to_csv(ref_merged_homogen_filepref+'.popu', sep='\t', header=False, index=False)
 
     # Select the original reference samples and the homogeneous pure original study samples from the merged ref samples
     plink_keep(ref_merged_filepref, ref_merged_homogen_filepref+'.popu', ref_merged_homogen_filepref)
     if os.path.isfile(ref_merged_homogen_filepref+'_ref.pcs'):
         os.remove(ref_merged_homogen_filepref+'_ref.pcs')
 
+    print('Removing selected samples from the study set...')
+    print('='*80)
     # Remove pure study samples from study samples
     bfile = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR'
     remove = ref_merged_homogen_filepref+'.popu'
     out = bfile+'_heterogen'
     plink_remove(bfile, remove, out)
 
-    # # Remove pure study samples from study samples
-    # for i in range(n_chunks):
-    #     stu_filepref_chunk_this = stu_filepref_chunk + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
-    #     os.makedirs(heterogen_filepref_chunk, exist_ok=True)
-    #     heterogen_filepref_chunk_this = heterogen_filepref_chunk + '/' + os.path.basename(heterogen_filepref_chunk) + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
-    #     plink_remove(stu_filepref_chunk_this, pure_filepref+'.popu', heterogen_filepref_chunk_this)
-    #     # subprocess.run(
-    #     #     ['plink', '--keep-allele-order', '--indiv-sort', 'none', '--make-bed',
-    #     #     '--bfile', stu_filepref_chunk_this,
-    #     #     '--remove', pure_filepref+'.popu',
-    #     #      '--out', impure_filepref_chunk_this])
+    if rm_nchunks:
+    # Remove pure study samples from study samples
+        for i in range(n_chunks):
+            stu_filepref_chunk_this = stu_filepref_chunk + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
+            os.makedirs(heterogen_filepref_chunk, exist_ok=True)
+            heterogen_filepref_chunk_this = heterogen_filepref_chunk + '/' + os.path.basename(heterogen_filepref_chunk) + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
+            plink_remove(stu_filepref_chunk_this, pure_filepref+'.popu', heterogen_filepref_chunk_this)
 
 def test_online_svd_procrust():
     np.random.seed(21)
-    # def test_svd_online():
     print('Testing svd_online and procrustes...')
 
     # # For debugging only
