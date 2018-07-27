@@ -86,7 +86,7 @@ def plink_remove(bfile, remove, out):
     assert bashout.stderr.decode('utf-8')[:5] is not 'Error'
     os.remove(out+'.log')
 
-def get_homogen(ref_merged_filepref, homogen_dist_threshold=5):
+def get_homogen(ref_merged_filepref, homogen_dist_threshold=3):
     merged_popu_df = pd.read_table(ref_merged_filepref+'.popu', header=None)
     merged_popu_df.columns = ['fid', 'iid', 'popu']
     merged_coord = fp.run_pca(ref_merged_filepref, None, method='sp', load_saved_ref_decomp=False, plot_results=True)[0]
@@ -493,4 +493,31 @@ def test_pca_5c_EUR_heterogen_ref_homogen():
     test_pca(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=False, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4)
 
 def test_add_pure_stu():
-    add_pure_stu(remember_borrowed=True)
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR'
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
+
+    fp.add_pure_stu(ref_filepref, stu_filepref, n_pure_samples=100, popu_purity_threshold=0.75, homogen_dist_threshold=3, n_iter_max=10)
+
+    # stu_popu_file = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_pred_ap.popu'
+    # ref_merged_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure'
+    # ref_merged_homogen_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure_homogen'
+    # pure_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_pure'
+    # heterogen_filepref_chunk = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_heterogen_nchunks100'
+    print('Removing selected samples from the study set...')
+    print('='*80)
+    # Remove pure study samples from study samples
+    bfile = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR'
+    remove = ref_merged_homogen_filepref+'.popu'
+    out = bfile+'_heterogen'
+    plink_remove(bfile, remove, out)
+
+    # Remove pure study samples from study samples
+    if rm_nchunks:
+        n_chunks = 100
+        stu_filepref_chunk = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100'
+        impure_filepref_chunk = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100'
+        for i in range(n_chunks):
+            stu_filepref_chunk_this = stu_filepref_chunk + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
+            os.makedirs(heterogen_filepref_chunk, exist_ok=True)
+            heterogen_filepref_chunk_this = heterogen_filepref_chunk + '/' + os.path.basename(heterogen_filepref_chunk) + '_' + str(i).zfill(fp.SAMPLE_SPLIT_PREF_LEN)
+            plink_remove(stu_filepref_chunk_this, pure_filepref+'.popu', heterogen_filepref_chunk_this)
