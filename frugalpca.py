@@ -59,6 +59,8 @@ def create_logger(prefix='frugalpca', level='info'):
         log_level = logging.INFO
     elif level == 'debug':
         log_level = logging.DEBUG
+    elif level == 'warning':
+        log_level = logging.WARNING
     else:
         assert False
     log.handlers = [] # Avoid duplicated logs in interactive modes
@@ -69,7 +71,7 @@ def create_logger(prefix='frugalpca', level='info'):
     log_dir = os.path.join(os.path.dirname(prefix), 'logs')
     if not os.path.exists(log_dir):
         os.makedirs(log_dir, exist_ok=True)
-    filename = log_dir + os.path.basename(prefix) + '.' + str(round(time.time())) + '.log'
+    filename = os.path.join(log_dir, os.path.basename(prefix) + '.' + str(round(time.time())) + '.log')
     fh = logging.FileHandler(filename, 'w')
     fh.setLevel(log_level)
     fh.setFormatter(formatter)
@@ -79,6 +81,7 @@ def create_logger(prefix='frugalpca', level='info'):
     ch.setLevel(log_level)
     ch.setFormatter(formatter)
     log.addHandler(ch)
+    logging.info('Log file: ' + filename)
     return log
 
 
@@ -704,7 +707,7 @@ def pca(ref_filepref, stu_filepref, method,
     return pcs_ref, pcs_stu, pcs_ref_filename, pcs_stu_filename
 
 
-def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, log_level='info', plot_results=False, hdpca_n_spikes=None, n_clusters=None):
+def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, plot_results=False, hdpca_n_spikes=None, n_clusters=None):
     print('='*30)
     t0 = time.time()
     base_ref = os.path.basename(pref_ref)
@@ -844,10 +847,10 @@ def plink_remove(bfile, remove, out):
     assert bashout.stderr.decode('utf-8')[:5] is not 'Error'
     os.remove(out+'.log')
 
-def get_homogen(ref_merged_filepref, homogen_dist_threshold=3):
-    merged_popu_df = pd.read_table(ref_merged_filepref+'.popu', header=None)
+def get_homogen(merged_filepref, homogen_dist_threshold=3):
+    merged_popu_df = pd.read_table(merged_filepref+'.popu', header=None)
     merged_popu_df.columns = ['fid', 'iid', 'popu']
-    merged_coord = fp.run_pca(ref_merged_filepref, None, method='sp', load_saved_ref_decomp=False, plot_results=True)[0]
+    merged_coord = run_pca(merged_filepref, None, method='sp', load_saved_ref_decomp=False, plot_results=True)[0]
     dim_ref = merged_coord.shape[1]
     merged_coord_df = pd.DataFrame(merged_coord)
     merged_coord_df = pd.DataFrame(merged_coord)
@@ -864,9 +867,9 @@ def get_homogen(ref_merged_filepref, homogen_dist_threshold=3):
             pp_stu_coord = merged_coord[merged_popu == pp]
             n_ref = pp_ref_coord.shape[0]
             n_stu = pp_stu_coord.shape[0]
-            mn, std, U, s, V, pp_ref_pcs = fp.pca_ref(pp_ref_coord.T, dim_ref=dim_ref)
+            mn, std, U, s, V, pp_ref_pcs = pca_ref(pp_ref_coord.T, dim_ref=dim_ref)
             se = np.std(pp_ref_pcs, axis=0)
-            pp_stu_pcs = fp.pca_stu(pp_stu_coord.T, mn, std, 'sp', U)
+            pp_stu_pcs = pca_stu(pp_stu_coord.T, mn, std, 'sp', U)
             pp_stu_dist = np.sqrt(np.sum(pp_stu_pcs**2 / se**2, axis=1))
             pp_stu_isin = pp_stu_dist < homogen_dist_threshold
             pp_stu_inlier_df = pp_stu_df[pp_stu_isin]
@@ -875,7 +878,7 @@ def get_homogen(ref_merged_filepref, homogen_dist_threshold=3):
             merged_inlier_df = pd.concat((merged_inlier_df, pp_stu_inlier_df), axis=0)
             # print(se[:4])
             # pp_stu_popu = pp_stu_isin
-            # fp.plot_pcs(pp_ref_pcs, pp_stu_pcs, popu_stu=pp_stu_isin, method='sp', out_pref=ref_merged_filepref+'_'+pp_base)
+            # plot_pcs(pp_ref_pcs, pp_stu_pcs, popu_stu=pp_stu_isin, method='sp', out_pref=merged_filepref+'_'+pp_base)
         else:
             pp_ref_df = merged_df[merged_popu == pp]
             merged_inlier_df = pd.concat((merged_inlier_df, pp_ref_df), axis=0)
@@ -883,18 +886,20 @@ def get_homogen(ref_merged_filepref, homogen_dist_threshold=3):
     # print('Number of samples: ' + str(merged_df.shape[0]))
     # print(merged_inlier_df.groupby('popu').count().iloc[:,0])
     # print('Number of inliers: ' + str(merged_inlier_df.shape[0]))
-    print('Samples left: ' + str(merged_inlier_df.shape[0]) + '/' + str(merged_df.shape[0]))
-    merged_inlier_df.iloc[:,:3].to_csv(ref_merged_filepref+'.popu', sep='\t', header=False, index=False)
-    plink_keep(ref_merged_filepref, ref_merged_filepref+'.popu', ref_merged_filepref)
-    # if os.path.isfile(ref_merged_filepref+'_ref.pcs'):
-    #     os.remove(ref_merged_filepref+'_ref.pcs')
+    logging.info('Samples left: ' + str(merged_inlier_df.shape[0]) + '/' + str(merged_df.shape[0]))
+    logging.info('.' * 10)
+    merged_inlier_df.iloc[:,:3].to_csv(merged_filepref+'.popu', sep='\t', header=False, index=False)
+    plink_keep(merged_filepref, merged_filepref+'.popu', merged_filepref)
+    # if os.path.isfile(merged_filepref+'_ref.pcs'):
+    #     os.remove(merged_filepref+'_ref.pcs')
     if merged_inlier_df.shape[0] != merged_df.shape[0]:
-        get_homogen(ref_merged_filepref, homogen_dist_threshold)
+        get_homogen(merged_filepref, homogen_dist_threshold)
 
 def add_pure_stu(ref_filepref, stu_filepref, n_pure_samples=4000, popu_purity_threshold=0.75, homogen_dist_threshold=3, n_iter_max=10):
     ref_basepref = os.path.basename(ref_filepref)
     stu_popu_file = stu_filepref + '_sturef_' + ref_basepref + '_pred_ap.popu'
     pure_filepref = stu_filepref + '_pure'
+    merged_filepref = ref_filepref + '_withloan'
     # Create popu for pure study samples
     # Find samples whose purity is greater than popu_purity_threshold
     logging.info('Finding pure study samples...')
@@ -926,20 +931,21 @@ def add_pure_stu(ref_filepref, stu_filepref, n_pure_samples=4000, popu_purity_th
     plink_keep(stu_filepref, pure_filepref+'.popu', pure_filepref)
 
     # Merge pure study samples with reference samples
-    plink_merge(ref_filepref, pure_filepref, ref_merged_filepref)
-    fp.concat_files([ref_filepref+'.popu', pure_filepref+'.popu'], ref_merged_filepref+'.popu')
-    if os.path.isfile(ref_merged_filepref+'_ref.pcs'):
-        os.remove(ref_merged_filepref+'_ref.pcs')
+    plink_merge(ref_filepref, pure_filepref, merged_filepref)
+    concat_files([ref_filepref+'.popu', pure_filepref+'.popu'], merged_filepref+'.popu')
+    if os.path.isfile(merged_filepref+'_ref.pcs'):
+        os.remove(merged_filepref+'_ref.pcs')
 
     # Select homogeneous samples within the pure samples
     logging.info('Select homogeneous samples within the pure samples...')
-    logging.info('='*80)
-    get_homogen(ref_merged_filepref, homogen_dist_threshold)
-    logging.info('Homogeneous samples save to ' + ref_merged_filepref)
-    ref_merged_df = pd.read_table(ref_merged_filepref, header=None)
+    logging.info('='*10)
+    get_homogen(merged_filepref, homogen_dist_threshold)
+    logging.info('Homogeneous samples save to ' + merged_filepref)
+    ref_merged_df = pd.read_table(merged_filepref+'.popu', header=None)
     logging.info("Merged samples: ")
-    logging.info(ref_merged_df[2].value_counts())
+    logging.info(np.unique(ref_merged_df[2], return_counts=True))
+    logging.info('='*10)
+    return merged_filepref
 
 LOG_LEVEL = "info"
-create_logger(LOG_LEVEL)
-
+create_logger(level=LOG_LEVEL)
