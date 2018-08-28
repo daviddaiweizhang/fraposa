@@ -473,13 +473,15 @@ def test_pca_ref_withloan(popu):
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_' + popu + '_deol_withloan'
     fp.run_pca(ref_filepref, None, method='sp', load_saved_ref_decomp=False, plot_results=True, plot_size=(12,4))
 
-def test_run_pca(popu):
+def test_run_pca(popu=None):
     # ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_' + popu
     # stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_' + popu
     # fp.run_pca(ref_filepref, stu_filepref, method='ap', plot_size=(12,4), hdpca_n_spikes=4, load_saved_ref_decomp=False, alpha_ref=0.1, alpha_stu=0.5, plot_results=True)
     # ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_' + popu + '_deol'
     # stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_' + popu
     # fp.run_pca(ref_filepref, stu_filepref, method='ap', plot_size=(12,4), hdpca_n_spikes=4, load_saved_ref_decomp=False, alpha_ref=0.1, alpha_stu=0.5, plot_results=True)
-    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_' + popu 
-    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_' + popu
+    # ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_' + popu 
+    # stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_' + popu
+    ref_filepref = '../data/kgn/kgn_bial_snpscap_ukb'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
     fp.run_pca(ref_filepref, stu_filepref, method='ap', plot_size=(12,4), hdpca_n_spikes=4, load_saved_ref_decomp=True, alpha_ref=0.1, alpha_stu=0.5, plot_results=True)

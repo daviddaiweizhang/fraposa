@@ -1,7 +1,9 @@
 #!/bin/bash
+set -e -o pipefail
+
 ####  PBS preamble
 
-#PBS -N fp.EUR.homogen.sp
+#PBS -N ukb.ap
 #PBS -l nodes=1:ppn=1,mem=4gb,walltime=00:30:00
 #PBS -t 0-99
 
@@ -16,7 +18,6 @@
 #PBS -l qos=flux
 ####  End PBS preamble
 
-set -e -o pipefail
 
 # Print system info
 #  Change to the directory you submitted from
@@ -46,12 +47,12 @@ jobid="${PBS_JOBID:0:8}"
 
 #  Put your job commands here:
 i=$PBS_ARRAYID
-method=sp
-pref_ref=../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR_merge_ukb_EUR_pure_homogen
-pref_stu=../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_heterogen_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_heterogen_nchunks100
+method=ap
+pref_ref=../data/kgn/kgn_bial_snpscap_ukb
+pref_stu=../data/ukb/ukb_snpscap_kgn_bial_orphans_nchunks100/ukb_snpscap_kgn_bial_orphans_nchunks100
 pref_stu=${pref_stu}_`printf "%04d" ${i}`
 # pref_stu=../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_impure_nchunks100_`printf "%04d" ${i}`
-python -c "import frugalpca as fp; fp.run_pca('${pref_ref}', '${pref_stu}', '${method}')"
+python -c "import frugalpca as fp; fp.run_pca('${pref_ref}', '${pref_stu}', '${method}', hdpca_n_spikes=4)"
 
 # #  Put your job commands here:
 # for i in `seq 0 99`; do

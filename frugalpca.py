@@ -406,19 +406,22 @@ def get_pcs_stu_this(output, i, W, X_mean, X_std, U, s, V, method, dim_ref=DIM_R
 
 def pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=None, rowhead_df=None):
     logging.info('Predicting populations for study individuals...')
+    n_stu = pcs_stu.shape[0]
     popu_list = np.sort(np.unique(popu_ref))
     popu_dic = {popu_list[i] : i for i in range(len(popu_list))}
     knn = KNeighborsClassifier(n_neighbors=N_NEIGHBORS)
     knn.fit(pcs_ref, popu_ref)
     popu_stu_pred = knn.predict(pcs_stu)
     popu_stu_proba_list = knn.predict_proba(pcs_stu)
-    popu_stu_proba = [popu_stu_proba_list[i, popu_dic[popu_stu_pred[i]]] for i in range(pcs_stu.shape[0])]
+    popu_stu_proba = [popu_stu_proba_list[i, popu_dic[popu_stu_pred[i]]] for i in range(n_stu)]
     popu_stu_dist = knn.kneighbors(pcs_stu)[0][:,-1]
     popu_stu_dist = np.round(popu_stu_dist, 3)
     if out_filename is not None:
         popuproba_df = pd.DataFrame({'popu':popu_stu_pred, 'proba':popu_stu_proba, 'dist':popu_stu_dist})
         popuproba_df = popuproba_df[['popu', 'proba', 'dist']]
-        popu_stu_pred_df = pd.concat([rowhead_df, popuproba_df], axis=1)
+        probalist_df = pd.DataFrame(popu_stu_proba_list)
+        populist_df = pd.DataFrame(np.tile(popu_list, (n_stu, 1)))
+        popu_stu_pred_df = pd.concat([rowhead_df, popuproba_df, probalist_df, populist_df], axis=1)
         popu_stu_pred_df.to_csv(out_filename, sep=DELIMITER, header=False, index=False)
         logging.info('Predicted study populations saved to ' + out_filename)
     return popu_stu_pred, popu_stu_proba, popu_stu_dist
@@ -920,7 +923,7 @@ def add_pure_stu(ref_filepref, stu_filepref, n_pure_samples=1000, popu_purity_th
     popu_pure_near_df = popu_pure_df[0:0]
     for pp in popu_pure_unique:
         popu_pure_this_df = popu_pure_df.loc[popu_pure==pp]
-        popu_pure_this_near_ind = np.argsort(popu_pure_this_df[4])[:n_pure_samples]
+        popu_pure_this_near_ind = np.argsort(popu_pure_this_df[4])[:n_pure_samples] # col 4 = dist to k^th nearest neighbor
         popu_pure_this_near_df = popu_pure_this_df.iloc[popu_pure_this_near_ind]
         popu_pure_near_df = pd.concat((popu_pure_near_df, popu_pure_this_near_df), axis=0)
     for i in range(popu_pure_near_df.shape[0]):
