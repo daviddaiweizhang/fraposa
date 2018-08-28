@@ -31,7 +31,7 @@ PYTHONHASHSEED = 24
 DIM_REF = 4
 DIM_STU = 20
 DIM_STU_HIGH = DIM_STU * 2
-N_NEIGHBORS=23
+N_NEIGHBORS=20
 HDPCA_N_SPIKES_MAX = 18
 HDPCA_N_SPIKES = DIM_REF
 SAMPLE_CHUNK_SIZE_STU = 5000
@@ -149,7 +149,11 @@ def geocenter_coordinate(X, X_ctr):
     X_ctr_unique_n = len(X_ctr_unique)
     X_ctr_unique_coord = np.zeros((X_ctr_unique_n, p))
     for i,ctr in enumerate(X_ctr_unique):
-        X_ctr_unique_coord[i] = np.mean(X[X_ctr == ctr], axis=0)
+        is_this_ctr = X_ctr == ctr
+        if np.sum(is_this_ctr) > 0:
+            X_ctr_unique_coord[i] = np.mean(X[is_this_ctr], axis=0)
+        else:
+            X_ctr_unique_coord[i] = np.zeros(p)
     X_ctr_coord_dic = {X_ctr_unique[i] : X_ctr_unique_coord[i] for i in range(X_ctr_unique_n)}
     return X_ctr_coord_dic
 
@@ -218,19 +222,19 @@ def intersect_ref_stu_snps(pref_ref, pref_stu):
     snps_are_identical = filecmp.cmp(pref_ref+'.bim', pref_stu+'.bim')
     if snps_are_identical:
         logging.info('SNPs and alleles in reference and study samples are identical')
-        return pref_ref, pref_stu
     else:
         logging.error('Error: SNPs and alleles in reference and study samples are not identical')
         assert False
-        logging.info('Intersecting SNPs in reference and study samples...')
-        bashout = subprocess.run(
-            ['bash', 'intersect_bed.sh', pref_ref, pref_stu],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        assert len(bashout.stderr.decode('utf-8')) == 0
-        pref_ref_commsnpsrefal, pref_stu_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
-        assert len(pref_ref_commsnpsrefal) > 0
-        assert len(pref_stu_commsnpsrefal) > 0
-        return pref_ref_commsnpsrefal, pref_stu_commsnpsrefal
+        # logging.info('Intersecting SNPs in reference and study samples...')
+        # bashout = subprocess.run(
+        #     ['bash', 'intersect_bed.sh', pref_ref, pref_stu],
+        #     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # assert len(bashout.stderr.decode('utf-8')) == 0
+        # pref_ref_commsnpsrefal, pref_stu_commsnpsrefal = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
+        # assert len(pref_ref_commsnpsrefal) > 0
+        # assert len(pref_stu_commsnpsrefal) > 0
+        # return pref_ref_commsnpsrefal, pref_stu_commsnpsrefal
+    return pref_ref, pref_stu
 
 def read_bed(bed_filepref, bed_store='memory', dtype=np.int8):
     pyp = PyPlink(bed_filepref)
@@ -707,7 +711,7 @@ def pca(ref_filepref, stu_filepref, method,
     return pcs_ref, pcs_stu, pcs_ref_filename, pcs_stu_filename
 
 
-def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, plot_results=False, hdpca_n_spikes=None, n_clusters=None):
+def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, plot_results=False, hdpca_n_spikes=None, n_clusters=None, plot_size=None, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU):
     print('='*30)
     t0 = time.time()
     base_ref = os.path.basename(pref_ref)
@@ -757,7 +761,7 @@ def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU,
 
     # Plot PC scores
     if plot_results:
-        plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu_pred, method=method, out_pref=pref_out)
+        plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu_pred, method=method, out_pref=pref_out, plot_size=plot_size, alpha_ref=alpha_ref, alpha_stu=alpha_stu)
 
     logging.info('Total runtime: ' + str(time.time() - t0))
     return pcs_ref, pcs_stu, popu_ref, popu_stu_pred, pcs_ref_filename, pcs_stu_filename, popu_ref_filename, popu_stu_filename
@@ -870,7 +874,7 @@ def get_homogen(merged_filepref, homogen_dist_threshold=3):
             mn, std, U, s, V, pp_ref_pcs = pca_ref(pp_ref_coord.T, dim_ref=dim_ref)
             se = np.std(pp_ref_pcs, axis=0)
             pp_stu_pcs = pca_stu(pp_stu_coord.T, mn, std, 'sp', U)
-            pp_stu_dist = np.sqrt(np.sum(pp_stu_pcs**2 / se**2, axis=1))
+            pp_stu_dist = np.sqrt(np.sum(pp_stu_pcs**2 / se**2, axis=1) / pp_stu_pcs.shape[1])
             pp_stu_isin = pp_stu_dist < homogen_dist_threshold
             pp_stu_inlier_df = pp_stu_df[pp_stu_isin]
             # if not remember_borrowed:
@@ -895,7 +899,7 @@ def get_homogen(merged_filepref, homogen_dist_threshold=3):
     if merged_inlier_df.shape[0] != merged_df.shape[0]:
         get_homogen(merged_filepref, homogen_dist_threshold)
 
-def add_pure_stu(ref_filepref, stu_filepref, n_pure_samples=4000, popu_purity_threshold=0.75, homogen_dist_threshold=3, n_iter_max=10):
+def add_pure_stu(ref_filepref, stu_filepref, n_pure_samples=1000, popu_purity_threshold=0.75, homogen_dist_threshold=2, n_iter_max=10):
     ref_basepref = os.path.basename(ref_filepref)
     stu_popu_file = stu_filepref + '_sturef_' + ref_basepref + '_pred_ap.popu'
     pure_filepref = stu_filepref + '_pure'

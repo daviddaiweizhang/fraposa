@@ -1,6 +1,7 @@
 #!/bin/bash
-
 set -e
+
+# Select samples of a specific population in ref and stu bed files
 
 prefname_ref=$1
 prefname_stu=$2
