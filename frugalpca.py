@@ -27,17 +27,16 @@ import logging
 import filecmp
 import multiprocessing as mp
 
-PYTHONHASHSEED = 24
 DIM_REF = 4
-DIM_STU = 20
+DIM_STU = DIM_REF * 2
 DIM_STU_HIGH = DIM_STU * 2
+PROCRUSTES_NITER_MAX = 10000
+PROCRUSTES_EPSILON_MIN = 1e-6
 N_NEIGHBORS=20
 HDPCA_N_SPIKES_MAX = 18
 HDPCA_N_SPIKES = DIM_REF
 SAMPLE_CHUNK_SIZE_STU = 5000
 SAMPLE_SPLIT_PREF_LEN = 4
-PROCRUSTES_NITER_MAX = 10000
-PROCRUSTES_EPSILON_MIN = 1e-6
 NUM_CORES = mp.cpu_count()
 
 
@@ -157,7 +156,10 @@ def geocenter_coordinate(X, X_ctr):
     X_ctr_coord_dic = {X_ctr_unique[i] : X_ctr_unique_coord[i] for i in range(X_ctr_unique_n)}
     return X_ctr_coord_dic
 
-def geocenter_similarity(Y, Y_ctr, X, X_ctr):
+def geocenter_similarity(Y, Y_ctr, X, X_ctr, dim=None):
+    if dim is not None:
+        X = np.copy(X[:,:dim])
+        Y = np.copy(Y[:,:dim])
     assert X.shape[1] == Y.shape[1]
     X_ctr_coord_dic = geocenter_coordinate(X, X_ctr)
     Y_ctr_coord_dic = geocenter_coordinate(Y, Y_ctr)
@@ -166,7 +168,10 @@ def geocenter_similarity(Y, Y_ctr, X, X_ctr):
         dist += np.sum((Y_ctr_coord_dic[ctr] - X_ctr_coord_dic[ctr])**2)
     return dist
 
-def procrustes_similarity(Y_mat, X_mat):
+def procrustes_similarity(Y_mat, X_mat, dim=None):
+    if dim is not None:
+        X = np.copy(X[:,:dim])
+        Y = np.copy(Y[:,:dim])
     X = np.array(X_mat, dtype=np.double, copy=True)
     Y = np.array(Y_mat, dtype=np.double, copy=True)
     assert X.shape == Y.shape
@@ -404,12 +409,12 @@ def get_pcs_stu_this(output, i, W, X_mean, X_std, U, s, V, method, dim_ref=DIM_R
     output.put((i, pcs_stu_this))
 
 
-def pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=None, rowhead_df=None):
+def pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=None, rowhead_df=None, weights='uniform'):
     logging.info('Predicting populations for study individuals...')
     n_stu = pcs_stu.shape[0]
     popu_list = np.sort(np.unique(popu_ref))
     popu_dic = {popu_list[i] : i for i in range(len(popu_list))}
-    knn = KNeighborsClassifier(n_neighbors=N_NEIGHBORS)
+    knn = KNeighborsClassifier(n_neighbors=N_NEIGHBORS, weights=weights)
     knn.fit(pcs_ref, popu_ref)
     popu_stu_pred = knn.predict(pcs_stu)
     popu_stu_proba_list = knn.predict_proba(pcs_stu)
@@ -607,8 +612,8 @@ def pca_stu(W, X_mean, X_std, method,
         elapse_method += time.time() - t0
 
     logging.info('Runtimes: ')
-    logging.info('Standardizing: ' + str(elapse_standardize))
-    logging.info(method + ': ' + str(elapse_method))
+    # logging.info('Standardizing: ' + str(elapse_standardize))
+    logging.info(method + ': ' + str(round(elapse_method, 1)))
 
     del W
     return pcs_stu
@@ -714,7 +719,7 @@ def pca(ref_filepref, stu_filepref, method,
     return pcs_ref, pcs_stu, pcs_ref_filename, pcs_stu_filename
 
 
-def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=True, plot_results=False, hdpca_n_spikes=None, n_clusters=None, plot_size=None, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU):
+def run_pca(pref_ref, pref_stu, method='oadp', dim_ref=DIM_REF, dim_stu=DIM_STU, dim_stu_high=DIM_STU_HIGH, use_memmap=False, load_saved_ref_decomp=False, plot_results=False, hdpca_n_spikes=None, n_clusters=None, plot_size=None, alpha_ref=PLOT_ALPHA_REF, alpha_stu=PLOT_ALPHA_STU):
     print('='*30)
     t0 = time.time()
     base_ref = os.path.basename(pref_ref)
