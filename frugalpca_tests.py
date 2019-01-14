@@ -4,19 +4,19 @@ import frugalpca as fp
 import subprocess
 import os.path
 
-def plot_results(pref_ref, pref_stu):
-    pcs_ref = np.loadtxt(pref_ref + '_ref.pcs')
-    pcs_stu_sp = np.loadtxt(pref_stu + '_stu_sp.pcs')
-    pcs_stu_ap = np.loadtxt(pref_stu + '_stu_ap.pcs')
-    pcs_stu_oadp = np.loadtxt(pref_stu + '_stu_oadp.pcs')
-    popu_ref = np.loadtxt(pref_ref + '.popu', dtype=np.object)[:,2]
-    popu_stu_pred_sp = np.loadtxt(pref_stu + '_pred_sp.popu', dtype=np.object)[:,2]
-    popu_stu_pred_ap = np.loadtxt(pref_stu + '_pred_ap.popu', dtype=np.object)[:,2]
-    popu_stu_pred_oadp = np.loadtxt(pref_stu + '_pred_oadp.popu', dtype=np.object)[:,2]
-    method_list = ['sp', 'ap', 'oadp']
-    pcs_stu_list = [pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp]
-    popu_stu_list = [pcs_stu_pred_sp, pcs_stu_pred_ap, pcs_stu_pred_oadp]
-    fp.plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref=pref_stu)
+# def plot_results(pref_ref, pref_stu):
+#     pcs_ref = np.loadtxt(pref_ref + '_ref.pcs')
+#     pcs_stu_sp = np.loadtxt(pref_stu + '_stu_sp.pcs')
+#     pcs_stu_ap = np.loadtxt(pref_stu + '_stu_ap.pcs')
+#     pcs_stu_oadp = np.loadtxt(pref_stu + '_stu_oadp.pcs')
+#     popu_ref = np.loadtxt(pref_ref + '.popu', dtype=np.object)[:,2]
+#     popu_stu_pred_sp = np.loadtxt(pref_stu + '_pred_sp.popu', dtype=np.object)[:,2]
+#     popu_stu_pred_ap = np.loadtxt(pref_stu + '_pred_ap.popu', dtype=np.object)[:,2]
+#     popu_stu_pred_oadp = np.loadtxt(pref_stu + '_pred_oadp.popu', dtype=np.object)[:,2]
+#     method_list = ['sp', 'ap', 'oadp']
+#     pcs_stu_list = [pcs_stu_sp, pcs_stu_ap, pcs_stu_oadp]
+#     popu_stu_list = [pcs_stu_pred_sp, pcs_stu_pred_ap, pcs_stu_pred_oadp]
+#     fp.plot_pcs(pcs_ref, pcs_stu_list, popu_ref, popu_stu_list, method_list, out_pref=pref_stu)
 
 
 def test_standardize():
@@ -217,7 +217,7 @@ def test_online_svd_procrust():
     print('Passed!')
 
 
-def test_pca_allmeths(pref_ref, pref_stu, cmp_trace=True, load_pcs=False, load_popu=True, assert_results=False, pref_out_trace=None, dim_ref=4, plot_dim=4, plot_size=None, plot_title=None, plot_color_stu=None, plot_legend=True, alpha_stu=0.4, alpha_ref=0.2, plot_centers=False, hdpca_n_spikes=None, n_clusters=None, load_saved_ref_decomp=True):
+def test_pca_allmeths(pref_ref, pref_stu, cmp_trace=True, load_pcs=False, load_popu=False, assert_results=False, pref_out_trace=None, pref_ref_trace=None, dim_ref=4, plot_dim=4, plot_size=None, plot_title=None, plot_color_stu=None, plot_legend=True, alpha_stu=0.5, alpha_ref=0.1, plot_centers=False, hdpca_n_spikes=None, n_clusters=None, load_saved_ref_decomp=False):
     print('Reference: ' + pref_ref)
     print('Study: ' + pref_stu)
     popu_filename_ref = pref_ref + '.popu'
@@ -229,10 +229,8 @@ def test_pca_allmeths(pref_ref, pref_stu, cmp_trace=True, load_pcs=False, load_p
         pref_out_trace = pref_out
     pcs_trace_ref_filename = pref_out_trace + '.RefPC.coord'
     pcs_trace_stu_filename = pref_out_trace + '.ProPC.coord'
-    dim_ref = 4
     log_level = 'info'
     use_memmap = False
-    load_saved_ref_decomp = True
 
     if load_pcs:
         pcs_ref = np.loadtxt(pref_ref + '_ref.pcs')
@@ -319,7 +317,7 @@ def test_pca_subpopu(cmp_trace=False, load_pcs=False, plot_size=None, plot_title
     popu_name_this = 'AFR'
     bashout=subprocess.run(['bash', 'keep_popu.sh', pref_ref, pref_stu, popu_name_this], stdout=subprocess.PIPE)
     pref_ref_this, pref_stu_this = bashout.stdout.decode('utf-8').split('\n')[-3:-1]
-    test_pca_allmeths(pref_ref_this, pref_stu_this, cmp_trace=cmp_trace, load_pcs=load_pcs, plot_size=plot_size, plot_title=plot_title)
+    test_pca_allmeths(pref_ref_this, pref_stu_this, cmp_trace=cmp_trace, load_pcs=load_pcs, plot_size=plot_size, plot_title=plot_title, hdpca_n_spikes=4)
 
 def convert_ggsim(i):
     n = 1000 + i * 500
@@ -377,23 +375,29 @@ def test_split_bed_indiv():
     i = 9
     fp.split_bed_indiv(filepref, n_chunks, i)
 
-def test_pca_ggsim():
-    dim_ref = 4
-    for i in range(5):
-        n = 1000 + i * 500
-        pref_ref = '../data/ggsim'+str(n)+'/ggsim'+str(n)+'_100000_'+str(n)+'_2_1_100_0'
-        pref_stu = '../data/ggsim'+str(n)+'/ggsim'+str(n)+'_100000_'+'200'+'_2_1_100_1'
-        test_pca_allmeths(pref_ref, pref_stu, cmp_trace=True, load_pcs=True, dim_ref=dim_ref, plot_title=str(n), plot_size=(6,6), plot_color_stu='k', plot_legend=True, alpha_stu=0.9, plot_dim=2, plot_centers=True)
+def test_pca_ggsim(i):
+    i = int(i)
+    n = 1000 + i * 500
+    pref_ref = '../data/ggsim'+str(n)+'/ggsim'+str(n)+'_100000_'+str(n)+'_2_1_100_0'
+    pref_stu = '../data/ggsim'+str(n)+'/ggsim'+str(n)+'_100000_'+'200'+'_2_1_100_1'
+    pref_out_trace = '../data/ggsim'+str(n)+'/ggsim'+str(n)+'_100000_'+str(n)+'_200'+'_2_1_100'
+    test_pca_allmeths(pref_ref, pref_stu, pref_out_trace=pref_out_trace,
+                        cmp_trace=True, load_saved_ref_decomp=False, load_pcs=False,
+                        dim_ref=2, 
+                        # dpca_n_spikes=4,
+                        plot_title=str(n), plot_size=(6,6), plot_color_stu='k', plot_legend=True, alpha_stu=0.9, plot_dim=2, plot_centers=True)
 
-def test_pca_5c():
-    pref_ref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb'
-    pref_stu = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
-    test_pca_allmeths(pref_ref, pref_stu, cmp_trace=True, load_pcs=True, load_popu=False, plot_size=(12,4))
+def test_pca_ukb_5c():
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
+    fp.run_pca(ref_filepref, None, method='sp', load_saved_ref_decomp=True, plot_results=True, alpha_ref=0.4, plot_size=(12,4))
+    test_pca_allmeths(ref_filepref, stu_filepref, cmp_trace=True, load_pcs=True, load_popu=True, plot_size=(12,4), hdpca_n_spikes=4, alpha_ref=0.01, alpha_stu=0.8)
 
-def test_pca_5c_EUR():
+def test_pca_ukb_EUR_5c():
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
-    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c_pred_EUR'
-    test_pca_allmeths(ref_filepref, stu_filepref, cmp_trace=True, load_pcs=False, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4, load_saved_ref_decomp=False)
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_oadp_5c'
+    fp.run_pca(ref_filepref, None, method='sp', load_saved_ref_decomp=True, plot_results=True, alpha_ref=0.4, plot_size=(12,4))
+    test_pca_allmeths(ref_filepref, stu_filepref, cmp_trace=True, load_pcs=True, load_popu=True, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4, load_saved_ref_decomp=False, alpha_ref=0.01, alpha_stu=0.8)
 
 def test_pca_EUR_pure():
     ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
@@ -441,10 +445,16 @@ def test_add_pure_stu(popu):
     #     plink_remove(stu_filepref_chunk_this, pure_filepref+'.popu', heterogen_filepref_chunk_this)
 
 
-def test_pca_onepopu(popu):
-    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_' + popu 
-    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_' + popu 
-    test_pca_allmeths(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=False, load_popu=False, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4, load_saved_ref_decomp=False, alpha_ref=0.1, alpha_stu=0.5)
+def test_pca_onepopu(popu, deol=False):
+    if popu == "MIX":
+        ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb'
+    else:
+        ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_' + popu
+        if deol:
+            ref_filepref += '_deol'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_' + popu + '_oadp'
+    fp.run_pca(ref_filepref, None, method='sp', load_saved_ref_decomp=False, plot_results=True, alpha_ref=0.4, plot_size=(12,4))
+    test_pca_allmeths(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=True, load_popu=True, assert_results=False, plot_size=(12,4), hdpca_n_spikes=4, load_saved_ref_decomp=False, alpha_ref=0.01, alpha_stu=0.5)
 
 def test_pca_ref(popu):
     # ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_' + popu
@@ -485,3 +495,49 @@ def test_run_pca(popu=None):
     ref_filepref = '../data/kgn/kgn_bial_snpscap_ukb'
     stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_5c'
     fp.run_pca(ref_filepref, stu_filepref, method='ap', plot_size=(12,4), hdpca_n_spikes=4, load_saved_ref_decomp=True, alpha_ref=0.1, alpha_stu=0.5, plot_results=True)
+
+def test_plot_results():
+    # ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb'
+    # ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
+    # stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_nchunks100/ukb_snpscap_kgn_bial_orphans_nchunks100'
+    # stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_nchunks100/ukb_snpscap_kgn_bial_orphans_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb'
+    # stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_nchunks100/EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_oadp_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
+    # stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_nchunks100_sturef_kgn_bial_orphans_snps_ukb_snpscap_ukb_EUR'
+    # pref_out = '../data/ukb/ukb_snpscap_kgn_bial_orphans_nchunks100/ukb_snpscap_kgn_bial_orphans_nchunks100'
+    pref_out = stu_filepref
+    plot_lim = np.array([[-60, -80, -125, -200], [90, 110, 125, 300]], dtype=np.float32) 
+
+    pcs_ref = np.loadtxt(ref_filepref + '_ref.pcs')
+    popu_ref = np.loadtxt(ref_filepref + '.popu', dtype=object, usecols=2)
+    fp.plot_pcs(pcs_ref, None, popu_ref, None, 'ref', out_pref=pref_out, plot_size=(12,4), alpha_ref=0.4, plot_lim=plot_lim)
+    for method in ['sp', 'ap', 'oadp']:
+        pcs_stu = np.loadtxt(stu_filepref + '_stu_' + method + '.pcs')
+        popu_stu = np.loadtxt(stu_filepref + '_pred_' + method + '.popu', dtype=object, usecols=2)
+        fp.plot_pcs(pcs_ref, pcs_stu, popu_ref, popu_stu, method, out_pref=pref_out, plot_size=(12,4), alpha_ref=0.1, alpha_stu=0.4, plot_lim=plot_lim)
+
+def test_pred_popu():
+    ref_filepref = '../data/kgn/kgn_bial_snpscap_ukb'
+    stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_nchunks100/ukb_snpscap_kgn_bial_orphans_nchunks100'
+    out_filename = '../data/ukb/ukb_snpscap_kgn_bial_orphans_nchunks100/bydist.popu'
+    pcs_ref = np.loadtxt(ref_filepref + '_ref.pcs')
+    popu_ref = np.loadtxt(ref_filepref + '.popu', usecols=2, dtype=object)
+    pcs_stu = np.loadtxt(stu_filepref + '_stu_ap.pcs')
+    popu_stu, popu_stu_proba, popu_stu_dist = fp.pred_popu_stu(pcs_ref, popu_ref, pcs_stu, out_filename=out_filename, weights='distance')
+    
+def test_pca_diffpopu(popu_ref, popu_stu, deol=False):
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_' + popu_ref
+    if deol:
+        ref_filepref += '_deol'
+    if popu_stu == 'EUR':
+        stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_nchunks100/ukb_snpscap_kgn_bial_orphans_pred_EUR_oadp_5c'
+    else:
+        stu_filepref = '../data/ukb/ukb_snpscap_kgn_bial_orphans_pred_' + popu_stu + '_oadp'
+    pref_out_trace = '../data/ukb/ukb_' + popu_stu + '_sturef_kgn_' + popu_ref 
+    test_pca_allmeths(ref_filepref, stu_filepref, cmp_trace=False, load_pcs=False, load_popu=False, assert_results=False, load_saved_ref_decomp=True, plot_size=(12,4), hdpca_n_spikes=4, alpha_ref=0.1, alpha_stu=0.5)
+
+def test_pca_children():
+    ref_filepref = '../data/kgn/kgn_bial_orphans_snps_ukb_snpscap_ukb'
+    stu_filepref = '../data/kgn/kgn_bial_snpscap_ukb_children'
+    pref_out_trace = '../data/kgn/kgn_children_sturef_childless'
+    fp.run_pca(ref_filepref, None, method='ref', load_saved_ref_decomp=False, plot_results=True, alpha_ref=0.4, plot_size=(12,4))
+    test_pca_allmeths(ref_filepref, stu_filepref, cmp_trace=True, load_pcs=True, load_popu=False, assert_results=False, load_saved_ref_decomp=True, plot_size=(12,4), hdpca_n_spikes=4, alpha_ref=0.001, alpha_stu=0.9, pref_out_trace=pref_out_trace)

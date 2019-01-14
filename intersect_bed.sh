@@ -1,6 +1,10 @@
 #!/bin/bash
-
 set -e
+
+# Intersect the markers of two plink binary files
+# The resulted two bed files have the same markers.
+# Their order and reference alleles will also be the same.
+# i.e. the two bim files will be identical
 
 ref_prefname=$1
 stu_prefname=$2
@@ -25,5 +29,6 @@ if [ ! -f ${ref_snpscap_stu_prefname} ] || [ ! -f ${stu_snpscap_ref_prefname} ];
     echo "Intersection finished."
 fi
 
+echo 'Output files: '
 echo ${ref_snpscap_stu_prefname}
 echo ${stu_snpscap_ref_prefname}

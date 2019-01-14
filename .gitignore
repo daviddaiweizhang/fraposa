@@ -36,5 +36,4 @@ doc/*.out
 *.bbl
 doc/*aeme.png
 *.png
-
-
+\#*\#
