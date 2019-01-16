@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 if_one_prefname=$1
