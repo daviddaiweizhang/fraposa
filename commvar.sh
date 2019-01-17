@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+# Extract the variants that are commen to both binary PLINK files
+
 if_one_prefname=$1
 if_two_prefname=$2
 of_one_prefname=$3

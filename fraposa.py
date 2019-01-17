@@ -1,3 +1,6 @@
+## FRAPOSA: Fast and Robust Ancestry Prediction by Online singular value decomposition and Shrinkage Adjustment
+## Author: David (Daiwei) Zhang
+
 import numpy as np
 import pandas as pd
 import rpy2.robjects as robjects
@@ -8,6 +11,12 @@ robjects.numpy2ri.activate()
 importr('hdpca')
 hdpc_est = r['hdpc_est']
 from pyplink import PyPlink
+from sklearn.neighbors import KNeighborsClassifier
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.lines import Line2D
 import os.path
 import time
 from datetime import datetime
@@ -148,9 +157,9 @@ def standardize(X, mean=None, std=None, miss=3):
     return mean, std
 
 def eig_ref(X):
-    logging.info('Calculating reference covariance matrix...')
+    print('Calculating reference covariance matrix...')
     XTX = X.T @ X
-    logging.info('Eigendecomposition on reference covariance matrix...')
+    print('Eigendecomposition on reference covariance matrix...')
     s, V = svd_eigcov(XTX)
     return s, V, XTX
 
@@ -230,7 +239,7 @@ def pca_stu(W, X_mean, X_std, method,
         if method =='adp':
             pcs_stu[i,:] = adp(XTX, X, w, pcs_ref, dim_stu=dim_stu)
         if (i+1) % (n_stu // 10) == 0:
-            logging.info('Finished {} out of {} study samples.'.format(i+1, n_stu))
+            print('Finished {} out of {} study samples.'.format(i+1, n_stu))
 
     del W
     return pcs_stu
@@ -238,6 +247,7 @@ def pca_stu(W, X_mean, X_std, method,
 def pca(ref_filepref, stu_filepref, method='oadp',
         dim_ref=4, dim_stu=None, dim_online=None, dim_spikes=None, dim_spikes_max=None):
 
+    create_logger()
     assert method in ['oadp', 'ap', 'adp', 'sp']
     if method in ['oadp', 'adp']:
         if dim_stu is None:
@@ -278,6 +288,7 @@ def pca(ref_filepref, stu_filepref, method='oadp',
             U = np.loadtxt(ref_filepref+'_U.dat')[:, :dim_online]
             V = np.loadtxt(ref_filepref+'_V.dat')[:, :dim_online]
             pcs_ref = np.loadtxt(ref_filepref+'.pcs')[:, :dim_ref]
+            logging.info('Warning: If you have changed the parameter settings, please delete ' + ref_filepref + '_*.dat and rerun FRAPOSA.')
             logging.info('Reference PCA result successfully loaded.')
         except OSError:
             logging.info('Reference PCA result is either nonexistent or incomplete.')
@@ -312,6 +323,7 @@ def pca(ref_filepref, stu_filepref, method='oadp',
             X_mean = Xmnsd[:,0].reshape((-1,1))
             X_std = Xmnsd[:,1].reshape((-1,1))
             Ushrink = np.loadtxt(ref_filepref+'_Ushrink.dat')[:, :dim_ref]
+            logging.info('Warning: If you have changed the parameter settings, please delete ' + ref_filepref + '_*.dat and rerun FRAPOSA.')
             logging.info('Reference PCA result loaded.')
         except OSError:
             logging.info('Reference PCA result is either nonexistent or incomplete.')
@@ -351,6 +363,7 @@ def pca(ref_filepref, stu_filepref, method='oadp',
             X_mean = Xmnsd[:,0].reshape((-1,1))
             X_std = Xmnsd[:,1].reshape((-1,1))
             U = np.loadtxt(ref_filepref+'_U.dat')[:, :dim_ref]
+            logging.info('Warning: If you have changed the parameter settings, please delete ' + ref_filepref + '_*.dat and rerun FRAPOSA.')
             logging.info('Reference PCA result loaded.')
         except OSError:
             logging.info('Reference PCA result is either nonexistent or incomplete.')
@@ -387,6 +400,7 @@ def pca(ref_filepref, stu_filepref, method='oadp',
             XTX = np.loadtxt(ref_filepref+'_XTX.dat')[:, :dim_ref]
             standardize(X, X_mean, X_std)
             pcs_ref = np.loadtxt(ref_filepref+'.pcs')[:, :dim_ref]
+            logging.info('Warning: If you have changed the parameter settings, please delete ' + ref_filepref + '_*.dat and rerun FRAPOSA.')
             logging.info('Reference PCA result loaded.')
         except OSError:
             logging.info('Reference PCA result is either nonexistent or incomplete.')
@@ -405,7 +419,7 @@ def pca(ref_filepref, stu_filepref, method='oadp',
         logging.info('Predicting study PC scores (method: ' + method + ')...')
         t0 = time.time()
         pcs_stu = pca_stu(W, X_mean, X_std, method,
-                            pcs_ref=pcs_ref, XTX=XTX,
+                            pcs_ref=pcs_ref, XTX=XTX, X=X,
                             dim_ref=dim_ref, dim_stu=dim_stu)
         elapse_stu = time.time() - t0
 
@@ -415,4 +429,69 @@ def pca(ref_filepref, stu_filepref, method='oadp',
     logging.info(datetime.now())
     logging.info('FRAPOSA finished.')
 
-create_logger()
+def pred_popu_stu(ref_filepref, stu_filepref, n_neighbors=20, weights='uniform'):
+    pcs_ref = np.loadtxt(ref_filepref+'.pcs')
+    popu_ref = np.loadtxt(ref_filepref+'.popu', dtype=str)
+    pcs_stu = np.loadtxt(stu_filepref+'.pcs')
+    n_stu = pcs_stu.shape[0]
+    popu_list = np.sort(np.unique(popu_ref))
+    popu_dic = {popu_list[i] : i for i in range(len(popu_list))}
+    knn = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights)
+    knn.fit(pcs_ref, popu_ref)
+    popu_stu_pred = knn.predict(pcs_stu)
+    popu_stu_proba_list = knn.predict_proba(pcs_stu)
+    popu_stu_proba = [popu_stu_proba_list[i, popu_dic[popu_stu_pred[i]]] for i in range(n_stu)]
+    popu_stu_dist = knn.kneighbors(pcs_stu)[0][:,-1]
+    popu_stu_dist = np.round(popu_stu_dist, 3)
+    popuproba_df = pd.DataFrame({'popu':popu_stu_pred, 'proba':popu_stu_proba, 'dist':popu_stu_dist})
+    popuproba_df = popuproba_df[['popu', 'proba', 'dist']]
+    probalist_df = pd.DataFrame(popu_stu_proba_list)
+    populist_df = pd.DataFrame(np.tile(popu_list, (n_stu, 1)))
+    popu_stu_pred_df = pd.concat([popuproba_df, probalist_df, populist_df], axis=1)
+    popu_stu_pred_df.to_csv(stu_filepref+'.popu', sep='\t', header=False, index=False)
+    print('Predicted study populations saved to ' + stu_filepref + '.popu')
+    return popu_stu_pred, popu_stu_proba, popu_stu_dist
+
+def plot_pcs(ref_filepref, stu_filepref):
+    pcs_ref = np.loadtxt(ref_filepref+'.pcs')
+    pcs_stu = np.loadtxt(stu_filepref+'.pcs')
+    try:
+        popu_ref = np.loadtxt(ref_filepref+'.popu', dtype=str)
+    except OSError:
+        popu_ref = None
+    try:
+        popu_stu = np.loadtxt(stu_filepref+'.popu', dtype=str)[:,0]
+    except OSError:
+        popu_stu = None
+
+    n_ref = pcs_ref.shape[0]
+    n_stu = pcs_stu.shape[0]
+    cmap = plt.get_cmap('tab10')
+    legend_elements = []
+    if popu_ref is None:
+        color_ref = [cmap(0)] * n_ref
+        color_stu = [cmap(1)] * n_stu
+        legend_elements += [mpatches.Patch(facecolor=cmap(0), label='ref')]
+        legend_elements += [mpatches.Patch(facecolor=cmap(1), label='stu')]
+    else:
+        popu_list = np.sort(np.unique(popu_ref))
+        n_popu = len(popu_list)
+        popu_dict = dict(zip(popu_list, range(n_popu)))
+        color_ref = [cmap(popu_dict[e]) for e in popu_ref]
+        if popu_stu is None:
+            color_stu = ['xkcd:grey'] * n_stu
+        else:
+            color_stu = [cmap(popu_dict[e]) for e in popu_stu]
+        legend_elements += [mpatches.Patch(facecolor=cmap(popu_dict[e]), label=e) for e in popu_list]
+        legend_elements += [Line2D([0], [0], marker='o', color='white', label='ref', markerfacecolor='white', markeredgecolor='black')]
+        legend_elements += [Line2D([0], [0], marker='s', color='white', label='stu', markerfacecolor='white', markeredgecolor='black')]
+    for j in range(2):
+        plt.subplot(1, 2, j+1)
+        plt.scatter(pcs_ref[:, j], pcs_ref[:, j+1], marker='o', c=color_ref, alpha=0.1)
+        plt.scatter(pcs_stu[:, j], pcs_stu[:, j+1], marker='s', c=color_stu, alpha=0.5, edgecolor='black', linewidths=2)
+        plt.xlabel('PC' + str(j+1))
+        plt.ylabel('PC' + str(j+2))
+        plt.legend(handles=legend_elements)
+    plt.savefig(stu_filepref+'.png', dpi=300)
+    plt.close()
+    print('PC plots saved to ' + stu_filepref+'.png')
