@@ -38,6 +38,7 @@ To use FRAPOSA with default settings, run
 python fraposa_runner.py ref_bedprefix_comm stu_bedprefix_comm
 ```
 
+
 To change the method for predicting study PC scores, use
 ```
 python fraposa_runner.py ref_bedprefix_comm stu_bedprefix_comm --method=ap
@@ -49,6 +50,15 @@ To set the number of PCs to 20, run
 python fraposa_runner.py ref_bedprefix_comm stu_bedprefix_comm --dim_ref=20
 
 ```
+
+**Important**:
+If you run FRAPOSA for the second time by using the same method (e.g. ap) but different parameter settings (e.g. dim_ref),
+please delete all the .dat files in the directory of the reference data.
+The .dat files store the PCA result of the reference samples in order to avoid repetitive calculation
+when you change the study data but use the same reference data.
+However, if you have changed the parameter settings,
+FRAPOSA would not know that the .dat files have not been updated for the new settings.
+
 
 To learn all the options for FRAPOSA, run
 ```
