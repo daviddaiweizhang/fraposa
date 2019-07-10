@@ -22,6 +22,7 @@ import time
 from datetime import datetime
 import sys
 import logging
+from sklearn.utils.extmath import randomized_svd
 
 def create_logger(out_filepref='fraposa'):
     log = logging.getLogger()
@@ -134,7 +135,12 @@ def read_bed(bed_filepref, dtype=np.int8):
     bed = np.zeros(shape=(p, n), dtype=dtype)
     for (i, (snp, genotypes)) in enumerate(pyp):
         bed[i,:] = genotypes
-    bed = 2 - bed
+    # for i in range(p):
+    #     for j in range(n):
+    #         bed[i,j] = 2 - bed[i,j]
+    # bed = 2 - bed
+    bed *= -1
+    bed += 2
     return bed, bim, fam
 
 def standardize(X, mean=None, std=None, miss=3):
@@ -245,18 +251,20 @@ def pca_stu(W, X_mean, X_std, method,
     return pcs_stu
 
 def pca(ref_filepref, stu_filepref, method='oadp',
-        dim_ref=4, dim_stu=None, dim_online=None, dim_spikes=None, dim_spikes_max=None):
+        dim_ref=4, dim_stu=None, dim_online=None, dim_rand=None, dim_spikes=None, dim_spikes_max=None):
 
     create_logger()
-    assert method in ['oadp', 'ap', 'adp', 'sp']
+    assert method in ['randoadp', 'oadp', 'ap', 'adp', 'sp']
     if method in ['oadp', 'adp']:
         if dim_stu is None:
             dim_stu = dim_ref * 2
         assert dim_ref <= dim_stu
-    if method == 'oadp':
+    if method in ['oadp', 'randoadp']:
         if dim_online is None:
             dim_online = dim_stu * 2
-        assert dim_stu <= dim_online
+        if dim_rand is None:
+            dim_rand = dim_online * 2
+        assert dim_stu <= dim_online <= dim_rand
     if method == 'ap':
         if dim_spikes is None and dim_spikes_max is None:
             dim_spikes_max = dim_ref * 4
@@ -278,7 +286,7 @@ def pca(ref_filepref, stu_filepref, method='oadp',
             logging.info('Number of distant spikes: {}'.format(dim_spikes))
 
     logging.info(datetime.now())
-    if method == 'oadp':
+    if method in ['oadp', 'randoadp']:
         try:
             logging.info('Attemping to load saved reference PCA result...')
             Xmnsd = np.loadtxt(ref_filepref+'_mnsd.dat')
@@ -295,7 +303,10 @@ def pca(ref_filepref, stu_filepref, method='oadp',
             logging.info('Calculating reference PCA....')
             X, X_bim, X_fam = read_bed(ref_filepref, dtype=np.float32)
             X_mean, X_std = standardize(X)
-            s, V = eig_ref(X)[:2]
+            if method == 'oadp':
+                s, V = eig_ref(X)[:2]
+            elif method == 'randoadp':
+                s, V = randomized_svd(X, dim_rand)[:2]
             V = V[:, :dim_online]
             pcs_ref = V[:, :dim_ref] * s[:dim_ref]
             U = X @ (V / s[:dim_online])
