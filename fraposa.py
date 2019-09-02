@@ -244,10 +244,10 @@ def pca_stu(W, X_mean, X_std, method,
     del W
     return pcs_stu
 
-def pca(ref_filepref, stu_filepref, method='oadp',
+def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
         dim_ref=4, dim_stu=None, dim_online=None, dim_spikes=None, dim_spikes_max=None):
 
-    create_logger()
+    create_logger(out_filepref)
     assert method in ['oadp', 'ap', 'adp', 'sp']
     if method in ['oadp', 'adp']:
         if dim_stu is None:
@@ -265,6 +265,7 @@ def pca(ref_filepref, stu_filepref, method='oadp',
     logging.info('FRAPOSA started.')
     logging.info('Reference data: {}'.format(ref_filepref))
     logging.info('Study data: {}'.format(stu_filepref))
+    logging.info('Output prefix: {}'.format(out_filepref))
     logging.info('Method: {}'.format(method))
     logging.info('Reference dimension: {}'.format(dim_ref))
     if method in ['oadp', 'adp']:
@@ -423,8 +424,8 @@ def pca(ref_filepref, stu_filepref, method='oadp',
                             dim_ref=dim_ref, dim_stu=dim_stu)
         elapse_stu = time.time() - t0
 
-    np.savetxt(stu_filepref+'.pcs', pcs_stu, fmt=output_fmt, delimiter='\t')
-    logging.info('Study PC scores saved to ' + stu_filepref+'.pcs')
+    np.savetxt(out_filepref+'.pcs', pcs_stu, fmt=output_fmt, delimiter='\t')
+    logging.info('Study PC scores saved to ' + out_filepref+'.pcs')
     logging.info('Study time: {} sec'.format(round(elapse_stu, 1)))
     logging.info(datetime.now())
     logging.info('FRAPOSA finished.')
