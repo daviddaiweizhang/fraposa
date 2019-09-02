@@ -296,7 +296,7 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
             s = np.loadtxt(ref_filepref+'_s.dat')
             U = np.loadtxt(ref_filepref+'_U.dat')[:, :dim_online]
             V = np.loadtxt(ref_filepref+'_V.dat')[:, :dim_online]
-            pcs_ref = np.loadtxt(ref_filepref+'.pcs')[:, :dim_ref]
+            pcs_ref = np.loadtxt(ref_filepref+'_Vs.dat')[:, :dim_ref]
             logging.info('Warning: If you have changed the parameter settings, please delete ' + ref_filepref + '_*.dat and rerun FRAPOSA.')
             logging.info('Reference PCA result successfully loaded.')
         except OSError:
@@ -314,7 +314,7 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
             np.savetxt(ref_filepref+'_mnsd.dat', np.hstack((X_mean, X_std)), fmt=output_fmt)
             np.savetxt(ref_filepref+'_s.dat', s, fmt=output_fmt)
             np.savetxt(ref_filepref+'_V.dat', V, fmt=output_fmt)
-            np.savetxt(ref_filepref+'.pcs', pcs_ref, fmt=output_fmt)
+            np.savetxt(ref_filepref+'_Vs.dat', pcs_ref, fmt=output_fmt)
             np.savetxt(ref_filepref+'_U.dat', U, fmt=output_fmt)
             logging.info('Reference PC scores saved to ' + ref_filepref + '.pcs')
         logging.info(datetime.now())
@@ -353,7 +353,7 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
             for i in range(n_pc_adjusted):
                 Ushrink[:, i] /= shrinkage[i]
             np.savetxt(ref_filepref+'_mnsd.dat', np.hstack((X_mean, X_std)), fmt=output_fmt)
-            np.savetxt(ref_filepref+'.pcs', pcs_ref, fmt=output_fmt)
+            np.savetxt(ref_filepref+'_Vs.dat', pcs_ref, fmt=output_fmt)
             np.savetxt(ref_filepref+'_Ushrink.dat', Ushrink, fmt=output_fmt)
             logging.info('Reference PC scores saved to ' + ref_filepref + '.pcs')
         logging.info(datetime.now())
@@ -387,7 +387,7 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
             pcs_ref = V[:, :dim_ref] * s[:dim_ref]
             U = X @ (V / s[:dim_ref])
             np.savetxt(ref_filepref+'_mnsd.dat', np.hstack((X_mean, X_std)), fmt=output_fmt)
-            np.savetxt(ref_filepref+'.pcs', pcs_ref, fmt=output_fmt)
+            np.savetxt(ref_filepref+'_Vs.dat', pcs_ref, fmt=output_fmt)
             np.savetxt(ref_filepref+'_U.dat', U, fmt=output_fmt)
             logging.info('Reference PC scores saved to ' + ref_filepref + '.pcs')
         logging.info(datetime.now())
@@ -401,7 +401,7 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
         elapse_stu = time.time() - t0
 
     if method == 'adp':
-        saved_filesuffs = ['_mnsd.dat', '_XTX.dat', '.pcs']
+        saved_filesuffs = ['_mnsd.dat', '_XTX.dat', '_Vs.dat']
         saved_allexist = all([os.path.isfile(ref_filepref+suff) for suff in saved_filesuffs])
         X, X_bim, X_fam = read_bed(ref_filepref, dtype=np.float32)
         try:
@@ -411,7 +411,7 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
             X_std = Xmnsd[:,1].reshape((-1,1))
             XTX = np.loadtxt(ref_filepref+'_XTX.dat')[:, :dim_ref]
             standardize(X, X_mean, X_std)
-            pcs_ref = np.loadtxt(ref_filepref+'.pcs')[:, :dim_ref]
+            pcs_ref = np.loadtxt(ref_filepref+'_Vs.dat')[:, :dim_ref]
             logging.info('Warning: If you have changed the parameter settings, please delete ' + ref_filepref + '_*.dat and rerun FRAPOSA.')
             logging.info('Reference PCA result loaded.')
         except OSError:
@@ -422,7 +422,7 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
             V = V[:, :dim_ref]
             pcs_ref = V[:, :dim_ref] * s[:dim_ref]
             np.savetxt(ref_filepref+'_mnsd.dat', np.hstack((X_mean, X_std)), fmt=output_fmt)
-            np.savetxt(ref_filepref+'.pcs', pcs_ref, fmt=output_fmt)
+            np.savetxt(ref_filepref+'_Vs.dat', pcs_ref, fmt=output_fmt)
             logging.info('Reference PC scores saved to ' + ref_filepref + '.pcs')
         logging.info(datetime.now())
         logging.info('Loading study data...')
@@ -435,9 +435,15 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
                             dim_ref=dim_ref, dim_stu=dim_stu)
         elapse_stu = time.time() - t0
 
-    np.savetxt(out_filepref+'.pcs', pcs_stu, fmt=output_fmt, delimiter='\t')
+    X_fam = pd.read_table(ref_filepref+'.fam', header=None, sep=' ')
+    pcs_ref = np.loadtxt(ref_filepref+'_Vs.dat')
+    pcs_ref_df = pd.DataFrame(pd.np.column_stack([X_fam.iloc[:,0:2], pcs_ref]))
+    pcs_ref_df.to_csv(ref_filepref+'.pcs', sep='\t', header=False, index=False)
+    pcs_stu_df = pd.DataFrame(pd.np.column_stack([W_fam.iloc[:,0:2], pcs_stu]))
+    pcs_stu_df.to_csv(out_filepref+'.pcs', sep='\t', header=False, index=False)
+    # np.savetxt(out_filepref+'.pcs', pcs_stu, fmt=output_fmt, delimiter='\t')
     logging.info('Study PC scores saved to ' + out_filepref+'.pcs')
-    logging.info('Study time: {} sec'.format(round(elapse_stu, 1)))
+    logging.info('Study time: {} sec'.format(elapse_stu, 1))
     logging.info(datetime.now())
     logging.info('FRAPOSA finished.')
 
