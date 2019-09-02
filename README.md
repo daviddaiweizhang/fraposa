@@ -42,7 +42,6 @@ python fraposa_runner.py ref_bedprefix_comm stu_bedprefix_comm
 To change the method for predicting study PC scores, use
 ```
 python fraposa_runner.py ref_bedprefix_comm stu_bedprefix_comm --method=ap
-
 ```
 There are four methods available:
 1. **oadp** (recommended):
@@ -103,9 +102,13 @@ python predstupopu.py ref_bedprefix_comm stu_bedprefix_comm --nneighbors=20 --we
 ```
 
 ## Plot the PC scores
-
 A simple script for plotting the reference PC scores is included:
 ```
 python plotpcs.py ref_bedprefix_comm stu_bedprefix_comm
 ```
 
+# Reference data
+
+We have provided a reference data set (umich.edu/~daiweiz/fraposa/data/) for your convenience.
+We took the 2,492 unrelated samples from the 1000 Genomes project and selected the 637,177 SNPs that are included in the Human Genome Diversity Project.
+The population membership of the samples are also included.
