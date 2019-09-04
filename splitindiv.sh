@@ -6,12 +6,12 @@ set -e
 filepref=$1
 n_chunks=$2
 i=$3
+chunk_filepref=$4
 
 chunk_len_suff=4
 chunk_midf=nchunks${n_chunks}
 dir=${filepref}_${chunk_midf}
 basepref=`basename ${filepref}`
-chunk_filepref=${dir}/${basepref}_${chunk_midf}_`printf "%0${chunk_len_suff}d\n" ${i}`
 mkdir -p ${dir}
 
 # Split .fam file
