@@ -448,10 +448,15 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
     logging.info('FRAPOSA finished.')
 
 def pred_popu_stu(ref_filepref, stu_filepref, n_neighbors=20, weights='uniform'):
-    pcs_ref = np.loadtxt(ref_filepref+'.pcs')
-    popu_ref = np.loadtxt(ref_filepref+'.popu', dtype=str)
-    pcs_stu = np.loadtxt(stu_filepref+'.pcs')
-    n_stu = pcs_stu.shape[0]
+
+    # load reference and study pc scores and population
+    ref_df = pd.read_table(ref_filepref+'.pcs', header=None)
+    stu_df = pd.read_table(stu_filepref+'.pcs', header=None)
+    pcs_ref = ref_df.iloc[:,2:].to_numpy()
+    pcs_stu = stu_df.iloc[:,2:].to_numpy()
+    popu_ref = ref_df.iloc[:,0].to_numpy()
+    n_stu, p = pcs_stu.shape
+
     popu_list = np.sort(np.unique(popu_ref))
     popu_dic = {popu_list[i] : i for i in range(len(popu_list))}
     knn = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights)
