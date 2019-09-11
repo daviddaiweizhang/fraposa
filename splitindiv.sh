@@ -9,10 +9,7 @@ i=$3
 chunk_filepref=$4
 
 chunk_len_suff=4
-chunk_midf=nchunks${n_chunks}
-dir=${filepref}_${chunk_midf}
 basepref=`basename ${filepref}`
-mkdir -p ${dir}
 
 # Split .fam file
 split -d -n l/${i}/${n_chunks} -a ${chunk_len_suff} ${filepref}.fam > ${chunk_filepref}
