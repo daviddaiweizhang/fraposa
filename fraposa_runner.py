@@ -3,7 +3,7 @@ import argparse, sys
 
 parser=argparse.ArgumentParser()
 parser.add_argument('ref_filepref', help='Prefix of the binary PLINK file for the reference samples.')
-parser.add_argument('stu_filepref', help='Prefix of the binary PLINK file for the study samples.')
+parser.add_argument('--stu_filepref', help='Prefix of the binary PLINK file for the study samples.')
 parser.add_argument('--method', help='The method for PCA prediction. oadp: most accurate. ap: fastest. adp: accurate but slow. sp: fast but inaccurate. Default is odap.')
 parser.add_argument('--dim_ref', help='Number of PCs you need.')
 parser.add_argument('--dim_stu', help='Number of PCs predicted for the study samples before doing the Procrustes transformation. Only needed for the oadp and adp methods. Default is 2*dim_ref.')
@@ -15,8 +15,6 @@ parser.add_argument('--out', help='Prefix of output file(s). Default is stu_file
 args=parser.parse_args()
 
 ref_filepref = args.ref_filepref
-stu_filepref = args.stu_filepref
-out_filepref = stu_filepref
 method = 'oadp'
 dim_ref = 4
 dim_stu = None
@@ -25,6 +23,9 @@ dim_rand = None
 dim_spikes = None
 dim_spikes_max = None
 
+if args.stu_filepref:
+    stu_filepref = args.stu_filepref
+    out_filepref = stu_filepref
 if args.out:
     out_filepref = args.out
 if args.method:
