@@ -250,7 +250,7 @@ def pca_stu(W, X_mean, X_std, method,
     del W
     return pcs_stu
 
-def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
+def pca(ref_filepref, stu_filepref=None, out_filepref=None, method='oadp',
         dim_ref=4, dim_stu=None, dim_online=None, dim_rand=None, dim_spikes=None, dim_spikes_max=None):
 
     create_logger(out_filepref)
@@ -317,16 +317,7 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
             np.savetxt(ref_filepref+'_Vs.dat', pcs_ref, fmt=output_fmt)
             np.savetxt(ref_filepref+'_U.dat', U, fmt=output_fmt)
             logging.info('Reference PC scores saved to ' + ref_filepref + '.pcs')
-        logging.info(datetime.now())
-        logging.info('Loading study data...')
-        W, W_bim, W_fam = read_bed(stu_filepref, dtype=np.int8)
-        logging.info(datetime.now())
-        logging.info('Predicting study PC scores (method: ' + method + ')...')
-        t0 = time.time()
-        pcs_stu = pca_stu(W, X_mean, X_std, method,
-                        U=U, s=s, V=V, pcs_ref=pcs_ref,
-                        dim_ref=dim_ref, dim_stu=dim_stu, dim_online=dim_online)
-        elapse_stu = time.time() - t0
+        pca_stu_kwargs = {'U':U, 's':s, 'V':V, 'pcs_ref':pcs_ref, 'dim_ref':dim_ref, 'dim_stu':dim_stu, 'dim_online':dim_online}
 
     if method == 'ap':
         try:
@@ -356,15 +347,7 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
             np.savetxt(ref_filepref+'_Vs.dat', pcs_ref, fmt=output_fmt)
             np.savetxt(ref_filepref+'_Ushrink.dat', Ushrink, fmt=output_fmt)
             logging.info('Reference PC scores saved to ' + ref_filepref + '.pcs')
-        logging.info(datetime.now())
-        logging.info('Loading study data...')
-        W, W_bim, W_fam = read_bed(stu_filepref, dtype=np.int8)
-        logging.info(datetime.now())
-        logging.info('Predicting study PC scores (method: ' + method + ')...')
-        t0 = time.time()
-        pcs_stu = pca_stu(W, X_mean, X_std, method,
-                        U=Ushrink, dim_ref=dim_ref)
-        elapse_stu = time.time() - t0
+        pca_stu_kwargs = {'U':Ushrink, 'dim_ref':dim_ref}
 
     if method == 'sp':
         saved_filesuffs = ['_mnsd.dat', '_U.dat']
@@ -390,15 +373,7 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
             np.savetxt(ref_filepref+'_Vs.dat', pcs_ref, fmt=output_fmt)
             np.savetxt(ref_filepref+'_U.dat', U, fmt=output_fmt)
             logging.info('Reference PC scores saved to ' + ref_filepref + '.pcs')
-        logging.info(datetime.now())
-        logging.info('Loading study data...')
-        W, W_bim, W_fam = read_bed(stu_filepref, dtype=np.int8)
-        logging.info(datetime.now())
-        logging.info('Predicting study PC scores (method: ' + method + ')...')
-        t0 = time.time()
-        pcs_stu = pca_stu(W, X_mean, X_std, method,
-                        U=U, dim_ref=dim_ref)
-        elapse_stu = time.time() - t0
+        pca_stu_kwargs = {'U':U, 'dim_ref':dim_ref}
 
     if method == 'adp':
         saved_filesuffs = ['_mnsd.dat', '_XTX.dat', '_Vs.dat']
@@ -424,28 +399,29 @@ def pca(ref_filepref, stu_filepref, out_filepref, method='oadp',
             np.savetxt(ref_filepref+'_mnsd.dat', np.hstack((X_mean, X_std)), fmt=output_fmt)
             np.savetxt(ref_filepref+'_Vs.dat', pcs_ref, fmt=output_fmt)
             logging.info('Reference PC scores saved to ' + ref_filepref + '.pcs')
+        pca_stu_kwargs = {'pcs_ref':pcs_ref, 'XTX':XTX, 'X':X, 'dim_ref':dim_ref, 'dim_stu':dim_stu}
+
+    if stu_filepref is not None:
         logging.info(datetime.now())
         logging.info('Loading study data...')
         W, W_bim, W_fam = read_bed(stu_filepref, dtype=np.int8)
         logging.info(datetime.now())
         logging.info('Predicting study PC scores (method: ' + method + ')...')
         t0 = time.time()
-        pcs_stu = pca_stu(W, X_mean, X_std, method,
-                            pcs_ref=pcs_ref, XTX=XTX, X=X,
-                            dim_ref=dim_ref, dim_stu=dim_stu)
-        elapse_stu = time.time() - t0
 
-    X_fam = pd.read_table(ref_filepref+'.fam', header=None, sep=' ')
-    pcs_ref = np.loadtxt(ref_filepref+'_Vs.dat')
-    pcs_ref_df = pd.DataFrame(pd.np.column_stack([X_fam.iloc[:,0:2], pcs_ref]))
-    pcs_ref_df.to_csv(ref_filepref+'.pcs', sep='\t', header=False, index=False)
-    pcs_stu_df = pd.DataFrame(pd.np.column_stack([W_fam.iloc[:,0:2], pcs_stu]))
-    pcs_stu_df.to_csv(out_filepref+'.pcs', sep='\t', header=False, index=False)
-    # np.savetxt(out_filepref+'.pcs', pcs_stu, fmt=output_fmt, delimiter='\t')
-    logging.info('Study PC scores saved to ' + out_filepref+'.pcs')
-    logging.info('Study time: {} sec'.format(elapse_stu, 1))
-    logging.info(datetime.now())
-    logging.info('FRAPOSA finished.')
+        pcs_stu = pca_stu(W, X_mean, X_std, method, **pca_stu_kwargs)
+        elapse_stu = time.time() - t0
+        X_fam = pd.read_table(ref_filepref+'.fam', header=None, sep=' ')
+        pcs_ref = np.loadtxt(ref_filepref+'_Vs.dat')
+        pcs_ref_df = pd.DataFrame(pd.np.column_stack([X_fam.iloc[:,0:2], pcs_ref]))
+        pcs_ref_df.to_csv(ref_filepref+'.pcs', sep='\t', header=False, index=False)
+        pcs_stu_df = pd.DataFrame(pd.np.column_stack([W_fam.iloc[:,0:2], pcs_stu]))
+        pcs_stu_df.to_csv(out_filepref+'.pcs', sep='\t', header=False, index=False)
+        # np.savetxt(out_filepref+'.pcs', pcs_stu, fmt=output_fmt, delimiter='\t')
+        logging.info('Study PC scores saved to ' + out_filepref+'.pcs')
+        logging.info('Study time: {} sec'.format(elapse_stu, 1))
+        logging.info(datetime.now())
+        logging.info('FRAPOSA finished.')
 
 def pred_popu_stu(ref_filepref, stu_filepref, n_neighbors=20, weights='uniform'):
 
