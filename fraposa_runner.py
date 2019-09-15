@@ -15,6 +15,8 @@ parser.add_argument('--out', help='Prefix of output file(s). Default is stu_file
 args=parser.parse_args()
 
 ref_filepref = args.ref_filepref
+stu_filepref = None
+out_filepref = ref_filepref
 method = 'oadp'
 dim_ref = 4
 dim_stu = None
