@@ -341,6 +341,8 @@ def pca(ref_filepref, stu_filepref=None, out_filepref=None, method='oadp',
             shrinkage = hdpca_shrinkage(s, p_ref, n_ref, dim_spikes=dim_spikes, dim_spikes_max=dim_spikes_max)
             n_pc_adjusted = min(dim_ref, len(shrinkage))
             logging.info('The top {} out of the {} PCs have been adjusted for shrinkage.'.format(n_pc_adjusted, dim_ref))
+            logging.info('Shrinkage factors:')
+            logging.info(shrinkage[:n_pc_adjusted])
             for i in range(n_pc_adjusted):
                 Ushrink[:, i] /= shrinkage[i]
             np.savetxt(ref_filepref+'_mnsd.dat', np.hstack((X_mean, X_std)), fmt=output_fmt)
