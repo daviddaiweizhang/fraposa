@@ -15,7 +15,7 @@ basepref=`basename ${filepref}`
 split -d -n l/${i}/${n_chunks} -a ${chunk_len_suff} ${filepref}.fam > ${chunk_filepref}
 plink --bfile ${filepref} --keep ${chunk_filepref} --keep-allele-order --out ${chunk_filepref} --make-bed
 cmp --silent ${chunk_filepref}.bim ${filepref}.bim || {>&2 echo "Error: Output bim files not identical"; echo; echo; exit 1; } # The last two echos are placeholders for output file names
-rm ${chunk_filepref}
+rm -f ${chunk_filepref}
 echo ${chunk_filepref}
 
 # TODO: check concat(all chunck .fam) == .fam
