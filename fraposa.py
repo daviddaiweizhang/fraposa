@@ -232,16 +232,12 @@ def pca_stu(W, X_mean, X_std, method,
         assert all([a is not None for a in [XTX, X, pcs_ref, dim_ref, dim_stu]])
 
     for i in range(n_stu):
-        t0 = time.time()
         w = W[:,i].astype(np.float64).reshape((-1,1))
         standardize(w, X_mean, X_std, miss=3)
-        t0 = time.time()
         if method == 'oadp':
             pcs_stu[i,:] = oadp(U, s, V, w, dim_ref, dim_stu, dim_online)
-        if method =='ap':
-            pcs_stu[i,:] = w.T @ (U[:,:dim_ref])
-        if method =='sp':
-            pcs_stu[i,:] = w.T @ (U[:,:dim_ref])
+        if method =='sp' or method == 'ap':
+            pcs_stu[i,:] = w.T @ U[:,:dim_ref]
         if method =='adp':
             pcs_stu[i,:] = adp(XTX, X, w, pcs_ref, dim_stu=dim_stu)
         if (i+1) % (n_stu // 10) == 0:
@@ -407,12 +403,13 @@ def pca(ref_filepref, stu_filepref=None, out_filepref=None, method='oadp',
         logging.info(datetime.now())
         logging.info('Loading study data...')
         W, W_bim, W_fam = read_bed(stu_filepref, dtype=np.int8)
+
         logging.info(datetime.now())
         logging.info('Predicting study PC scores (method: ' + method + ')...')
         t0 = time.time()
-
         pcs_stu = pca_stu(W, X_mean, X_std, method, **pca_stu_kwargs)
         elapse_stu = time.time() - t0
+
         X_fam = pd.read_table(ref_filepref+'.fam', header=None, sep=' ')
         pcs_ref = np.loadtxt(ref_filepref+'_Vs.dat')
         pcs_ref_df = pd.DataFrame(pd.np.column_stack([X_fam.iloc[:,0:2], pcs_ref]))
