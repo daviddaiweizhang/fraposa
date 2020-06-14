@@ -33,19 +33,32 @@ done;
 
 # FRAPOSA
 
+## Required files
+
+- Binary PLINK files for the reference set: ref_bedprefix_comm.{bed,bim,fam}
+- Binary PLINK files for the study set: stu_bedprefix_comm.{bed,bim,fam}
+  - If no study set is given, FRAPOSA will only run PCA on the reference set and output the reference PC scores.
+- Population file for the reference set: ref_bedprefix_comm.popu
+  - Without this file, the study PC scores will still be computed, but you will not be able to predict the population memberships for the study samples. (See below.)
+  - The first two columns should be the same as those in ref_bedprefix_comm.fam
+  - The third column should be the label for the population
+
+
+## Running the scripts
+
 To use FRAPOSA with default settings, run
 ```
-python fraposa_runner.py ref_bedprefix_comm stu_bedprefix_comm
+python fraposa_runner.py --stu_filepref stu_bedprefix_comm ref_bedprefix_comm 
 ```
 
 
 To change the method for predicting study PC scores, use
 ```
-python fraposa_runner.py ref_bedprefix_comm stu_bedprefix_comm --method=ap
+python fraposa_runner.py --stu_filepref stu_bedprefix_comm ref_bedprefix_comm --method=ap
 ```
 There are four methods available:
 1. **oadp** (recommended):
-This is the default. It is accurate and fast. (Thank to the online SVD algorithm.)
+This is the default. It is accurate and fast.
 
 2. **ap** (recommended):
 Use this if you want something even faster.
@@ -62,11 +75,14 @@ The speed is the same as ap.
 This is essentially the same as oadp but does not uses a traditional SVD method rather than an online SVD method for PCA prediction.
 The accuracy is very close to oadp.
 
-
-To set the number of PCs to 20, run
+Several parameters in FRAPOSA can be changed. For example, to set the number of reference PCs to 20, run
 ```
 python fraposa_runner.py ref_bedprefix_comm stu_bedprefix_comm --dim_ref=20
 
+```
+To learn all the options for FRAPOSA, run
+```
+python fraposa_runner.py --help
 ```
 
 **Important**:
@@ -77,11 +93,6 @@ when you change the study data but use the same reference data.
 However, if you have changed the parameter settings,
 FRAPOSA would not know that the .dat files have not been updated for the new settings.
 
-
-To learn all the options for FRAPOSA, run
-```
-python fraposa_runner.py --help
-```
 
 # Postprocessing
 
