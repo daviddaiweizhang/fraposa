@@ -427,9 +427,10 @@ def pred_popu_stu(ref_filepref, stu_filepref, n_neighbors=20, weights='uniform')
     # load reference and study pc scores and population
     ref_df = pd.read_table(ref_filepref+'.pcs', header=None)
     stu_df = pd.read_table(stu_filepref+'.pcs', header=None)
+    popu_df = pd.read_table(ref_filepref+'.popu', header=None)
     pcs_ref = ref_df.iloc[:,2:].to_numpy()
     pcs_stu = stu_df.iloc[:,2:].to_numpy()
-    popu_ref = ref_df.iloc[:,0].to_numpy()
+    popu_ref = popu_df.iloc[:,2:].to_numpy()
     n_stu, p = pcs_stu.shape
 
     popu_list = np.sort(np.unique(popu_ref))
