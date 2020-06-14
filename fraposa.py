@@ -426,8 +426,15 @@ def pred_popu_stu(ref_filepref, stu_filepref, n_neighbors=20, weights='uniform')
 
     # load reference and study pc scores and population
     ref_df = pd.read_table(ref_filepref+'.pcs', header=None)
+    ref_df.columns = ['sample', 'family','PC1','PC2','PC3','PC4']
+
     stu_df = pd.read_table(stu_filepref+'.pcs', header=None)
     popu_df = pd.read_table(ref_filepref+'.popu', header=None)
+    popu_df.columns = ['sample', 'family','pop']
+    popu_df = popu_df[popu_df['pop'].notna()]
+
+    ref_df = ref_df[ref_df.set_index(['family']).index.isin(popu_df.set_index(['family']).index)]
+
     pcs_ref = ref_df.iloc[:,2:].to_numpy()
     pcs_stu = stu_df.iloc[:,2:].to_numpy()
     popu_ref = popu_df.iloc[:,2:].to_numpy()
@@ -439,6 +446,7 @@ def pred_popu_stu(ref_filepref, stu_filepref, n_neighbors=20, weights='uniform')
     knn.fit(pcs_ref, popu_ref)
     popu_stu_pred = knn.predict(pcs_stu)
     popu_stu_proba_list = knn.predict_proba(pcs_stu)
+
     popu_stu_proba = [popu_stu_proba_list[i, popu_dic[popu_stu_pred[i]]] for i in range(n_stu)]
     popu_stu_dist = knn.kneighbors(pcs_stu)[0][:,-1]
     popu_stu_dist = np.round(popu_stu_dist, 3)
@@ -447,13 +455,15 @@ def pred_popu_stu(ref_filepref, stu_filepref, n_neighbors=20, weights='uniform')
     probalist_df = pd.DataFrame(popu_stu_proba_list)
     populist_df = pd.DataFrame(np.tile(popu_list, (n_stu, 1)))
     popu_stu_pred_df = pd.concat([popuproba_df, probalist_df, populist_df], axis=1)
+
     popu_stu_pred_df.to_csv(stu_filepref+'.popu', sep='\t', header=False, index=False)
+
     print('Predicted study populations saved to ' + stu_filepref + '.popu')
     return popu_stu_pred, popu_stu_proba, popu_stu_dist
 
 def plot_pcs(ref_filepref, stu_filepref):
-    pcs_ref = np.loadtxt(ref_filepref+'.pcs')
-    pcs_stu = np.loadtxt(stu_filepref+'.pcs')
+    pcs_ref = pd.read_table(ref_filepref+'.pcs')
+    pcs_stu = pd.read_table(stu_filepref+'.pcs')
     try:
         popu_ref = np.loadtxt(ref_filepref+'.popu', dtype=str)
     except OSError:
