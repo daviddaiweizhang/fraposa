@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 import fraposa as fp
 import argparse, sys
 
