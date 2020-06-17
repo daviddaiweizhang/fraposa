@@ -156,7 +156,6 @@ Several PCA-related parameters can be changed.
 For example, to set the number of reference PCs to 20, run
 ```
 ./fraposa_runner.py --stu_filepref stupref --dim_ref 20 refpref 
-
 ```
 To learn all the options for FRAPOSA, run
 ```
