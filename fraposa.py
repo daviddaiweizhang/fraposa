@@ -412,9 +412,9 @@ def pca(ref_filepref, stu_filepref=None, out_filepref=None, method='oadp',
 
         X_fam = pd.read_table(ref_filepref+'.fam', header=None, sep=' ')
         pcs_ref = np.loadtxt(ref_filepref+'_Vs.dat')
-        pcs_ref_df = pd.DataFrame(pd.np.column_stack([X_fam.iloc[:,0:2], pcs_ref]))
+        pcs_ref_df = pd.concat([X_fam.iloc[:,0:2], pd.DataFrame(pcs_ref)], axis=1)
         pcs_ref_df.to_csv(ref_filepref+'.pcs', sep='\t', header=False, index=False)
-        pcs_stu_df = pd.DataFrame(pd.np.column_stack([W_fam.iloc[:,0:2], pcs_stu]))
+        pcs_stu_df = pd.concat([W_fam.iloc[:,0:2], pd.DataFrame(pcs_stu)], axis=1)
         pcs_stu_df.to_csv(out_filepref+'.pcs', sep='\t', header=False, index=False)
         # np.savetxt(out_filepref+'.pcs', pcs_stu, fmt=output_fmt, delimiter='\t')
         logging.info('Study PC scores saved to ' + out_filepref+'.pcs')
@@ -446,20 +446,20 @@ def pred_popu_stu(ref_filepref, stu_filepref, n_neighbors=20, weights='uniform')
     popuproba_df = popuproba_df[['popu', 'proba', 'dist']]
     probalist_df = pd.DataFrame(popu_stu_proba_list)
     populist_df = pd.DataFrame(np.tile(popu_list, (n_stu, 1)))
-    popu_stu_pred_df = pd.concat([popuproba_df, probalist_df, populist_df], axis=1)
+    popu_stu_pred_df = pd.concat([stu_df.iloc[:,0:2], popuproba_df, probalist_df, populist_df], axis=1)
     popu_stu_pred_df.to_csv(stu_filepref+'.popu', sep='\t', header=False, index=False)
     print('Predicted study populations saved to ' + stu_filepref + '.popu')
     return popu_stu_pred, popu_stu_proba, popu_stu_dist
 
 def plot_pcs(ref_filepref, stu_filepref):
-    pcs_ref = np.loadtxt(ref_filepref+'.pcs')
-    pcs_stu = np.loadtxt(stu_filepref+'.pcs')
+    pcs_ref = np.loadtxt(ref_filepref+'.pcs', dtype=str)[:,2:].astype(float)
+    pcs_stu = np.loadtxt(stu_filepref+'.pcs', dtype=str)[:,2:].astype(float)
     try:
-        popu_ref = np.loadtxt(ref_filepref+'.popu', dtype=str)
+        popu_ref = np.loadtxt(ref_filepref+'.popu', dtype=str)[:,2].tolist()
     except OSError:
         popu_ref = None
     try:
-        popu_stu = np.loadtxt(stu_filepref+'.popu', dtype=str)[:,0]
+        popu_stu = np.loadtxt(stu_filepref+'.popu', dtype=str)[:,2].tolist()
     except OSError:
         popu_stu = None
 
@@ -484,12 +484,13 @@ def plot_pcs(ref_filepref, stu_filepref):
         legend_elements += [mpatches.Patch(facecolor=cmap(popu_dict[e]), label=e) for e in popu_list]
         legend_elements += [Line2D([0], [0], marker='o', color='white', label='ref', markerfacecolor='white', markeredgecolor='black')]
         legend_elements += [Line2D([0], [0], marker='s', color='white', label='stu', markerfacecolor='white', markeredgecolor='black')]
+    plt.figure(figsize=(12, 6))
     for j in range(2):
         plt.subplot(1, 2, j+1)
-        plt.scatter(pcs_ref[:, j], pcs_ref[:, j+1], marker='o', c=color_ref, alpha=0.1)
-        plt.scatter(pcs_stu[:, j], pcs_stu[:, j+1], marker='s', c=color_stu, alpha=0.5, edgecolor='black', linewidths=2)
-        plt.xlabel('PC' + str(j+1))
-        plt.ylabel('PC' + str(j+2))
+        plt.scatter(pcs_ref[:, j*2], pcs_ref[:, j*2+1], marker='o', c=color_ref, alpha=0.1)
+        plt.scatter(pcs_stu[:, j*2], pcs_stu[:, j*2+1], marker='s', c=color_stu, alpha=0.5, edgecolor='black', linewidths=2)
+        plt.xlabel('PC' + str(j*2+1))
+        plt.ylabel('PC' + str(j*2+2))
         plt.legend(handles=legend_elements)
     plt.savefig(stu_filepref+'.png', dpi=300)
     plt.close()
