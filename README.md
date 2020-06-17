@@ -1,8 +1,8 @@
 FRAPOSA
 (Fast and Robutst Ancestry Prediction by using Online singular value decomposition and Shrinkage Adjustment)
-is a software designed for predicting the ancestry of study samples
-by using principle component analysis (PCA) with a reference panel,
-which accompanies
+predicts the ancestry of study samples
+by using principle component analysis (PCA) with a reference panel.
+The software accompanies
 [this paper](https://doi.org/10.1093/bioinformatics/btaa152).
 
 # Example
