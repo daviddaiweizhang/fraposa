@@ -12,7 +12,6 @@ Run
 ./run_example.sh
 ```
 to see an example of using FRAPOSA.
-
 The script will download the reference and study data,
 predict the study samples' PC scores and ancestry memberships,
 and plot the results.
@@ -36,20 +35,18 @@ and plot the results.
 
 - Binary PLINK files for the reference set: `refpref_raw.{bed,bim,fam}`
 - Binary PLINK files for the study set: `stupref_raw.{bed,bim,fam}`
-
-      - If no study set is given, FRAPOSA will only run PCA on the reference set and output the reference PC scores.
-      
-- Reference population membership: refpref_raw.popu
-
-      - Without this file, the study PC scores will still be computed, but you will not be able to predict the population memberships for the study samples.
-      - Format
-          - Column 1 and 2: Family and individual IDs (same as in `refpref_raw.fam`)
-          - Column 3: Population membership label 
+  - If no study set is given, FRAPOSA will only run PCA on the reference set and output the reference PC scores.
+- Reference population membership: `refpref_raw.popu`
+  - Without this file, the study PC scores will still be computed, but you will not be able to predict the population memberships for the study samples.
+  - Format
+  - Column 1 and 2: Family and individual IDs (same as in `refpref_raw.fam`)
+  - Column 3: Population membership label 
 
 ## Output files
 
 - Reference PC scores: `refpref.pcs`
 - Study PC scores: `stupref.pcs`
+- Study ancestry memberships: `stupref.popu`
 - PC plot: `stupref.png`
 
 
@@ -76,7 +73,7 @@ FRAPOSA loads all the study samples into memory.
 If the study set is too large,
 its samples can be split into smaller batches.
 Then FRAPOSA can be run on each batch
-sequentially or embarrassingly parallelly.
+sequentially or (embarrassingly) parallelly.
 Just as for extracting the common variants,
 you can split the study samples manually using PLINK
 or run the included script `splitindiv.sh`: 
@@ -84,8 +81,8 @@ or run the included script `splitindiv.sh`:
 ./splitindiv.sh stupref n i stupref_batch_i
 ```
 which divides the samples in `stupref.{bed,bim,fam}`
-evenly into $n$ batches
-and saves the samples in the $i^\text{th}$ batch
+evenly into `n` batches
+and saves the samples in batch `i`
 into `stupref_batch_i.{bed,bim,fam}`
 For example,
 if `stupref.{bed,bim,fam}` has 100,000 samples,
@@ -100,7 +97,7 @@ you can use
 ```
 for i in `seq 1 100`; do
   ./splitindiv.sh stupref 100 $i stupref_batch_$i
-done;
+done
 ```
 
 # Running FRAPOSA
@@ -120,7 +117,7 @@ to reduce the computatio time for future usage.
 ## Change analysis method
 
 
-FRAPOSA includes 4 methods for ancestry prediction,
+FRAPOSA includes 4 methods for PC score prediction.
 
 1. **OADP** (default and recommended):
 This method is fast and provides robust PC score prediction
@@ -130,13 +127,13 @@ by using the online SVD algorithm.
 This method is even faster and its results are close to OADP's.
 However, sometimes you may want to manually set the number of PCs to be adjusted for shrinkage
 (i.e. by setting `--dim_spikes`)
-if you believe that a PC has been shrinked but has not been adjusted automatically.
+if you believe that a shrunk PC has not been adjusted automatically.
 
 3. **SP** (fast but inaccurate):
 This method is similar to AP
 and is the standard method of PC prediction.
 It computes the PC loadings of the reference set
-and projects the study PC scores onto them.
+and projects the (standardized) study samples onto them.
 Its speed is the same as AP but does not adjust for the shrinkage bias,
 which makes it inaccurate when the number of variants greatly exceeds the sample size. 
 
@@ -205,16 +202,15 @@ Running
 ```
 ./predstupopu.py refpref stupref
 ```
-will produce `stupref.popu`,
-which contains
+will produce `stupref.popu`, which contains
 
 - IDs (columns 1 and 2)
 - the population that the study sample most likely belongs to (column 3)
 - how likely the study sample belongs to the population in column 3 (column 4)
 - The distance between the study sample and the nearest reference sample (column 5)
 - How likely the study sample belongs to each of the refrence populations
-(columns 6 to 6+k-1, where k is the number of reference populations)
-- Names of the refrence populations. This is the same in every row. (columns 6+k to 6+2k-1)
+(columns 6 to 6+q-1, where q is the number of reference populations)
+- Names of the refrence populations. This is the same in every row. (columns 6+q to 6+2q-1)
 
 Population prediction is done by using the k-nearest neighbor algorithm
 to classify the study PC scores with respect to the reference PC scores.
