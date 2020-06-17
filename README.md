@@ -36,8 +36,11 @@ and plot the results.
 
 - Binary PLINK files for the reference set: `refpref_raw.{bed,bim,fam}`
 - Binary PLINK files for the study set: `stupref_raw.{bed,bim,fam}`
+
       - If no study set is given, FRAPOSA will only run PCA on the reference set and output the reference PC scores.
+      
 - Reference population membership: refpref_raw.popu
+
       - Without this file, the study PC scores will still be computed, but you will not be able to predict the population memberships for the study samples.
       - Format
           - Column 1 and 2: Family and individual IDs (same as in `refpref_raw.fam`)
