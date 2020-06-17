@@ -54,7 +54,7 @@ python fraposa_runner.py --stu_filepref stu_bedprefix_comm ref_bedprefix_comm
 
 To change the method for predicting study PC scores, use
 ```
-python fraposa_runner.py --stu_filepref stu_bedprefix_comm ref_bedprefix_comm --method=ap
+python fraposa_runner.py --stu_filepref stu_bedprefix_comm --method=ap ref_bedprefix_comm 
 ```
 There are four methods available:
 1. **oadp** (recommended):
@@ -77,8 +77,7 @@ The accuracy is very close to oadp.
 
 Several parameters in FRAPOSA can be changed. For example, to set the number of reference PCs to 20, run
 ```
-python fraposa_runner.py ref_bedprefix_comm stu_bedprefix_comm --dim_ref=20
-
+python fraposa_runner.py --stu_filepref stu_bedprefix_comm --dim_ref=20 ref_bedprefix_comm 
 ```
 To learn all the options for FRAPOSA, run
 ```
