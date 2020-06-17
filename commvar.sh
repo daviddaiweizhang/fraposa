@@ -18,3 +18,10 @@ plink --bfile ${if_one_prefname} --extract tmp.rs --out ${of_one_prefname} --mak
 cut -f2 ${of_one_prefname}.bim > tmp.rs
 plink --bfile ${if_two_prefname} --extract tmp.rs --a1-allele ${of_one_prefname}.bim 5 2 --out ${of_two_prefname} --make-bed
 rm tmp.rs
+
+if [ -s "${if_one_prefname}.popu" ]; then
+    cp ${if_one_prefname}.popu ${of_one_prefname}.popu
+fi
+if [ -s "${if_two_prefname}.popu" ]; then
+    cp ${if_two_prefname}.popu ${of_two_prefname}.popu
+fi
