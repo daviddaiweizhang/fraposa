@@ -4,6 +4,7 @@ predicts the ancestry of study samples
 by using principle component analysis (PCA) with a reference panel.
 The software accompanies
 [this paper](https://doi.org/10.1093/bioinformatics/btaa152).
+For any questions, please contact `daiweiz at umich dot edu`.
 
 # Example
 
