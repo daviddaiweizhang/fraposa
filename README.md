@@ -229,6 +229,8 @@ The PC plot will be saved to `refpref.png`.
 
 # Data
 
-A reference data set (`umich.edu/~daiweiz/fraposa/data/thousandGenomes.{bed,bim,fam}`) is included for your convenience.
-We took the 2,492 unrelated samples from the 1000 Genomes project and selected the 637,177 SNPs that are included in the Human Genome Diversity Project.
-The population memberships of the samples are also included.
+An example data set can be found [here](https://upenn.app.box.com/v/fraposa-demo), which includes
+- Reference data (`thousandGenomes.{bed,bim,fam,popu}`)
+    - This data set contains the 2,492 unrelated samples from the 1000 Genomes project with 637,177 SNPs that are included in the Human Genome Diversity Project. The population memberships of the samples are also provided.
+- Study data (`exampleStudySamples.{bed,bim,fam}`)
+    -  This data set contains 500 samples with 145,282 SNPs. The ancestry information of these samples can be predicted by FRAPOSA.
